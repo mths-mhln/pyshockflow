@@ -183,7 +183,17 @@ class FluidReal():
             residual = entropyStatic - entropyTotal
             return residual
 
-        temperature = fsolve(compute_function_residual, totTemperature)[0]
+        # temperature = fsolve(compute_function_residual, totTemperature, xtol=1e-8)[0]
+        temperature, info, ier, msg = fsolve(
+            compute_function_residual,
+            totTemperature,
+            xtol=1e-6,
+            full_output=True
+        )
+        if ier != 1:
+            raise RuntimeError(f"fsolve did not converge: {msg}")
+        
+        temperature = temperature[0]
         density = self.computeDensity_p_T(pressure, temperature)
         gamma_pv = self.compute_gammapv_p_rho(pressure, density)
         mach = self.computeMach_pt_p_gammapv(totPressure, pressure, gamma_pv)
