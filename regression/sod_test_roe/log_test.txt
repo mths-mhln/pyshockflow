@@ -65,36 +65,8 @@ Iteration: 29, Progress in Time 100.000 %
 ================================================================================
                          FINAL ASSEMBLY OF THE RESULTS
 Regrouping all the results in a single file...
-Reading File 1 of 30
-Reading File 2 of 30
-Reading File 3 of 30
-Reading File 4 of 30
-Reading File 5 of 30
-Reading File 6 of 30
-Reading File 7 of 30
-Reading File 8 of 30
-Reading File 9 of 30
-Reading File 10 of 30
-Reading File 11 of 30
-Reading File 12 of 30
-Reading File 13 of 30
-Reading File 14 of 30
-Reading File 15 of 30
-Reading File 16 of 30
-Reading File 17 of 30
-Reading File 18 of 30
-Reading File 19 of 30
-Reading File 20 of 30
-Reading File 21 of 30
-Reading File 22 of 30
-Reading File 23 of 30
-Reading File 24 of 30
-Reading File 25 of 30
-Reading File 26 of 30
-Reading File 27 of 30
-Reading File 28 of 30
-Reading File 29 of 30
-Reading File 30 of 30
+Reading File 1 of 2
+Reading File 2 of 2
 Replacing all individual files with a single pickle (this could take a while) ...
 Regrouped all the times in a single file: Results/Test1_NX_50/Results.pik
                                   END ASSEMBLER

@@ -85,3 +85,5 @@ Roe's generalized scheme for real gas, with and without Entropy fix.
 [4] D�Alessandro, Simone, Marco Pizzarelli, and Francesco Nasuti. "A hybrid real/ideal gas mixture computational framework to capture wave propagation in liquid rocket combustion chamber conditions." Aerospace 8.9 (2021): 250.
 
 [5] Hirsch, Charles. Numerical computation of internal and external flows: The fundamentals of computational fluid dynamics. Elsevier, 2007.
+
+[6] Tom-Robin Teschner. [CFD University](https://cfd.university/).

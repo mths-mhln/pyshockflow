@@ -54,28 +54,8 @@ Iteration: 21, Progress in Time 100.000 %
 ================================================================================
                          FINAL ASSEMBLY OF THE RESULTS
 Regrouping all the results in a single file...
-Reading File 1 of 22
-Reading File 2 of 22
-Reading File 3 of 22
-Reading File 4 of 22
-Reading File 5 of 22
-Reading File 6 of 22
-Reading File 7 of 22
-Reading File 8 of 22
-Reading File 9 of 22
-Reading File 10 of 22
-Reading File 11 of 22
-Reading File 12 of 22
-Reading File 13 of 22
-Reading File 14 of 22
-Reading File 15 of 22
-Reading File 16 of 22
-Reading File 17 of 22
-Reading File 18 of 22
-Reading File 19 of 22
-Reading File 20 of 22
-Reading File 21 of 22
-Reading File 22 of 22
+Reading File 1 of 2
+Reading File 2 of 2
 Replacing all individual files with a single pickle (this could take a while) ...
 Regrouped all the times in a single file: Results/real_arabi_NX_50/Results.pik
                                   END ASSEMBLER
