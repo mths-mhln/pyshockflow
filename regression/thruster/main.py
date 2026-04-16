@@ -2,12 +2,15 @@ from pyshockflow import Driver, Config
 import sys
 import traceback
 
-try:
-    config = Config('input.ini')
-    driver = Driver(config)
-    driver.solve()
-    sys.exit(0)
-except Exception as e:
-    # Catch only real exceptions
-    traceback.print_exc()
-    sys.exit(1)
+def main():
+    try:
+        config = Config('input.ini')
+        driver = Driver(config)
+        driver.solve()
+        return 0  # success
+    except Exception:
+        traceback.print_exc()
+        return 1  # failure
+
+if __name__ == "__main__":
+    sys.exit(main())
