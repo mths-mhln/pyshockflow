@@ -1,3 +1,7 @@
+0.00s - Debugger warning: It seems that frozen modules are being used, which may
+0.00s - make the debugger miss breakpoints. Please pass -Xfrozen_modules=off
+0.00s - to python to disable frozen modules.
+0.00s - Note: Debugging will proceed. Set PYDEVD_DISABLE_FILE_VALIDATION=1 to disable this validation.
 The simulation proceeds with default topology: constant area
 Boundary Conditions Left:                    transparent
 Boundary Conditions Right:                   transparent
@@ -68,6 +72,6 @@ Regrouping all the results in a single file...
 Reading File 1 of 2
 Reading File 2 of 2
 Replacing all individual files with a single pickle (this could take a while) ...
-Regrouped all the times in a single file: Results/Test1_NX_50/Results.pik
+Regrouped all the times in a single file: Results/Test1_NX_50_6/Results.pik
                                   END ASSEMBLER
 ================================================================================

@@ -100,6 +100,6 @@ Regrouping all the results in a single file...
 Reading File 1 of 2
 Reading File 2 of 2
 Replacing all individual files with a single pickle (this could take a while) ...
-Regrouped all the times in a single file: Results/refined_NX_100/Results.pik
+Regrouped all the times in a single file: Results/refined_NX_100_3/Results.pik
                                   END ASSEMBLER
 ================================================================================

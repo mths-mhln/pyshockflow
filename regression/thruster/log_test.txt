@@ -738,6 +738,6 @@ Reading File 2 of 4
 Reading File 3 of 4
 Reading File 4 of 4
 Replacing all individual files with a single pickle (this could take a while) ...
-Regrouped all the times in a single file: Results/rocket_NX_100/Results.pik
+Regrouped all the times in a single file: Results/rocket_NX_100_3/Results.pik
                                   END ASSEMBLER
 ================================================================================

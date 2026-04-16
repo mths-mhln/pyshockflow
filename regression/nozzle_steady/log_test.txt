@@ -1,3 +1,7 @@
+0.00s - Debugger warning: It seems that frozen modules are being used, which may
+0.00s - make the debugger miss breakpoints. Please pass -Xfrozen_modules=off
+0.00s - to python to disable frozen modules.
+0.00s - Note: Debugging will proceed. Set PYDEVD_DISABLE_FILE_VALIDATION=1 to disable this validation.
 The simulation topology is: nozzle. Reading the coordinates from the nozzle file nozzle.csv
 The reference tube area is: 0.000721 [m2].
 The nozzle throat area is 0.000380 [m2].
@@ -2693,6 +2697,6 @@ Reading File 10 of 12
 Reading File 11 of 12
 Reading File 12 of 12
 Replacing all individual files with a single pickle (this could take a while) ...
-Regrouped all the times in a single file: Results/outletPressure_45kPa_NX_50/Results.pik
+Regrouped all the times in a single file: Results/outletPressure_45kPa_NX_50_4/Results.pik
                                   END ASSEMBLER
 ================================================================================
