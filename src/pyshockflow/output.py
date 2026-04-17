@@ -130,7 +130,7 @@ class Output():
             ax[1, 1].set_ylim(mach_limits)
 
             fig.suptitle('Time %.3e [s]' % self.timeVec[it])
-
+            fig.tight_layout()
             for row in ax:
                 for col in row:
                     col.set_xlabel('x')
