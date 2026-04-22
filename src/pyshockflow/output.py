@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 import os
 import pickle
 import shutil
+from pathlib import Path
 from pyshockflow import FluidIdeal, FluidReal
 
 class Output():
@@ -29,7 +30,7 @@ class Output():
         print("Regrouping all the results in a single file...")
         for iFile in range(len(files)):
             print(f"Reading File {iFile+1} of {len(files)}")
-            with open(filepath + '/' + files[iFile], 'rb') as file:
+            with open(filepath / files[iFile], 'rb') as file:
                 result = pickle.load(file)
                 
                 if iFile == 0:
@@ -60,13 +61,13 @@ class Output():
         print("Replacing all individual files with a single pickle (this could take a while) ...")
         shutil.rmtree(filepath)
         os.makedirs(filepath, exist_ok=True)
-        with open(filepath + '/Results.pik', 'wb') as file:
+        with open(filepath / 'Results.pik', 'wb') as file:
             pickle.dump(globalOutput, file)
-        print(f"Regrouped all the times in a single file: {filepath}/Results.pik")
+        print(f"Regrouped all the times in a single file: {filepath / 'Results.pik'}")
     
     
     def readGlobalResult(self, filepath, inputFile):
-        with open(filepath + '/' + inputFile, 'rb') as file:
+        with open(filepath / inputFile, 'rb') as file:
             result = pickle.load(file)
         
         self.xNodesVirtual = result['X Coords']
@@ -76,7 +77,7 @@ class Output():
         self.fluid = result['Fluid']
         self.config = result['Configuration']
         
-        print(f"Read the file: {filepath}/{inputFile}")
+        print(f"Read the file: {filepath / inputFile}")
     
     
     def showAnimation(self, jumpInstants=250):

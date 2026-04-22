@@ -4,6 +4,7 @@ import os
 import pickle
 import csv
 import sys
+from pathlib import Path
 from pyshockflow import RiemannProblem
 from pyshockflow import AdvectionRoeBase, AdvectionRoeArabi, AdvectionRoeVinokur
 from pyshockflow import FluidIdeal, FluidReal
@@ -107,18 +108,24 @@ class Driver:
     
     
     def prepareOutputPaths(self):
-        self.outputFolder = self.config.getOutputFolder()
-        os.makedirs(self.outputFolder, exist_ok=True)
-        
-        self.subFolder = self.outputFolder + '/' + self.config.getOutputFileName() + '_NX_%i' % (self.nNodes)
-        dum = self.subFolder
+        self.resultsFolder = Path(self.config.getOutputFolder())
+        self.resultsFolder.mkdir(parents=True, exist_ok=True)
+
+        self.workingDir = Path.cwd()
+
+        # Build path safely
+        resultsFilename = f"{self.config.getOutputFileName()}_NX_{self.nNodes}"
+        self.resultsPath = self.resultsFolder / resultsFilename
+
+        dum = self.resultsPath
         counter = 1
-        while os.path.exists(dum):
-            dum = f"{self.subFolder}_{counter}"
+
+        while dum.exists():
+            dum = self.resultsFolder / f"{resultsFilename}_{counter}"
             counter += 1
-        
-        self.subFolder = dum
-        os.makedirs(self.subFolder, exist_ok=True)
+
+        self.resultsPath = dum
+        self.resultsPath.mkdir(parents=True, exist_ok=True)
             
         
                 
@@ -558,7 +565,7 @@ class Driver:
         print(" "*34 + "END SOLVER")
         print("="*80)
         print(" "*25 + "FINAL ASSEMBLY OF THE RESULTS")
-        output = Output(self.subFolder)
+        output = Output(self.resultsPath)
         print(" "*34 + "END ASSEMBLER")
         print("="*80)
     
@@ -611,8 +618,10 @@ class Driver:
         return dtMax
     
     
-    def writeSolution(self, it, time):        
-        fullPath = self.subFolder + '/' + 'step_%06i.pik' %(it)
+    def writeSolution(self, it, time):    
+        
+        iterationName = 'step_%06i.pik' %(it)
+        fullPath = self.resultsPath / iterationName
         outputResults = {'Time': time, 
                          'Iteration Counter': it, 
                          'X Coords': self.xNodesVirtual,

@@ -3,6 +3,7 @@ import matplotlib.pyplot as plt
 from scipy.optimize import fsolve
 import os
 import pickle
+from pathlib import Path
 from pyshockflow.plot_styles import *
 
 
@@ -438,11 +439,15 @@ class RiemannProblem:
         """
         Save the full object
         """
-        os.makedirs(folder_name, exist_ok=True)
-        full_path = folder_name+'/'+file_name+'.pik'
-        with open(full_path, 'wb') as file:
+        folder = Path(folder_name)
+        folder.mkdir(parents=True, exist_ok=True)
+
+        full_path = folder / f"{file_name}.pik"
+
+        with open(full_path, "wb") as file:
             pickle.dump(self, file)
-        print('Solution save to ' + full_path + ' !')
+
+        print(f"Solution saved to {full_path}!")
 
 
 
