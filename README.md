@@ -1,7 +1,5 @@
 # pyshockflow #
 
-
-
 ### What is this repository for? ###
 
 * Resolution of quasi-1D flow problems for ideal and real gases.
@@ -29,13 +27,14 @@ conda activate pyshockflow
 python -m pip install -e .
 ```
 
-* Navigate to the regression folder and run the automated tests:
+* Navigate to the regression tests folder and run the automated tests:
 ```bash
-./run_all.sh
+cd/test/regression_tests/
+pytest test_cases.py
 ```
 this should print completed tests if everyting works correctly
 
-* The testcases folder has several cases, where input parameters are specified inside every `input.ini` file. To run a case:
+* The testcases folder has several other cases, where input parameters are specified inside every `input.ini` file. To run a case:
 ```bash
 python main.py
 ```
@@ -49,25 +48,10 @@ on windows based machines. It should be quite easy to fix. With time the code wi
 * The technical details can be found in the related article ... (soon to be submitted)
 
 
-### Results Example ###
-
-##### Godunov Scheme for ideal gas (air) #####
-Test case for ideal gas (air), documented in [1].
-The following picture reports the comparison between the reference data obtained with the analytical Riemann Solver, and the simulation results obtained with the Godunov scheme for ideal gas:
-![Description of image](images/godunov_idealgas.png)
-
-
-##### CO2 with real gas effects #####
-Test case for real gas effects documented in [4]. The generalised Roe's scheme formulation has been taken from [2].
-The following picture reports comparison between the reference data from the article, and two simulations run with the
-Roe's generalized scheme for real gas, with and without Entropy fix.
-![Description of image](images/co2_validation.png)
-
 ### Contribution guidelines ###
 
 * Validate the modifications by means of detailed test cases
 * Ensure regression tests still work and extend them if needed
-* update input files and run scripts if needed
 
 ### Authors and contacts ###
 
