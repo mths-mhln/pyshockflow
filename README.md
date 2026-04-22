@@ -29,7 +29,7 @@ python -m pip install -e .
 
 * Navigate to the regression tests folder and run the automated tests:
 ```bash
-cd/test/regression_tests/
+cd test/regression_tests/
 pytest test_cases.py
 ```
 this should print completed tests if everyting works correctly
