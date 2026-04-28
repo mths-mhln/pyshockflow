@@ -113,7 +113,7 @@ class Config:
         try:
             return str(self.config_parser.get('SIMULATION', 'SIMULATION_TYPE')).lower()
         except:
-            return "unsteady"
+            return "unsteady" 
     
     def isMusclActive(self):
         try:

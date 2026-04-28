@@ -1,6 +1,8 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import pickle
+
+from pathlib import Path
 from pyshockflow.plot_styles import *
 from scipy.optimize import fsolve
 
@@ -55,6 +57,8 @@ for i, pickleFile in enumerate(pickleList):
 
 fig.legend(loc='upper center', bbox_to_anchor=(0.55, 1.18), ncol=3)
 plt.tight_layout()
+out_root = Path("Pictures") 
+out_root.mkdir(parents=True, exist_ok=True)
 plt.savefig('Pictures/mach_pressure_ideal_nozzle.pdf', bbox_inches='tight')
     
 plt.show()

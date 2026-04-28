@@ -9,21 +9,29 @@ from pyshockflow import RiemannProblem
 from pyshockflow import AdvectionRoeBase, AdvectionRoeArabi, AdvectionRoeVinokur
 from pyshockflow import FluidIdeal, FluidReal
 from pyshockflow.output import Output
-from pyshockflow.math_utils import *
+from pyshockflow.math_utils import getPrimitivesFromConservatives, getConservativesFromPrimitives, computeAdvectionFluxFromConservatives
 
 
 class Driver:
     def __init__(self, config):
         """
-        Initializes the problem with space and time arrays, along with additional fluid properties.
+        - Extract geometry, simulation and fluid information from teh configuration file. 
+        - Compute missing thermodynamic properties based on those provided.
+        - Generate physical (=internal) and virtual geometry (with halo nodes for BCs and possible area variation for quasi 1D simulation).
+        - Prepare output paths, print information to the terminal that will be captured and stored in the log file by the subprocess.
+        - Instantiate arrays to store primitive and conservation variables. 
+        - Set field parameters according to those at the last simulation step if a restart file is provided, 
+          otherwise impose initial conditions based on the left and right values provided in the configuration file.
+        - Impose boundary conditions to the halo nodes based on the type specified in the configuration file.
 
-        Parameters
-        ----------
-        config: configuration file object
+        Arguments
+        ---------
+        config : Config
+            The configuration class, containing methods for extracting information from the configuration file.
 
         Returns
         -------
-        None
+        None, stores all the relevant information as attributes of the Driver class.
         """
         self.config = config
         self.topology = self.config.getTopology()
@@ -36,9 +44,9 @@ class Driver:
             self.fluid = FluidIdeal(self.gmma,self.Rgas)
         elif self.fluidModel.lower()=='real':
             fluidLibrary = self.config.getFluidLibrary()
-            tmp = ['RefProp', 'CoolProp', 'StanMix', 'PCP-SAFT']
-            if fluidLibrary not in tmp:
-                raise ValueError(f"Invalid fluid library: {fluidLibrary}. Must be one of {tmp}")
+            availFluidLibs = ['RefProp', 'CoolProp', 'StanMix', 'PCP-SAFT']
+            if fluidLibrary not in availFluidLibs:
+                raise ValueError(f"Invalid fluid library: {fluidLibrary}. Must be one of {availFluidLibs}")
             self.fluid = FluidReal(self.fluidName, fluidLibrary, False)
         
         # fluid initial states
@@ -80,7 +88,7 @@ class Driver:
         
         # Print info
         print("\n" + "=" * 80)
-        print(" " * 25 + "🚀  WELCOME TO PYSHOCKTUBE 🚀")
+        print(" " * 25 + " WELCOME TO PYSHOCKTUBE ")
         print(" " * 18 + "Fluid Dynamics Simulation for Shock Tubes")
         print("=" * 80)
         print()  
@@ -108,6 +116,18 @@ class Driver:
     
     
     def prepareOutputPaths(self):
+        """
+        Prepare the output paths for the results, ensuring that existing files are not overwritten by appending a counter to the filename if needed.
+
+        Arguments
+        ---------
+        self : Driver
+            The Driver instance, which contains the configuration and will store the results path.
+        
+        Returns
+        -------
+        None, but sets the resultsPath attribute of the Driver instance to a unique directory for storing results.
+        """
         self.resultsFolder = Path(self.config.getOutputFolder())
         self.resultsFolder.mkdir(parents=True, exist_ok=True)
 
@@ -129,8 +149,24 @@ class Driver:
             
         
                 
-
     def generatePhysicalGeometry(self, length, nodes):
+        """
+        Generate the physical geometry of the problem, which consists of the coordinates of the nodes along the x-axis. 
+        The distribution of the nodes can be uniform or non-uniform based on the mesh refinement settings in the configuration file.
+        Mesh stretching adds a single node close to the interface between regular and refined. 
+
+        Arguments
+        ---------
+        length : float
+            The length of the domain along the 1D (x) axis.
+        nodes : int
+            The total number of nodes in the physical geometry (excluding halo nodes).
+
+        Returns
+        -------
+        xNodes : numpy array
+            The coordinates of the nodes along the 1D (x) axis, including any mesh refinement if specified in the configuration.
+        """
         isMeshRefined = self.config.isMeshRefined()
         if isMeshRefined is False:
             xNodes = np.linspace(0, length, nodes)
@@ -178,7 +214,21 @@ class Driver:
         return xNodes  
     
     
+
     def computeGridSpacing(self, xNodes):
+        """
+        Compute spacing between the physical geometry nodes, which is needed for the solver and for the mesh stretching if activated.
+
+        Arguments
+        ---------
+        xNodes : numpy array
+            The coordinates of the nodes along the 1D (x) axis, excluding halo nodes.
+
+        Returns
+        -------
+        dx : numpy array
+            The spacing between the nodes along the 1D (x) axis, excluding halo nodes.
+        """
         dx = np.zeros_like(xNodes)
         dx[0] = xNodes[1]-xNodes[0]
         for i in range(1,len(dx)-1):
@@ -187,7 +237,27 @@ class Driver:
         return dx
     
     
-    def computeStretchedGridPoints(self, xCoords, xRefinement, location):      
+
+    def computeStretchedGridPoints(self, xCoords, xRefinement, location):    
+        """
+        Compute the stretched grid points to add close to the interface between regular and refined mesh, if the option is activated in the configuration file.
+        The stretching is done by adding a single node at the middle of the distance between the last regular node and the first refined node, and iterating 
+        until the minimum spacing in the regular mesh is smaller than the minimum spacing in the refined mesh.
+
+        Arguments
+        ---------
+        xCoords : numpy array
+            The coordinates of the nodes along the 1D (x) axis for the regular mesh, excluding halo nodes.
+        xRefinement : numpy array
+            The coordinates of the nodes along the 1D (x) axis for the refined mesh, excluding halo nodes.
+        location : str
+            The location of the refinement, either 'upstream' or 'downstream'.
+
+        Returns
+        -------
+        xNew : numpy array
+            The coordinates of the nodes along the 1D (x) axis for the regular mesh, including the stretched nodes, excluding halo nodes.
+        """  
         if location=='upstream':
             xNew = xCoords[0:-1].copy()
             dxMin = np.min(self.computeGridSpacing(xNew))
@@ -214,15 +284,18 @@ class Driver:
     
     def generateVirtualGeometry(self, xNodes):
         """
-        Generate the virtual geometry consisting of halo nodes for boundary conditions
+        Generate the virtual geometry of the problem. Virtual geometry consists of physical geometry (the nodes along the x-axis) and halo nodes (the nodes added for boundary conditions).
+        Virtual geometry also includes possible area variation for quasi 1D simulation.
 
         Parameters
         ----------
-        None
+        xNodes : numpy array
+            The coordinates of the nodes along the 1D (x) axis, excluding halo nodes.
 
         Returns
         -------
-        None
+        None, but sets the xNodesVirtual attribute of the Driver class to the coordinates of the nodes along the 1D (x) axis, including halo nodes, 
+        and the areaTube attribute to the area variation along the x-axis if specified in the configuration file.
         """
         self.xNodes = xNodes
         self.nNodesHalo = self.nNodes+2
@@ -242,12 +315,22 @@ class Driver:
         else:
             raise ValueError('Unknown topology type')
         
-        self.dAreaTude_dx = np.gradient(self.areaTube, self.xNodesVirtual)
+        self.dAreaTube_dx = np.gradient(self.areaTube, self.xNodesVirtual)
         
         
+
     def instantiatePrimitiveArrays(self):
         """
-        Instantiate the containers for the solutions. The first dimension is space, the second is time.
+        Instantiate the dictionaries of np arrays containing evolution in spatial and temporal directions of the primitive variables. 
+        The first dimension is space, the second is time. The primitive variables are Density, Velocity, Pressure and Energy.
+
+        Arguments
+        ---------
+        None
+
+        Returns
+        -------
+        None, but sets the solutionPrimitive attribute of the Driver class to a dictionary of 2D np arrays for each primitive variable, (space, time), initialized to zero.
         """
         self.solutionNames = ['Density', 'Velocity', 'Pressure', 'Energy']
         self.solutionPrimitive = {}
@@ -255,9 +338,18 @@ class Driver:
             self.solutionPrimitive[name] = np.zeros(self.nNodesHalo)
 
 
+
     def instantiateConservativeArrays(self):
         """
-        Instantiate the containers for the solutions. The first dimension is space, the second is time.
+        Instantiate the dictionaries of np arrays containing evolution in spatial and temporal directions of the conservative variables. The first dimension is space, the second is time.
+
+        Arguments
+        ---------
+        None
+
+        Returns
+        -------
+        None, but sets the solutionConservative attribute of the Driver class to a dictionary of 2D np arrays for each conservative variable, (space, time), initialized to zero.
         """
         self.solutionConsNames = ['u1', 'u2', 'u3']
         self.solutionConservative = {}
@@ -267,7 +359,17 @@ class Driver:
 
     def imposeInitialConditions(self):
         """
-        Initialize the conditions based on initial state, defined by right and left values
+        Method reserved for shocktube experiments. Intended to initialize the state of the system at either side of the interface. All information is contained in the configuration file. 
+        The interface is imposed into the array through the copyInitialState method.
+
+        Arguments
+        ---------
+        None
+
+        Returns
+        -------
+        None, but sets the solutionPrimitive attribute of the Driver class to the initial conditions based on the left and right values provided in the configuration file, 
+        and prints these values to the terminal.
         """
         initialConditions = {'Density': np.array([self.densityLeft, self.densityRight]), 
                              'Velocity': np.array([self.velocityLeft, self.velocityRight]), 
@@ -284,7 +386,21 @@ class Driver:
         print(f"Initial L/R energy values [J/kg]:            ({self.energyLeft:.6e}, {self.energyRight:.6e})")
         
     
+
     def initializeFromRestartFile(self, restartFile):
+        """
+        Initialize the array of primitive variables based on the information stored in the restart file. Information will be used to perform the following calculation step.
+
+        Arguments
+        ---------
+        restartFile : str
+            The path to the restart file, which contains the state of the system at the last simulation step.
+        
+        Returns
+        -------
+        None, but sets the solutionPrimitive attribute of the Driver class to the values stored in the restart file for the last simulation step, 
+        and prints a message to the terminal indicating that the initialization from the restart file was successful.
+        """
         with open(restartFile, 'rb') as file:
             restartData = pickle.load(file)
                 
@@ -296,45 +412,61 @@ class Driver:
             
     
 
-    def initialConditionsArrays(self, dictIn):
-        """
-        Initialize the conditions based on initial state, defined by arrays
-        """
-        dictIn['Energy'] = dictIn['Pressure'] / (self.gmma - 1) / dictIn['Density']
-        for name in self.solutionNames:
-            self.solutionPrimitive[name][:, 1:-1] = dictIn[name]
+    # def initialConditionsArrays(self, dictIn):
+    #     """
+    #     Method is not used anywhere.
+    #     Prior docstring: Initialize the conditions based on initial state, defined by arrays 
+    #     Not very descriptive.
+    #     """
+    #     dictIn['Energy'] = dictIn['Pressure'] / (self.gmma - 1) / dictIn['Density']
+    #     for name in self.solutionNames:
+    #         self.solutionPrimitive[name][:, 1:-1] = dictIn[name]
     
     
-    def plotGridGeometry(self, trueAspectRatio=True, pointsToJump=1, save_filename=None):
-        """Plot the grid geometry. 1D tube, with thickness equal to the diameter of the tube
-        """
-        diameter = np.sqrt(4*self.areaTube/np.pi)
-        yLower = np.zeros_like(self.xNodesVirtual)-diameter/2
-        yUpper = diameter/2
+
+    # def plotGridGeometry(self, trueAspectRatio=True, pointsToJump=1, save_filename=None):
+    #     """
+    #     Method is not used anywhere. 
+    #     Prior docstring: Plot the grid geometry. 1D tube, with thickness equal to the diameter of the tube
+    #     """
+    #     diameter = np.sqrt(4*self.areaTube/np.pi)
+    #     yLower = np.zeros_like(self.xNodesVirtual)-diameter/2
+    #     yUpper = diameter/2
         
-        plt.figure()
-        plt.plot(self.xNodesVirtual, yLower, 'k')
-        plt.plot(self.xNodesVirtual, yUpper, 'k')
-        nPointsPic = 10
-        for i in range(0, len(diameter), pointsToJump):
-            plt.plot(np.zeros(nPointsPic)+self.xNodesVirtual[i], np.linspace(yLower[i], yUpper[i], nPointsPic), '-k', lw=0.5)
-        plt.xlabel(r'$x \ \rm{[m]}$')
-        plt.ylabel(r'$r \ \rm{[m]}$')
+    #     plt.figure()
+    #     plt.plot(self.xNodesVirtual, yLower, 'k')
+    #     plt.plot(self.xNodesVirtual, yUpper, 'k')
+    #     nPointsPic = 10
+    #     for i in range(0, len(diameter), pointsToJump):
+    #         plt.plot(np.zeros(nPointsPic)+self.xNodesVirtual[i], np.linspace(yLower[i], yUpper[i], nPointsPic), '-k', lw=0.5)
+    #     plt.xlabel(r'$x \ \rm{[m]}$')
+    #     plt.ylabel(r'$r \ \rm{[m]}$')
         
-        if trueAspectRatio:
-            ax = plt.gca()
-            ax.set_aspect('equal')
+    #     if trueAspectRatio:
+    #         ax = plt.gca()
+    #         ax.set_aspect('equal')
         
-        if save_filename is not None:
-            plt.savefig(save_filename + '.pdf', bbox_inches='tight')
+    #     if save_filename is not None:
+    #         plt.savefig(save_filename + '.pdf', bbox_inches='tight')
         
+
 
     def copyInitialState(self, fL, fR):
         """
-        Given left and right values, copy these values along the x-axis
-        :param fL:
-        :param fR:
-        :return:
+        Method reserved for shocktube experiments. Intended to initialize the state of the system at either side of the interface. All information is contained in the configuration file.
+        Both physical and virtual nodes are initialized. Later the virtual nodes will be overwritten to comply with the boundary conditions. 
+
+        Arguments
+        ---------
+        fL : float
+            The value of the primitive variables on the left side of the interface.
+        fR : float
+            The value of the primitive variables on the right side of the interface.
+
+        Returns
+        -------
+        f : numpy.ndarray
+            An array containing the initialized primitive variables for all nodes in the computational domain (physical + virtual).
         """
         xInterface = self.config.getInterfaceLocation()
         assert(xInterface>0), f"The interface must be located within 0 and {self.length}"
@@ -348,9 +480,22 @@ class Driver:
                 f[i] = fR
         return f
 
+
+
     def setBoundaryConditions(self):
         """
-        Set the correct boundary condition type (`reflective`, `transparent`, or `periodic`)
+        Set the boundary conditions to the halo nodes based on the type specified in the configuration file. The method calls the specific method for each type of boundary condition, 
+        which updates the primitive variables in the halo nodes accordingly. BC specification according to the ghost node method (E. ToroRiemann Solvers and Numerical Methods for Fluid Dynamics
+        Third Edition, section 6.3.3) In case of shock tube experiments, this code overwrites the left and right initialization. In case of nozzle flow, TODO: finish
+
+        Arguments
+        ---------
+        None
+
+        Returns
+        -------
+        None, but updates the solutionPrimitive attribute of the Driver class to update the value of the halo nodes based on the type specified in the configuration file.
+        
         """
         if self.boundaryType[0].lower()=='reflective':
             self.setReflectiveBoundaryConditions('left')
@@ -383,9 +528,19 @@ class Driver:
             self.solutionPrimitive['Density'], self.solutionPrimitive['Velocity'], self.solutionPrimitive['Pressure'], self.fluid))
 
 
+
     def setReflectiveBoundaryConditions(self, location):
         """
-        Set reflective BC
+        Set halo node values to yield reflective boundary conditions (E. ToroRiemann Solvers and Numerical Methods for Fluid Dynamics Third Edition, section 6.3.3)
+
+        Arguments
+        ---------
+        location : str
+            The location of the boundary condition, either 'left' or 'right'.
+
+        Returns
+        -------
+        None, but updates the solutionPrimitive attribute of the Driver class to set the reflective boundary conditions to the halo nodes based on the location specified in the argument.
         """
         if location=='left':
             self.solutionPrimitive['Density'][0] = self.solutionPrimitive['Density'][1]
@@ -404,7 +559,16 @@ class Driver:
 
     def setTransparentBoundaryConditions(self, location):
         """
-        Set transparent BC
+        Set halo node values to yield transparent boundary conditions (E. ToroRiemann Solvers and Numerical Methods for Fluid Dynamics Third Edition, section 6.3.3)
+
+        Arguments
+        ---------
+        location : str
+            The location of the boundary condition, either 'left' or 'right'.
+
+        Returns
+        -------
+        None, but updates the solutionPrimitive attribute of the Driver class to set the transparent boundary conditions to the halo nodes based on the location specified in the argument.
         """
         if location=='left':
             self.solutionPrimitive['Density'][0] = self.solutionPrimitive['Density'][1]
@@ -423,7 +587,17 @@ class Driver:
         
     def setPeriodicBoundaryConditions(self, location):
         """
-        Set periodic BC
+        Set halo node values to yield periodic boundary conditions. ("Formulation and Implementation of Inflow/Outflow Boundary Conditions to Simulate Propulsive Effects", or
+        "Inflow/Outflow Boundary Conditions with Application to FUN3D")
+
+        Arguments
+        ---------
+        location : str
+            The location of the boundary condition, either 'left' or 'right'.
+            
+        Returns
+        -------
+        None, but updates the solutionPrimitive attribute of the Driver class to set the periodic boundary conditions to the halo nodes based on the location specified in the argument.
         """
         if location=='left':
             self.solutionPrimitive['Density'][0] = self.solutionPrimitive['Density'][-2]
@@ -439,9 +613,20 @@ class Driver:
             raise ValueError('Unknown location specified')
     
     
+
     def setInletBoundaryConditions(self, location):
         """
-        Set periodic BC
+        Set inlet boundary conditions. (see "Formulation and Implementation of Inflow/Outflow Boundary Conditions to Simulate Propulsive Effects", or
+        "Inflow/Outflow Boundary Conditions with Application to FUN3D")
+
+        Arguments
+        ---------
+        location : str
+            The location of the boundary condition, either 'left' or 'right'.
+
+        Returns
+        -------
+        None, but updates the solutionPrimitive attribute of the Driver class to set the inlet boundary conditions to the halo nodes based on the location specified in the argument.
         """
         # handle left and right extremities with the same code
         if location=='right':
@@ -469,9 +654,20 @@ class Driver:
         self.solutionPrimitive['Energy'][iHalo] = energy
     
     
+
     def setOutletBoundaryConditions(self, location):
         """
-        Set periodic BC at time
+        Set outlet boundary conditions. (see "Formulation and Implementation of Inflow/Outflow Boundary Conditions to Simulate Propulsive Effects", or
+        "Inflow/Outflow Boundary Conditions with Application to FUN3D")
+
+        Arguments
+        ---------
+        location : str
+            The location of the boundary condition, either 'left' or 'right'.
+
+        Returns
+        -------
+        None, but updates the solutionPrimitive attribute of the Driver class to set the outlet boundary conditions to the halo nodes based on the location specified in the argument.
         """
         # handle left and right extremities with the same code
         if location=='right':
@@ -609,7 +805,22 @@ class Driver:
                 getPrimitivesFromConservatives(self.solutionConservative['u1'][1:-1], self.solutionConservative['u2'][1:-1], self.solutionConservative['u3'][1:-1], self.fluid)
         
 
+
     def computeTimeStep(self, primitive):
+        """
+        Compute the maximum possible timestep given the pre-specified CFL number in the configuration file, and the spatial distribution of the physical + halo nodes, also specified in the configuration file. 
+        The maximum CFL follows from numerical stability analysis of numerical governing equations (after applications of the chosen temporal and spatial discretization schemes)
+
+        Arguments
+        ---------
+        primitive : dict of 2D np arrays, (space, time)
+            The dictionary of primitive variables, containing the spatial distribution of density, velocity, pressure and energy at the current time step.
+
+        Returns
+        -------
+        dtMax : float
+            The maximum possible time step that can be taken at the current time step, given the spatial distribution of the primitive variables and the pre-specified CFL number in the configuration file.
+        """
         velocity = primitive['Velocity'][1:-1]
         speedOfSound = np.zeros_like(velocity)
         for i in range(len(speedOfSound)):
@@ -655,9 +866,9 @@ class Driver:
         """
         totalEnergy = primitive['Energy'][:] + 0.5*primitive['Velocity']**2
         source = np.zeros((self.nNodesHalo,3))
-        source[:,0] = - primitive['Density'] * primitive['Velocity']*self.dAreaTude_dx/self.areaTube
-        source[:,1] = - (primitive['Density'] * primitive['Velocity']**2)*self.dAreaTude_dx/self.areaTube
-        source[:,2] = - primitive['Velocity'] *(primitive['Density']*totalEnergy + primitive['Pressure'])*self.dAreaTude_dx/self.areaTube
+        source[:,0] = - primitive['Density'] * primitive['Velocity']*self.dAreaTube_dx/self.areaTube
+        source[:,1] = - (primitive['Density'] * primitive['Velocity']**2)*self.dAreaTube_dx/self.areaTube
+        source[:,2] = - primitive['Velocity'] *(primitive['Density']*totalEnergy + primitive['Pressure'])*self.dAreaTube_dx/self.areaTube
         return source
     
     
