@@ -6,12 +6,12 @@ import os
 
 #########################     INPUT         #########################
 
-picklePath = 'Results.pik'            # Path to the pickle file of the simulation
-maxLength = 100                             # choose how many snapshots you want to visualize (must be < than total snapshots of simulation)
+picklePath = 'Results.pik' # Path to the pickle file of the simulation
+maxLength = 100 # choose how many snapshots you want to visualize (must be < than total snapshots of simulation)
 
 #video settings
-FPS = 30                                    # frames per second
-DPI = 400                                   # definition (<500 works, more no, don't know why)
+FPS = 30 # frames per second
+DPI = 400 # definition (<500 works, more no, don't know why)
 
 #####################################################################
 
@@ -23,16 +23,16 @@ with open(picklePath, 'rb') as file:
     solution = pickle.load(file)
 
 # save aliases for the arrays of interest
-x = solution.xNodesVirt
-time = solution.timeVec
-rho = solution.solution['Density']
-u = solution.solution['Velocity']
-p = solution.solution['Pressure']
-E = solution.solution['Energy']
+x = solution['X Coords']
+time = solution['Time']
+rho = solution['Primitive']['Density']
+u = solution['Primitive']['Velocity']
+p = solution['Primitive']['Pressure']
+e = solution['Fluid'].computeStaticEnergy_p_rho(p, rho)
 nPoints, nTimes = rho.shape
 iterations = np.linspace(0, nTimes-1, num=maxLength, dtype=int)
 
-fields = [rho, u, p, E]
+fields = [rho, u, p, e]
 labels = ['Density [kg/m3]', 'Velocity [m/s]', 'Pressure [Pa]', 'Energy [J]' ]
 videoNames = ['Density.mp4', 'Velocity.mp4', 'Pressure.mp4', 'Energy.mp4']
 
@@ -60,6 +60,7 @@ for i,field in enumerate(fields):
     def update(iteration):
         line.set_data(x, field[:, iteration])
         ax.set_title(f'Time: {time[iteration]:.3e} [s]')
+        fig.tight_layout()
         return line,
 
     ani = animation.FuncAnimation(fig, update, frames=iterations, blit=False)
