@@ -2,13 +2,14 @@ name: pyshockflow
 channels:
   - conda-forge
 dependencies:
-  - python=3.13
-  - numpy
-  - scipy
-  - matplotlib
+  - ffmpeg
   - ipython
   - ipykernel
-  - pytest
+  - matplotlib
+  - numpy
   - pip
+  - pytest
+  - python=3.13
+  - scipy
   - pip:
       - coolprop
