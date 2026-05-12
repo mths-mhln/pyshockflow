@@ -8,7 +8,6 @@ class Config:
         
         self.config_parser = configparser.ConfigParser()
         self.config_parser.read(config_file)
-        print(self.config_parser)
     
     def getNumberOfPoints(self):
         return int(self.config_parser.get('SIMULATION', 'NUMBER_POINTS')) 

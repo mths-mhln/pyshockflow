@@ -22,8 +22,7 @@ class FluidIdeal():
         return (self.gmma-1)*rho*e
     
     def computeSoundSpeed_p_rho(self, p, rho):
-        soundspeed = np.sqrt(self.gmma*p/rho)
-        return soundspeed
+        return np.sqrt(self.gmma*p/rho)
     
     def computeMach_u_p_rho(self, u, p, rho):
         soundSpeed = self.computeSoundSpeed_p_rho(p, rho)
