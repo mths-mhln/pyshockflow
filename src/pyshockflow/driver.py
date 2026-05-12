@@ -4,6 +4,9 @@ import os
 import pickle
 import csv
 import sys
+import copy
+import timeit
+import shutil
 from pathlib import Path
 from pyshockflow import RiemannProblem
 from pyshockflow import AdvectionRoeBase, AdvectionRoeArabi, AdvectionRoeVinokur
@@ -13,7 +16,7 @@ from pyshockflow.math_utils import getPrimitivesFromConservatives, getConservati
 
 
 class Driver:
-    def __init__(self, config):
+    def __init__(self, config = None, restartFilePath=None):
         """
         - Extract geometry, simulation and fluid information from teh configuration file. 
         - Compute missing thermodynamic properties based on those provided.
@@ -31,9 +34,15 @@ class Driver:
 
         Returns
         -------
-        None, stores all the relevant information as attributes of the Driver class.
+        - None, stores all the relevant information as attributes of the Driver class.
         """
-        self.config = config
+        self.restartFilePath = restartFilePath
+        if self.restartFilePath is not None:
+            timeElapsed, solutionPrimitiveRestart, configRestart, iterationIndex = self.extractRestartData()
+            print(f"Restarting simulation from file {self.restartFilePath} at iteration {iterationIndex} and time elapsed {timeElapsed:.6e} s")
+            self.config = configRestart
+        else:    
+            self.config = config
         self.topology = self.config.getTopology()
         self.fluidName = self.config.getFluidName()
         self.fluidModel = self.config.getFluidModel()
@@ -106,14 +115,48 @@ class Driver:
         self.instantiatePrimitiveArrays()
         self.instantiateConservativeArrays()
         
-        restartFile = self.config.getRestartFile()
-        if restartFile is not None:
-            self.initializeFromRestartFile(restartFile)
+        if self.restartFilePath is not None:
+            self.solutionPrimitive = solutionPrimitiveRestart
+            self.time = timeElapsed
+            self.iterationIndex = iterationIndex
         else:
             self.imposeInitialConditions()
-        
         self.setBoundaryConditions()
+        if self.restartFilePath is not None:
+            self.solve()
     
+    def extractRestartData(self):
+        """
+        Extract restart data from a previous simulation step. The results/output file acts as a restart file. 
+        Information necessary from the last saved simulation step (saving occurs every writeInterval steps):
+        - the time elapsed
+        - the primitive variable fields
+        - a config object containing the full simulation configuration according to the input.ini file used to initialize the simulation (current input.ini can be different, the original values will be used)
+        - iteration index
+
+        Arguments
+        ---------
+        restartFile : str
+            The path to the restart file, which contains the state of the system at the last simulation step.
+        
+        Returns
+        -------
+        None, but sets the solutionPrimitive attribute of the Driver class to the values stored in the restart file for the last simulation step, 
+        and prints a message to the terminal indicating that the initialization from the restart file was successful.
+        """
+        if self.restartFilePath is None:
+            raise ValueError("Restart file path not specified in the configuration file. Please provide a valid restart file path.")
+        with open(self.restartFilePath, 'rb') as file:
+            restartData = pickle.load(file)
+
+        timeElapsed = restartData['Time']
+        solutionPrimitiveRestart = restartData['Primitive']    
+        configRestart = restartData['Configuration']
+        iterationIndex = restartData['Iteration Counter']
+
+        return timeElapsed, solutionPrimitiveRestart, configRestart, iterationIndex
+
+
     
     def prepareOutputPaths(self):
         """
@@ -128,23 +171,29 @@ class Driver:
         -------
         None, but sets the resultsPath attribute of the Driver instance to a unique directory for storing results.
         """
-        self.resultsFolder = Path(self.config.getOutputFolder())
-        self.resultsFolder.mkdir(parents=True, exist_ok=True)
+        self.resultsDirectory = Path("Results")
+        self.resultsDirectory.mkdir(parents=True, exist_ok=True)
 
         self.workingDir = Path.cwd()
 
         # Build path safely
-        resultsFilename = f"{self.config.getOutputFileName()}_NX_{self.nNodes}"
-        self.resultsPath = self.resultsFolder / resultsFilename
+        resultsDirectoryName = f"{self.config.getResultsDirectoryName()}_NX_{self.nNodes}"
+        self.resultsPath = self.resultsDirectory / resultsDirectoryName
 
-        dum = self.resultsPath
-        counter = 1
+        if self.restartFilePath is not None:
+            # do nothing, append new iterations to the current working directory
+            pass
+        elif self.config.getOverwriteResults():
+            shutil.rmtree(self.resultsDirectory)
+        else:
+            dum = self.resultsPath
+            counter = 1
 
-        while dum.exists():
-            dum = self.resultsFolder / f"{resultsFilename}_{counter}"
-            counter += 1
+            while dum.exists():
+                dum = self.resultsDirectory / f"{resultsDirectoryName}_{counter}"
+                counter += 1
 
-        self.resultsPath = dum
+            self.resultsPath = dum
         self.resultsPath.mkdir(parents=True, exist_ok=True)
             
         
@@ -179,7 +228,11 @@ class Driver:
             pointsOutside = totalPoints-pointsRefinement
             lengthUpstream = refinementCoords[0]
             lengthDownstream = length-refinementCoords[1]
-            pointsUpstream = int(pointsOutside*(lengthUpstream)/(lengthUpstream+lengthDownstream))
+            try:
+                pointsUpstream = int(pointsOutside*(lengthUpstream)/(lengthUpstream+lengthDownstream))
+            except ZeroDivisionError:
+                # refinement starts at the beginning of the domain and/or ends at the end of the domain, so all points outside are either upstream or downstream
+                pointsUpstream = 0
             pointsDownstream = pointsOutside-pointsUpstream
             
             # case in which the refinement is internal
@@ -207,6 +260,8 @@ class Driver:
                 xNodes = np.concatenate((xRefinement[0:-1], xDownstream))
             
             else:
+                if pointsOutside == 0:
+                    raise ValueError('The number of points in the refinement is equal to the total number of points, so no points are left for the regular mesh. Please reduce the number of points in the refinement.')
                 raise ValueError('The refinement is ill-positioned. Please locate it internally to the domain, or at one of the extremities')
             
             self.nNodes = len(xNodes)
@@ -385,38 +440,20 @@ class Driver:
         print(f"Initial L/R temperature values [K]:          ({self.temperatureLeft:.6e}, {self.temperatureRight:.6e})")
         print(f"Initial L/R energy values [J/kg]:            ({self.energyLeft:.6e}, {self.energyRight:.6e})")
         
-    
 
-    def initializeFromRestartFile(self, restartFile):
-        """
-        Initialize the array of primitive variables based on the information stored in the restart file. Information will be used to perform the following calculation step.
-
-        Arguments
-        ---------
-        restartFile : str
-            The path to the restart file, which contains the state of the system at the last simulation step.
-        
-        Returns
-        -------
-        None, but sets the solutionPrimitive attribute of the Driver class to the values stored in the restart file for the last simulation step, 
-        and prints a message to the terminal indicating that the initialization from the restart file was successful.
-        """
-        with open(restartFile, 'rb') as file:
-            restartData = pickle.load(file)
-                
-        for name in ['Density', 'Velocity', 'Pressure']:
-            self.solutionPrimitive[name] = np.interp(self.xNodesVirtual, restartData['X Coords'], restartData['Primitive'][name][:,-1])
-        
-        for i in range(self.solutionPrimitive['Energy'].shape[0]):
-            self.solutionPrimitive['Energy'][i] = self.fluid.computeStaticEnergy_p_rho(self.solutionPrimitive['Pressure'][i], self.solutionPrimitive['Density'][i])
-            
-    
 
     # def initialConditionsArrays(self, dictIn):
     #     """
-    #     Method is not used anywhere.
-    #     Prior docstring: Initialize the conditions based on initial state, defined by arrays 
-    #     Not very descriptive.
+    #     Method currently not used anywhere in Driver logic.
+        
+    #     Arguments
+    #     ---------
+    #     dictIn : dict
+    #         A dictionary containing the initial values of the primitive variables, with keys corresponding to the variable names and values corresponding to the initial values.
+        
+    #     Returns
+    #     -------
+    #     None, but sets the solutionPrimitive attribute of the Driver class to the initial conditions based on the values provided in the dictIn dictionary,
     #     """
     #     dictIn['Energy'] = dictIn['Pressure'] / (self.gmma - 1) / dictIn['Density']
     #     for name in self.solutionNames:
@@ -426,8 +463,19 @@ class Driver:
 
     # def plotGridGeometry(self, trueAspectRatio=True, pointsToJump=1, save_filename=None):
     #     """
-    #     Method is not used anywhere. 
-    #     Prior docstring: Plot the grid geometry. 1D tube, with thickness equal to the diameter of the tube
+    #     Method currently not used anywhere in Driver logic. 
+    #     Arguments
+    #     ---------
+    #     trueAspectRatio : bool, optional
+    #         Whether to set the aspect ratio of the plot to be equal, by default True.
+    #     pointsToJump : int, optional
+    #         The number of points to jump when plotting the vertical lines representing the grid, by default 1 (plot all points).
+    #     save_filename : str, optional
+    #         The filename to save the plot as a pdf file, by default None (do not save the plot).
+
+    #     Returns
+    #     -------
+    #     None, but plots the grid geometry and saves it as a pdf file if a filename is provided.
     #     """
     #     diameter = np.sqrt(4*self.areaTube/np.pi)
     #     yLower = np.zeros_like(self.xNodesVirtual)-diameter/2
@@ -448,7 +496,7 @@ class Driver:
         
     #     if save_filename is not None:
     #         plt.savefig(save_filename + '.pdf', bbox_inches='tight')
-        
+
 
 
     def copyInitialState(self, fL, fR):
@@ -485,7 +533,7 @@ class Driver:
     def setBoundaryConditions(self):
         """
         Set the boundary conditions to the halo nodes based on the type specified in the configuration file. The method calls the specific method for each type of boundary condition, 
-        which updates the primitive variables in the halo nodes accordingly. BC specification according to the ghost node method (E. ToroRiemann Solvers and Numerical Methods for Fluid Dynamics
+        which updates the primitive variables in the halo nodes accordingly. BC specification according to the ghost node method (E. Toro Riemann Solvers and Numerical Methods for Fluid Dynamics
         Third Edition, section 6.3.3) In case of shock tube experiments, this code overwrites the left and right initialization. In case of nozzle flow, TODO: finish
 
         Arguments
@@ -531,7 +579,7 @@ class Driver:
 
     def setReflectiveBoundaryConditions(self, location):
         """
-        Set halo node values to yield reflective boundary conditions (E. ToroRiemann Solvers and Numerical Methods for Fluid Dynamics Third Edition, section 6.3.3)
+        Set halo node values to yield reflective boundary conditions (E. Toro Riemann Solvers and Numerical Methods for Fluid Dynamics Third Edition, section 6.3.3)
 
         Arguments
         ---------
@@ -559,7 +607,7 @@ class Driver:
 
     def setTransparentBoundaryConditions(self, location):
         """
-        Set halo node values to yield transparent boundary conditions (E. ToroRiemann Solvers and Numerical Methods for Fluid Dynamics Third Edition, section 6.3.3)
+        Set halo node values to yield transparent boundary conditions (E. Toro Riemann Solvers and Numerical Methods for Fluid Dynamics Third Edition, section 6.3.3)
 
         Arguments
         ---------
@@ -638,16 +686,26 @@ class Driver:
         else:
             raise ValueError('Unknown location specified')
         
-        inletConditions = self.config.getInletConditions()
-        totalPressure = inletConditions[0]
-        totalTemperature = inletConditions[1]
-        direction = inletConditions[2]
-        
-        # static pressure is the only info taken from the domain
-        pressure = self.solutionPrimitive['Pressure'][iInternal]
-        if pressure>=totalPressure: # avoid the problems that can cause
-            pressure = 0.99*totalPressure   
-        density, velocity, energy = self.fluid.computeInletQuantities(pressure, totalPressure, totalTemperature, direction)
+        inletConditions = self.config.getInletConditions()    
+        if self.config.getInletConditionsType().lower()=="total":
+            totalPressure = inletConditions[0]
+            totalTemperature = inletConditions[1]
+            direction = inletConditions[2]
+            # static pressure is the only info taken from the domain 
+            pressure = self.solutionPrimitive['Pressure'][iInternal]
+            if pressure>=totalPressure: # avoid the problems that can cause
+                pressure = 0.99*totalPressure 
+            density, velocity, energy = self.fluid.computeInletQuantitiesTotal(pressure, totalPressure, totalTemperature, direction)
+        elif self.config.getInletConditionsType().lower()=="static":
+            if self.fluidModel=='ideal':
+                raise ValueError('Static inlet conditions are only supported for the real fluid model')
+            pressure = inletConditions[0]
+            enthalpy = inletConditions[1]
+            # get flow velocity from the domain
+            velocity = self.solutionPrimitive['Velocity'][iInternal]
+            density, energy = self.fluid.computeInletQuantitiesStatic(pressure, enthalpy)
+        else:
+            raise ValueError('Unknown or no inlet conditions type specified in the configuration file')
         self.solutionPrimitive['Density'][iHalo] = density
         self.solutionPrimitive['Velocity'][iHalo] = velocity
         self.solutionPrimitive['Pressure'][iHalo] = pressure
@@ -705,8 +763,8 @@ class Driver:
         self.entropyFixCoefficient = self.config.getEntropyFixCoefficient()
         advectionScheme = self.config.getNumericalScheme()
         isMusclActive = self.config.isMusclActive()
-        simulationType = self.config.getSimulationType()
-        outputFrequency = self.config.getOutputFrequency()
+        writeInterval = self.config.getWriteInterval()
+        printInfoResidualsBool = self.config.getPrintInfoResidualsBool()
         
         print()
         print("="*80)
@@ -723,40 +781,68 @@ class Driver:
         print("="*80)
         print()
 
-        # short aliases
-        primitiveOld = self.solutionPrimitive.copy()
+        # short aliases (shallow copy, will change throughout the iteration loop)
+        primitiveOld = copy.deepcopy(self.solutionPrimitive)
         
-        # write the initial time to a solution file
-        self.writeSolution(it=0, time=0)
+        # write the initial time to a results file (used both for post-processing and for restart)
+        self.saveResults(it=0, time=0)
         
-        time = 0
-        iTime = 1
+        if self.restartFilePath is not None:
+            pass
+        else:
+            self.time = 0
+            self.iterationIndex = 1
         
         # main loop
-        while time < self.timeMax:
-            dt = self.computeTimeStep(primitiveOld)
-            if time + dt > self.timeMax:
-                dt = self.timeMax - time
-            newTime = time + dt
-            
-            residuals = self.computeResiduals(primitiveOld, dt)
+        while self.time < self.timeMax:
+            t_start = timeit.default_timer()
+            dt = self.computeTimeStep(self.solutionPrimitive)
+            if self.time + dt > self.timeMax:
+                dt = self.timeMax - self.time
+            newTime = self.time + dt
+            t_timestep = timeit.default_timer()
+            residuals = self.computeResiduals(self.solutionPrimitive, dt)
+            t_residuals = timeit.default_timer()
             self.updateSolution(residuals)
+            t_update = timeit.default_timer()
             
-            if simulationType=='steady':
-                self.printInfoResiduals(iTime, newTime, residuals)        
+            if printInfoResidualsBool:
+                self.printInfoResiduals(self.iterationIndex, newTime, residuals)        
             else:
-                print(f"Iteration: {iTime}, Progress in Time {((newTime)/self.timeMax * 100):.3f} %")
+                print(f"Iteration: {self.iterationIndex}, Progress in Time {((newTime)/self.timeMax * 100):.3f} %")
             
             self.checkSimulationStatus(dt)
+            t_status = timeit.default_timer()
             self.setBoundaryConditions()
+            t_bc = timeit.default_timer()
             
-            if iTime%outputFrequency==0:
-                self.writeSolution(iTime, newTime)
+            if self.iterationIndex%writeInterval==0:
+                self.saveResults(self.iterationIndex, newTime)
+            t_saveResults = timeit.default_timer()
+
+            # put all timesteps in array and print
+            timesteps = [t_timestep - t_start, t_residuals - t_timestep, t_update - t_residuals, t_status - t_update, t_bc - t_status, t_saveResults - t_bc]
+            print(f"Time steps for iteration {self.iterationIndex}: {timesteps}")
             
-            time += dt  
-            iTime += 1
+            # # convergence of primitive variables may carry differing time scales. Will simply check for convergence of all
+            # convergenceList = []
+            # convergenceTolerance = 1e-5
+            # for primitveVariable in self.solutionNames:
+            #     # normalize the diff to get each variable on the same scale
+            #     diff = np.abs(self.solutionPrimitive[primitveVariable] - primitiveOld[primitveVariable]) / np.max(np.abs(primitiveOld[primitveVariable]))
+            #     if np.max(diff) < convergenceTolerance:
+            #         convergenceList.append(True)
+            #     else:
+            #         convergenceList.append(False)
+            # if all(convergenceList):
+            #     dt = self.timeMax - self.time
+
+            # perform updates
+            self.time += dt  
+            self.iterationIndex += 1
+            primitiveOld = copy.deepcopy(self.solutionPrimitive)
         
-        self.writeSolution(iTime, newTime)
+        self.saveResults(self.iterationIndex, newTime)
             
         print(" "*34 + "END SOLVER")
         print("="*80)
@@ -777,20 +863,33 @@ class Driver:
         MUSCL = self.config.isMusclActive()
         
         # compute advection fluxes on every internal interface
+        t_start = timeit.default_timer()
         flux = np.zeros((self.nNodes+1, 3))
+        t_flux_subprocess_avg = 0
         for iFace in range(flux.shape[0]):
+            t_flux_subprocess_start = timeit.default_timer()
             flux[iFace, :] = self.computeFluxVector(iFace, iFace+1, primitives, dt, advectionScheme, MUSCL, limiter)
-        
+            t_flux_subprocess_end = timeit.default_timer()
+            t_flux_subprocess_avg = t_flux_subprocess_avg * (iFace)/(iFace + 1) + (t_flux_subprocess_end - t_flux_subprocess_start)/(iFace + 1)
+        print(f"Time to compute fluxes: {timeit.default_timer() - t_start:.6f} s, average time per flux subprocess: {t_flux_subprocess_avg:.6f} s")
+        print(f"Total amount of faces: {flux.shape[0]}")
+        t_flux = timeit.default_timer()
+
         # compute the source terms
         if self.topology.lower()=='nozzle':
             source = self.computeSourceTerms(primitives)
+            t_source = timeit.default_timer()
         else:
             source = np.zeros((self.nNodesHalo,3))
+            t_source = timeit.default_timer()
         
         # assemble the full residual vector on every physical node
         residuals = np.zeros((self.nNodes,3))
         for iDim in range(3):
             residuals[:,iDim] = dt/self.dx[1:-1] * ((flux[0:-1, iDim] - flux[1:, iDim]) + source[1:-1, iDim]*self.dx[1:-1])
+        
+        delta_t_list = [t_flux - t_start, t_source - t_flux]
+        print(f"Time steps for residuals computation: {delta_t_list}")
         return residuals
 
     
@@ -823,13 +922,34 @@ class Driver:
         """
         velocity = primitive['Velocity'][1:-1]
         speedOfSound = np.zeros_like(velocity)
+        t_before = timeit.default_timer()
         for i in range(len(speedOfSound)):
             speedOfSound[i] = self.fluid.computeSoundSpeed_p_rho(primitive['Pressure'][i+1], primitive['Density'][i+1])
+        t_after = timeit.default_timer()
+        print(f"Time to compute speed of sound: {t_after - t_before:.6f} s")
+            
         dtMax = np.min(self.dx[1:-1] * self.cflMax / (np.abs(velocity)+speedOfSound))
+        print(f"max velocity {np.max(velocity):.3f} m/s, max speed of sound: {np.max(speedOfSound):.3f} m/s, min speed of sound: {np.min(speedOfSound):.3f} m/s, max dt: {dtMax:.3e} s")
         return dtMax
     
     
-    def writeSolution(self, it, time):    
+    def saveResults(self, it, time):  
+        """
+        Save the results of the simulation at the current time step to a file in the results directory. The file is named according to the iteration index, and contains the time, iteration counter, 
+        x coordinates of the nodes, area variation along the tube, primitive variables, fluid properties and configuration settings. The results are saved in a pickle file format.
+        The results file is both used for post-processing and for restart. This is why seemingly unecessary information for restart (such as the area variation along the tube) is also present in the restart file. 
+
+        Arguments
+        ---------
+        it : int
+            The iteration index of the current time step.
+        time : float
+            The time elapsed at the current time step.
+
+        Returns
+        -------
+        None, but saves the results of the simulation at the current time step to a file in the results directory, with the filename based on the iteration index.
+        """  
         
         iterationName = 'step_%06i.pik' %(it)
         fullPath = self.resultsPath / iterationName
@@ -844,14 +964,14 @@ class Driver:
             pickle.dump(outputResults, file)
     
     
-    def printInfoResiduals(self, iTime, time, residuals):
+    def printInfoResiduals(self, iteration_idx, time, residuals):
         res = np.zeros(3)
         for iEq in range(3):
             res[iEq] = np.linalg.norm(residuals[:,iEq])/len(residuals[:,iEq])
             if res[iEq]!=0:
                 res[iEq] = np.log10(res[iEq])
         timeProgress = time/self.timeMax * 100
-        print('Iteration %i    Progress in Time %.3f%%    Residuals: %.6f, %.6f, %.6f' %(iTime, timeProgress, res[0], res[1], res[2]))
+        print('Iteration %i    Progress in Time %.3f%%    Residuals: %.6f, %.6f, %.6f' %(iteration_idx, timeProgress, res[0], res[1], res[2]))
     
     
     def computeSourceTerms(self, primitive):
@@ -1002,17 +1122,18 @@ class Driver:
         return rVector
     
     
-    def saveSolution(self):
-        """
-        Save the full object as a pickle for later use
-        """
-        folder_name = self.config.getOutputFolder()
-        os.makedirs(folder_name, exist_ok=True)
-        file_name = self.config.getOutputFileName()
-        full_path = folder_name+'/'+file_name+'_NX_%i_TMAX_%.6f.pik' %(self.nNodes, self.timeMax)
-        with open(full_path, 'wb') as file:
-            pickle.dump(self, file)
-        print('Pickle object with full solution saved to ' + full_path + ' !')
+    # def saveSolution(self):
+    #     """
+    #     Never used in Driver logic
+    #     Save the full object as a pickle for later use
+    #     """
+    #     outputDirectoryName = self.config.getOutputDirectoryName()
+    #     os.makedirs(outputDirectoryName, exist_ok=True)
+    #     file_name = self.config.getOutputFileName()
+    #     full_path = outputDirectoryName+'/'+file_name+'_NX_%i_TMAX_%.6f.pik' %(self.nNodes, self.timeMax)
+    #     with open(full_path, 'wb') as file:
+    #         pickle.dump(self, file)
+    #     print('Pickle object with full solution saved to ' + full_path + ' !')
 
 
     def saveNodeSolutionToCSV(self, iNode, timeInstants, folder_name, file_name):
@@ -1064,20 +1185,20 @@ class Driver:
             
         return psi
     
+
     def readNozzleFile(self, xTube, filepath):
         nozzleData = np.loadtxt(filepath, skiprows=1, delimiter=',', dtype=float)
         nozzleX = nozzleData[:,0]
         nozzleArea = nozzleData[:,1]
         
         # Linear interpolation with external filling set to area Reference (=Tube area)
-        areaReference = self.config.getAreaReference()
-        interpolatedNozzleArea = np.interp(xTube, nozzleX, nozzleArea, left=areaReference, right=areaReference)
+        interpolatedNozzleArea = np.interp(xTube, nozzleX, nozzleArea, left=nozzleData[0,1], right=nozzleData[-1,1])
     
-        print(f"The reference tube area is: {areaReference:.6f} [m2].")
+        print(f"The reference tube area is: {nozzleData[0,1]:.6f} [m2].")
         print(f"The nozzle throat area is {interpolatedNozzleArea.min():.6f} [m2].")
         print(f"The nozzle maximum area is {interpolatedNozzleArea.max():.6f} [m2].")
         print(f"The area ratio between nozzle throat and exit section is {interpolatedNozzleArea.min()/interpolatedNozzleArea[-1]:.6f}.")
-        print(f"The area ratio between nozzle throat and tube is {interpolatedNozzleArea.min()/areaReference:.6f}.")
+        print(f"The area ratio between nozzle throat and tube is {interpolatedNozzleArea.min()/nozzleData[0,1]:.6f}.")
         print(f"If this is not correct, modify the REFERENCE_AREA setting in the geometry section of the input file to the correct value for the tube area, or modify the nozzle csv file to be consistent with the tube area.")
         
         return interpolatedNozzleArea

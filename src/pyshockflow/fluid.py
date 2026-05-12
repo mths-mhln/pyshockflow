@@ -1,8 +1,10 @@
 import CoolProp.CoolProp as CP
+from CoolProp.CoolProp import PropsSI
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.optimize import fsolve
 import sys
+import timeit
 import fluid_properties.fluid_properties as FP
 
 class FluidIdeal():
@@ -20,7 +22,8 @@ class FluidIdeal():
         return (self.gmma-1)*rho*e
     
     def computeSoundSpeed_p_rho(self, p, rho):
-        return np.sqrt(self.gmma*p/rho)
+        soundspeed = np.sqrt(self.gmma*p/rho)
+        return soundspeed
     
     def computeMach_u_p_rho(self, u, p, rho):
         soundSpeed = self.computeSoundSpeed_p_rho(p, rho)
@@ -63,7 +66,7 @@ class FluidIdeal():
     def computePressure_Pt_M(self, Pt, M):
         return Pt/((1+(self.gmma-1)/2*M**2)**(self.gmma/(self.gmma-1)))
     
-    def computeInletQuantities(self, pressure, totPressure, totTemperature, direction):
+    def computeInletQuantitiesTotal(self, pressure, totPressure, totTemperature, direction):
         mach = self.computeMach_pt_p(totPressure, pressure)
         temperature = self.computeTemperature_Tt_M(totTemperature, mach)
         density = self.computeDensity_p_T(pressure, temperature)
@@ -71,7 +74,7 @@ class FluidIdeal():
         velocity = mach*soundSpeed*direction
         energy = self.computeStaticEnergy_p_rho(pressure, density)
         return density, velocity, energy
-
+    
     def compute_gammapv_p_rho(self, p, rho):
         if isinstance(p, np.ndarray):
             gmma_pv = np.zeros_like(p)+self.gmma
@@ -83,8 +86,8 @@ class FluidIdeal():
         chi = 0
         kappa = self.gmma-1
         return chi, kappa
-    
-    
+
+
 class FluidReal():
     """
     Real Fluid Class, where thermodynamic properties and transformations are taken from coolprop
@@ -168,7 +171,7 @@ class FluidReal():
         return Z
 
     
-    def computeInletQuantities(self, pressure, totPressure, totTemperature, direction):
+    def computeInletQuantitiesTotal(self, pressure, totPressure, totTemperature, direction):
         """The full state must be reconstructed from the quantities given in the arguments.
         The entropy of the static and total state must be the same by definition. This is used to find the temperature.
 
@@ -202,6 +205,13 @@ class FluidReal():
         energy = self.computeStaticEnergy_p_rho(pressure, density)
         return density, velocity, energy
 
+    def computeInletQuantitiesStatic(self, pressure, enthalpy):
+        density = self.computeDensity_p_h(pressure, enthalpy)
+        energy = self.computeStaticEnergy_p_rho(pressure, density)
+        return density, energy
+    
+    def computeDensity_p_h(self, p, h):
+        return FP.PropsSI('D', 'P', p, 'H', h, self.fluid)
 
     def compute_gammapv_p_rho(self, p, rho):
         cp = FP.PropsSI("Cpmass", "P", p, "D", rho, self.fluid)

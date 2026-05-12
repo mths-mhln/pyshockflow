@@ -6,11 +6,12 @@ from pathlib import Path
 from pyshockflow.plot_styles import *
 from scipy.optimize import fsolve
 
-pressureList = [45, 75, 90, 94, 97]
+# pressureList = [45, 75, 90, 94, 97]
+pressureList = [45]
 pickleList = ['Results/outletPressure_%ikPa_NX_200/Results.pik' %pressure for pressure in pressureList]
 
 
-fig, axes = plt.subplots(1, 2, figsize=(9, 4))
+fig, axes = plt.subplots(2, 1, figsize=(6, 8))
 
 for i, pickleFile in enumerate(pickleList):
     with open(pickleFile, 'rb') as file:
@@ -48,14 +49,15 @@ for i, pickleFile in enumerate(pickleList):
     axes[0].plot(xCoords, mach, label=r'$p_{\rm out}=%i$ kPa' %(pressureList[i]))
     axes[0].set_ylabel(r'$M$')
     
-    axes[1].plot(xCoords, pressure/1e3)
-    axes[1].set_ylabel(r'$p$ [kPa]')
+    axes[1].plot(xCoords, velocity)
+    axes[1].set_ylabel(r'$u$ [m/s]')
     
     for ax in axes:
         ax.set_xlabel(r'$x$')
         ax.grid(alpha=.3)
 
-fig.legend(loc='upper center', bbox_to_anchor=(0.55, 1.18), ncol=3)
+# fig.legend(loc='upper center', bbox_to_anchor=(0.55, 1.18), ncol=3)
+fig.legend(loc='lower center', bbox_to_anchor=(0.55, -0.1), ncol=3)
 plt.tight_layout()
 out_root = Path("Pictures") 
 out_root.mkdir(parents=True, exist_ok=True)

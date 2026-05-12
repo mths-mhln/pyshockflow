@@ -8,6 +8,7 @@ class Config:
         
         self.config_parser = configparser.ConfigParser()
         self.config_parser.read(config_file)
+        print(self.config_parser)
     
     def getNumberOfPoints(self):
         return int(self.config_parser.get('SIMULATION', 'NUMBER_POINTS')) 
@@ -44,7 +45,7 @@ class Config:
     
     def getTimeMax(self):
         return float(self.config_parser.get('SIMULATION', 'TIME_MAX')) 
-    
+            
     def getTimeStepMethod(self):
         try:
             return str(self.config_parser.get('SIMULATION', 'TIME_STEP_METHOD')).lower()
@@ -74,7 +75,23 @@ class Config:
     def getInletConditions(self):
         res = str(self.config_parser.get('SIMULATION', 'INLET_CONDITIONS')).lower() 
         res = [float(value.strip()) for value in res.split(',')]
+        if self.getInletConditionsType().lower()=='total':
+            if len(res)!=3:
+                raise ValueError("For total inlet conditions, INLET_CONDITIONS must have 3 values: total pressure, total temperature and direction.")
+        else:
+            if len(res)!=2:
+                raise ValueError("For static inlet conditions, INLET_CONDITIONS must have 2 values: static pressure and enthalpy.")
         return res
+
+    def getInletConditionsType(self):
+        try:
+            res = str(self.config_parser.get('SIMULATION', 'INLET_CONDITIONS_TYPE')).lower() 
+            if res in ['total', 'static']:
+                return res
+            else:
+                raise ValueError("INLET_CONDITIONS_TYPE must be either 'total' or 'static'.")
+        except:
+            return 'total' # total by default
     
     def getOutletConditions(self):
         res = float(self.config_parser.get('SIMULATION', 'OUTLET_CONDITIONS'))
@@ -89,11 +106,8 @@ class Config:
         except:
             return 'van albada'
     
-    def getOutputFolder(self):
-        return str(self.config_parser.get('OUTPUT', 'FOLDER_NAME')) 
-    
-    def getOutputFileName(self):
-        return str(self.config_parser.get('OUTPUT', 'FILE_NAME')) 
+    def getResultsDirectoryName(self):
+        return str(self.config_parser.get('OUTPUT', 'RESULTS_DIRECTORY_NAME')) 
     
     def showAnimation(self):
         res = str(self.config_parser.get('OUTPUT', 'SHOW_ANIMATION')).lower() 
@@ -101,19 +115,6 @@ class Config:
             return True
         else:
             return False
-    
-    
-    def getRestartFile(self):
-        try:
-            return str(self.config_parser.get('SIMULATION', 'RESTART_FILE'))
-        except:
-            return None
-    
-    def getSimulationType(self):
-        try:
-            return str(self.config_parser.get('SIMULATION', 'SIMULATION_TYPE')).lower()
-        except:
-            return "unsteady" 
     
     def isMusclActive(self):
         try:
@@ -192,10 +193,28 @@ class Config:
             return 1.0 # default
     
     
-    def getOutputFrequency(self):
+    def getWriteInterval(self):
         try:
-            return int(self.config_parser.get('OUTPUT', 'OUTPUT_FREQUENCY')) 
+            return int(self.config_parser.get('OUTPUT', 'WRITE_INTERVAL')) 
         except:
             return 250 # default value
-    
-    
+
+    def getOverwriteResults(self):
+        try:
+            res = str(self.config_parser.get('OUTPUT', 'OVERWRITE_RESULTS')).lower() 
+            if res=='yes' or res=='true':
+                return True
+            else:
+                return False
+        except:
+            return False #  by default
+        
+    def getPrintInfoResidualsBool(self):
+        try:
+            res = str(self.config_parser.get('OUTPUT', 'PRINT_INFO_RESIDUALS')).lower() 
+            if res=='yes' or res=='true':
+                return True
+            else:
+                return False
+        except:
+            return False #  by default
