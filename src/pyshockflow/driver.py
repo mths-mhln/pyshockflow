@@ -40,7 +40,10 @@ class Driver:
         if self.restartFilePath is not None:
             timeElapsed, solutionPrimitiveRestart, configRestart, iterationIndex = self.extractRestartData()
             print(f"Restarting simulation from file {self.restartFilePath} at iteration {iterationIndex} and time elapsed {timeElapsed:.6e} s")
-            self.config = configRestart
+            if config is None:
+                self.config = configRestart
+            else:
+                self.config = config
         else:    
             self.config = config
         self.topology = self.config.getTopology()
@@ -785,7 +788,8 @@ class Driver:
         primitiveOld = copy.deepcopy(self.solutionPrimitive)
         
         # write the initial time to a results file (used both for post-processing and for restart)
-        self.saveResults(it=0, time=0)
+        if self.restartFilePath is None:
+            self.saveResults(it=0, time=0)
         
         if self.restartFilePath is not None:
             pass
@@ -824,18 +828,18 @@ class Driver:
             timesteps = [t_timestep - t_start, t_residuals - t_timestep, t_update - t_residuals, t_status - t_update, t_bc - t_status, t_saveResults - t_bc]
             print(f"Time steps for iteration {self.iterationIndex}: {timesteps}")
             
-            # # convergence of primitive variables may carry differing time scales. Will simply check for convergence of all
-            # convergenceList = []
-            # convergenceTolerance = 1e-5
-            # for primitveVariable in self.solutionNames:
-            #     # normalize the diff to get each variable on the same scale
-            #     diff = np.abs(self.solutionPrimitive[primitveVariable] - primitiveOld[primitveVariable]) / np.max(np.abs(primitiveOld[primitveVariable]))
-            #     if np.max(diff) < convergenceTolerance:
-            #         convergenceList.append(True)
-            #     else:
-            #         convergenceList.append(False)
-            # if all(convergenceList):
-            #     dt = self.timeMax - self.time
+            # convergence of primitive variables may carry differing time scales. Will simply check for convergence of all
+            convergenceList = []
+            convergenceTolerance = 1e-5
+            for primitveVariable in self.solutionNames:
+                # normalize the diff to get each variable on the same scale
+                diff = np.abs(self.solutionPrimitive[primitveVariable] - primitiveOld[primitveVariable]) / np.max(np.abs(primitiveOld[primitveVariable]))
+                if np.max(diff) < convergenceTolerance:
+                    convergenceList.append(True)
+                else:
+                    convergenceList.append(False)
+            if all(convergenceList):
+                dt = self.timeMax - self.time
 
             # perform updates
             self.time += dt  
@@ -847,7 +851,7 @@ class Driver:
         print(" "*34 + "END SOLVER")
         print("="*80)
         print(" "*25 + "FINAL ASSEMBLY OF THE RESULTS")
-        output = Output(self.resultsPath)
+        # output = Output(self.resultsPath)
         print(" "*34 + "END ASSEMBLER")
         print("="*80)
     

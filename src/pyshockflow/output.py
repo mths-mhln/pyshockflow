@@ -36,7 +36,7 @@ class Output():
                 if iFile == 0:
                     nNodesVirtual = result['Primitive']['Pressure'].shape[0]
                     self.xNodesVirtual = result['X Coords']
-                    self.area = result['Area Tube']
+                    self.areaTube = result['Area Tube']
                     self.iterationCounter = result['Iteration Counter']
                     self.fluid = result['Fluid']
                     self.config = result['Configuration']
@@ -52,7 +52,7 @@ class Output():
                 self.solution['Pressure'][:, iFile] = result['Primitive']['Pressure']
         
         globalOutput = {'X Coords': self.xNodesVirtual, 
-                        'Area': self.area,
+                        'Area Tube': self.areaTube,
                         'Time': self.timeVec, 
                         'Primitive': self.solution, 
                         'Fluid': self.fluid, 
@@ -71,7 +71,7 @@ class Output():
             result = pickle.load(file)
         
         self.xNodesVirtual = result['X Coords']
-        self.area = result['Area']
+        self.areaTube = result['Area Tube']
         self.timeVec = result['Time']
         self.solution = result['Primitive']
         self.fluid = result['Fluid']
