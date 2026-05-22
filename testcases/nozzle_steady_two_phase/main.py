@@ -1,15 +1,15 @@
 from pyshockflow import Driver
 from pyshockflow import Config
 
-restart = True
+configFile = 'inputs/input_files/lettieri/input_HEOS_CoolProp_lettieri_L1.ini'
+restart_file = "Results/outletPressure_136kPa_NX_200/step_002900.pik"
 
-if restart:
-    configFile = 'input.ini'
-    config = Config(configFile)
-    driver = Driver(config = config, restartFilePath="Results/outletPressure_136kPa_NX_200/step_001440.pik")
-    driver.restart()
-else:
-    configFile = 'input.ini'
-    config = Config(configFile)
-    driver = Driver(config)
-    driver.solve()
+
+config = Config(configFile)
+driver = Driver(config)
+driver.solve()
+
+# configFile = 'input.ini'
+# config = Config(configFile)
+# driver = Driver(config = config, restartFilePath=restart_file)
+# driver.restart()

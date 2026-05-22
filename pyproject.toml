@@ -1,13 +1,17 @@
-[build-system]
-requires = ["setuptools>=61"]
-build-backend = "setuptools.build_meta"
-
 [project]
-name = "pyshockflow"
+name = "00-pyshockflow-fork"
 version = "0.1.0"
-
-[tool.setuptools]
-package-dir = {"" = "src"}
-
-[tool.setuptools.packages.find]
-where = ["src"]
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "coolprop==6.8.0",
+    "ffmpeg>=1.4",
+    "ipykernel>=7.2.0",
+    "ipython>=9.13.0",
+    "matplotlib>=3.10.9",
+    "numpy==1.26.4",
+    "pip>=26.1.1",
+    "pytest>=9.0.3",
+    "scipy>=1.17.1",
+]

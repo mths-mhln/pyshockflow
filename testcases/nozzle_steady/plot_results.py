@@ -57,8 +57,7 @@ for i, pickleFile in enumerate(pickleList):
         mach = solution['Fluid'].computeMach_u_p_rho(velocity, pressure, density)
         entropy = solution['Fluid'].computeEntropy_p_rho(pressure, density)
         temperature = solution['Fluid'].computeTemperature_p_rho(pressure, density)
-    if i==0:
-        print(pressure)
+        
     axes[0].plot(xCoords, pressure, label=r'$iteration=%s$' %(stepList[i]))
     axes[0].set_ylabel(r'$p$ [Pa]')
     

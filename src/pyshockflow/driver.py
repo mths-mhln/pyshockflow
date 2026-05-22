@@ -56,7 +56,7 @@ class Driver:
             self.fluid = FluidIdeal(self.gmma,self.Rgas)
         elif self.fluidModel.lower()=='real':
             fluidLibrary = self.config.getFluidLibrary()
-            availFluidLibs = ['RefProp', 'CoolProp', 'StanMix', 'PCP-SAFT']
+            availFluidLibs = ['REFPROP', 'RefProp', 'CoolProp', 'StanMix', 'PCP-SAFT']
             if fluidLibrary not in availFluidLibs:
                 raise ValueError(f"Invalid fluid library: {fluidLibrary}. Must be one of {availFluidLibs}")
             self.fluid = FluidReal(self.fluidName, fluidLibrary, False)
@@ -86,7 +86,13 @@ class Driver:
         self.nNodes = self.config.getNumberOfPoints()
         xNodes = self.generatePhysicalGeometry(self.length, self.nNodes)
         self.generateVirtualGeometry(xNodes)
-        self.prepareOutputPaths()
+
+        # Prepare results path
+        self.resultsDirectory = Path("Results")
+        self.resultsDirectory.mkdir(parents=True, exist_ok=True)
+        self.workingDir = Path.cwd()
+        self.resultsDirectoryName = f"{self.config.getResultsDirectoryName()}_NX_{self.nNodes}"
+        self.resultsPath = self.resultsDirectory / self.resultsDirectoryName
         
         # Time related information
         self.cflMax = self.config.getCFLMax()
@@ -174,26 +180,18 @@ class Driver:
         -------
         None, but sets the resultsPath attribute of the Driver instance to a unique directory for storing results.
         """
-        self.resultsDirectory = Path("Results")
-        self.resultsDirectory.mkdir(parents=True, exist_ok=True)
-
-        self.workingDir = Path.cwd()
-
-        # Build path safely
-        resultsDirectoryName = f"{self.config.getResultsDirectoryName()}_NX_{self.nNodes}"
-        self.resultsPath = self.resultsDirectory / resultsDirectoryName
-
         if self.restartFilePath is not None:
             # do nothing, append new iterations to the current working directory
             pass
         elif self.config.getOverwriteResults():
-            shutil.rmtree(self.resultsDirectory)
+            if os.path.exists(self.resultsDirectoryName) and os.path.isdir(self.resultsDirectoryName):
+                shutil.rmtree(self.resultsDirectoryName)
         else:
             dum = self.resultsPath
             counter = 1
 
             while dum.exists():
-                dum = self.resultsDirectory / f"{resultsDirectoryName}_{counter}"
+                dum = self.resultsDirectory / f"{self.resultsDirectoryName}_{counter}"
                 counter += 1
 
             self.resultsPath = dum
@@ -787,6 +785,9 @@ class Driver:
         # short aliases (shallow copy, will change throughout the iteration loop)
         primitiveOld = copy.deepcopy(self.solutionPrimitive)
         
+        # prepare output paths based on config specification
+        self.prepareOutputPaths()
+
         # write the initial time to a results file (used both for post-processing and for restart)
         if self.restartFilePath is None:
             self.saveResults(it=0, time=0)
@@ -795,39 +796,31 @@ class Driver:
             pass
         else:
             self.time = 0
-            self.iterationIndex = 1
+            self.iterationIndex = 0
         
         # main loop
         while self.time < self.timeMax:
-            t_start = timeit.default_timer()
+            # perform iteration update
+            self.iterationIndex += 1
+
             dt = self.computeTimeStep(self.solutionPrimitive)
             if self.time + dt > self.timeMax:
                 dt = self.timeMax - self.time
             newTime = self.time + dt
-            t_timestep = timeit.default_timer()
             residuals = self.computeResiduals(self.solutionPrimitive, dt)
-            t_residuals = timeit.default_timer()
             self.updateSolution(residuals)
-            t_update = timeit.default_timer()
             
             if printInfoResidualsBool:
                 self.printInfoResiduals(self.iterationIndex, newTime, residuals)        
             else:
                 print(f"Iteration: {self.iterationIndex}, Progress in Time {((newTime)/self.timeMax * 100):.3f} %")
             
-            self.checkSimulationStatus(dt)
-            t_status = timeit.default_timer()
-            self.setBoundaryConditions()
-            t_bc = timeit.default_timer()
-            
             if self.iterationIndex%writeInterval==0:
                 self.saveResults(self.iterationIndex, newTime)
-            t_saveResults = timeit.default_timer()
 
-            # put all timesteps in array and print
-            timesteps = [t_timestep - t_start, t_residuals - t_timestep, t_update - t_residuals, t_status - t_update, t_bc - t_status, t_saveResults - t_bc]
-            print(f"Time steps for iteration {self.iterationIndex}: {timesteps}")
-            
+            self.checkSimulationStatus(dt)
+            self.setBoundaryConditions()
+
             # convergence of primitive variables may carry differing time scales. Will simply check for convergence of all
             convergenceList = []
             convergenceTolerance = 1e-5
@@ -841,9 +834,8 @@ class Driver:
             if all(convergenceList):
                 dt = self.timeMax - self.time
 
-            # perform updates
+            # perform time update
             self.time += dt  
-            self.iterationIndex += 1
             primitiveOld = copy.deepcopy(self.solutionPrimitive)
         
         self.saveResults(self.iterationIndex, newTime)
@@ -867,36 +859,25 @@ class Driver:
         MUSCL = self.config.isMusclActive()
         
         # compute advection fluxes on every internal interface
-        t_start = timeit.default_timer()
         flux = np.zeros((self.nNodes+1, 3))
-        t_flux_subprocess_avg = 0
         for iFace in range(flux.shape[0]):
-            t_flux_subprocess_start = timeit.default_timer()
             flux[iFace, :] = self.computeFluxVector(iFace, iFace+1, primitives, dt, advectionScheme, MUSCL, limiter)
-            t_flux_subprocess_end = timeit.default_timer()
-            t_flux_subprocess_avg = t_flux_subprocess_avg * (iFace)/(iFace + 1) + (t_flux_subprocess_end - t_flux_subprocess_start)/(iFace + 1)
-        print(f"Time to compute fluxes: {timeit.default_timer() - t_start:.6f} s, average time per flux subprocess: {t_flux_subprocess_avg:.6f} s")
-        print(f"Total amount of faces: {flux.shape[0]}")
-        t_flux = timeit.default_timer()
 
         # compute the source terms
         if self.topology.lower()=='nozzle':
             source = self.computeSourceTerms(primitives)
-            t_source = timeit.default_timer()
         else:
             source = np.zeros((self.nNodesHalo,3))
-            t_source = timeit.default_timer()
         
         # assemble the full residual vector on every physical node
         residuals = np.zeros((self.nNodes,3))
         for iDim in range(3):
             residuals[:,iDim] = dt/self.dx[1:-1] * ((flux[0:-1, iDim] - flux[1:, iDim]) + source[1:-1, iDim]*self.dx[1:-1])
-        
-        delta_t_list = [t_flux - t_start, t_source - t_flux]
-        print(f"Time steps for residuals computation: {delta_t_list}")
+
         return residuals
 
-    
+
+
     def updateSolution(self, residuals):
         self.solutionConservative['u1'][1:-1] += residuals[:,0]
         self.solutionConservative['u2'][1:-1] += residuals[:,1]
@@ -926,14 +907,9 @@ class Driver:
         """
         velocity = primitive['Velocity'][1:-1]
         speedOfSound = np.zeros_like(velocity)
-        t_before = timeit.default_timer()
         for i in range(len(speedOfSound)):
             speedOfSound[i] = self.fluid.computeSoundSpeed_p_rho(primitive['Pressure'][i+1], primitive['Density'][i+1])
-        t_after = timeit.default_timer()
-        print(f"Time to compute speed of sound: {t_after - t_before:.6f} s")
-            
         dtMax = np.min(self.dx[1:-1] * self.cflMax / (np.abs(velocity)+speedOfSound))
-        print(f"max velocity {np.max(velocity):.3f} m/s, max speed of sound: {np.max(speedOfSound):.3f} m/s, min speed of sound: {np.min(speedOfSound):.3f} m/s, max dt: {dtMax:.3e} s")
         return dtMax
     
     

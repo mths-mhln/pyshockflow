@@ -101,6 +101,22 @@ class FluidReal():
         return e
     
     def computePressure_rho_e(self, rho, e):
+        if isinstance(rho, np.float64):
+            if abs(rho - 519.20049536) < 1e-1:
+                rho_l = rho - 0.3
+                rho_u = rho + 0.3
+                p_l = FP.PropsSI('P', 'D', rho_l, 'U', e, self.fluid)
+                p_u = FP.PropsSI('P', 'D', rho_u, 'U', e, self.fluid)
+                p = (p_l+p_u)/2
+                return p
+        elif isinstance(rho, np.ndarray):
+            if np.any(np.abs(rho - 519.20049536) < 1e-1):
+                rho_l = rho - 0.3
+                rho_u = rho + 0.3
+                p_l = FP.PropsSI('P', 'D', rho_l, 'U', e, self.fluid)
+                p_u = FP.PropsSI('P', 'D', rho_u, 'U', e, self.fluid)
+                p = (p_l+p_u)/2
+                return p
         p = FP.PropsSI('P', 'D', rho, 'U', e, self.fluid)
         return p
 

@@ -1,66 +1,60 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import pickle
+import os, sys
 
 from pathlib import Path
 from pyshockflow.plot_styles import *
 from scipy.optimize import fsolve
-
-# steplist = ["0000"]
-steplist = ["0000", "0250", "0500", "0750", "1000", "1250", "1260", "1280", "1300", "1320", "1340", "1360", "1380", "1400", "1420", "1440"]
-pickleList = [f"Results/outletPressure_136kPa_NX_200/step_00{step}.pik" for step in steplist]
+from pyshockflow import Config, Driver
+from pyshockflow.visualization import plotResults
 
 
-fig, axes = plt.subplots(2, 1, figsize=(12, 10))
 
-for i, pickleFile in enumerate(pickleList):
-    with open(pickleFile, 'rb') as file:
-        solution = pickle.load(file)
-    
-    try:
-        solution['Primitive']['Density'].shape[1] # indicates multi dimensional primitive arrays: indicating merged results file, processed by the output object, indicating sim successfully finished
-        xCoords = solution['X Coords'][1:-1]
-        density = solution['Primitive']["Density"][1:-1,-1]
-        pressure = solution['Primitive']["Pressure"][1:-1,-1]
-        velocity = solution['Primitive']["Velocity"][1:-1,-1]
-        mach = solution['Fluid'].computeMach_u_p_rho(velocity, pressure, density)
-        entropy = solution['Fluid'].computeEntropy_p_rho(pressure, density)
-        totalPressure = solution['Fluid'].computeTotalPressure_p_M(pressure, mach)
-        temperature = solution['Fluid'].computeTemperature_p_rho(pressure, density)
-        totalTemperature = solution['Fluid'].computeTotalTemperature_T_M(temperature, mach)
-    except:
-        # only partial finished sim. Solution file arrays are 1D
-        xCoords = solution['X Coords'][1:-1]
-        density = solution['Primitive']["Density"][1:-1]
-        pressure = solution['Primitive']["Pressure"][1:-1]
-        velocity = solution['Primitive']["Velocity"][1:-1]
-        mach = solution['Fluid'].computeMach_u_p_rho(velocity, pressure, density)
-        entropy = solution['Fluid'].computeEntropy_p_rho(pressure, density)
-        temperature = solution['Fluid'].computeTemperature_p_rho(pressure, density)
-    
-    
-    axes[0].plot(xCoords, pressure, label=r'$iteration=%s$' %(steplist[i]))
-    axes[0].set_ylabel(r'$p$ [Pa]')
 
-    axes[1].plot(xCoords, density)
-    axes[1].set_ylabel(r'$\rho$ [kg/m³]')
-    
-    # axes[1].plot(xCoords, velocity)
-    # axes[1].set_ylabel(r'$u$ [m/s]')
+### Specify the steps of the sim you want to plot
+steplist = ["054600"]
+# steplist = ["0000", "0250", "0500", "0750", "1000", "1250", "1260", "1280", "1300", "1320", "1340", "1360", "1380", "1400", "1420", "1440"]
+# steplist = ["1440", '1441', '1442', '1443', '1444', '1445', '1446', '1447', '1448', '1449']
+# steplist = ["0000", "0250", "0500", "0750", "1000", "1250", "1300", "1400", "1500", 
+#             "1600", "1700", "1800", "1900", "2000", "2100", "2200", "2300", "2400", 
+#             "2500", "2600", "2700", "2800", "2900", "3000", "3100", "3200", "3300", 
+#             "3400", "3500", "3600", "3700", "3800", "3900", "4000", "4100", "4200", 
+#             "4300", "4400", "4500", "4600", "4700", "4800", "4900", "5000", "5100", 
+#             "5200", "5300", "5400", "5500", "5600", "5700", "5800", "5900", "6000", 
+#             "6100", "6200", "6300", "6400", "6500", "6600", "6700", "6800", "6900", 
+#             "7000", "7100", "7200", "7300", "7400", "7500", "7600", "7700", "7800", 
+#             "7900", "8000", "8100", "8200", "8300", "8400", "8500", "8600", "8700", 
+#             "8800", "8900", "9000", "9100", "9200", "9300"]
+# steplist = ["5000", "5100", 
+#             "5200", "5300", "5400", "5500", "5600", "5700", "5800", "5900", "6000", 
+#             "6100", "6200", "6300", "6400", "6500", "6600", "6700", "6800", "6900", 
+#             "7000", "7100", "7200", "7300", "7400", "7500", "7600", "7700", "7800", 
+#             "7900", "8000", "8100", "8200", "8300", "8400", "8500", "8600", "8700", 
+#             "8800", "8900", "9000", "9100", "9200", "9300"]
 
-    
-    
-    for ax in axes:
-        ax.set_xlabel(r'$x$')
-        ax.grid(alpha=.3)
 
-# fig.legend(loc='upper center', bbox_to_anchor=(0.55, 1.18), ncol=3)
-fig.legend(loc='lower center', bbox_to_anchor=(0.5, 0.02), ncol=3, fontsize = 6)
-fig.subplots_adjust(bottom=0.25)
-out_root = Path("Pictures") 
-out_root.mkdir(parents=True, exist_ok=True)
-plt.savefig('Pictures/mach_pressure_ideal_nozzle.pdf', bbox_inches='tight')
-plt.show()   
-        
-        
-    
+### mute driver print statements when initializing
+class HiddenPrints:
+    def __enter__(self):
+        self._original_stdout = sys.stdout
+        sys.stdout = open(os.devnull, 'w')
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        sys.stdout.close()
+        sys.stdout = self._original_stdout
+
+### plot results
+configFile = 'input_HEOS_CoolProp_lettieri_L1.ini'
+config = Config(configFile)
+with HiddenPrints():
+    driver = Driver(config)
+pickleList = [f"{driver.resultsPath}/step_{step}.pik" for step in steplist]
+
+# for ideal ["X Coords","Density", "Pressure", "Velocity", "Mach", "Entropy", "TotalPressure", "Temperature", "TotalTemperature"] 
+# for real ["X Coords","Density", "Pressure", "Velocity", "Mach", "Entropy", "Temperature"]
+outputVars = ["Pressure", "Density"]  
+
+plotResults(pickleList, driver, outputVars, showNozzleGeometry=True)
+
+
