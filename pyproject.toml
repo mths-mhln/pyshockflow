@@ -9,9 +9,15 @@ dependencies = [
     "ffmpeg>=1.4",
     "ipykernel>=7.2.0",
     "ipython>=9.13.0",
+    "logger>=1.4",
     "matplotlib>=3.10.9",
-    "numpy==1.26.4",
+    "numpy==2.2.1",
     "pip>=26.1.1",
     "pytest>=9.0.3",
     "scipy>=1.17.1",
+]
+
+[tool.uv.workspace]
+members = [
+    "testcases/nozzle_steady_two_phase",
 ]

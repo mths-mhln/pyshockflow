@@ -6,10 +6,10 @@ from matplotlib import cm
 grid_opacity = 0.2
 
 # Set font size for axis ticks:
-font_axes = 16
+font_axes = 14
 
 # Set font size for axis labels:
-font_labels = 24
+font_labels = 14
 
 # Set font size for
 font_annotations = 20

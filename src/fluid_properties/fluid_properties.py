@@ -1,5 +1,5 @@
 from fluidprop_interface import FluidPropFluid, FluidPropAbstractState
-from coolprop_interface import CoolPropFluid, CoolPropAbstractState
+from coolprop_interface import CoolPropFluid, CoolPropAbstractState, CoolPropAbstractState_v2
 from coolprop_humidair_interface import HumidAirCoolPropFluid, HumidAirCoolPropAbstractState, HumidAirMixture, HumidAirAbstractState
 from feos_interface import FeosFluid, FeosAbstractState
 from lut_interface import LuTFluid, LuTAbstractState
@@ -40,7 +40,11 @@ def AbstractState(fluid_object, **kwargs):
         return FeosAbstractState(fluid_object, kwargs)
     elif fluid_object.Library in LuTLibraries:
         return LuTAbstractState(fluid_object, kwargs)
-
+    
+def AbstractState_v2(library, name, **kwargs):
+    if library in CoolPropLibraries:
+        fluid_object = CoolPropAbstractState_v2(library, name)
+        return fluid_object
 
 def add_lookup_table(lut_fluid, fluid_object, **kwargs):
     kwargs['fluidprop_language'] = True

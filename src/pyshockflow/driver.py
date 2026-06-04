@@ -56,7 +56,9 @@ class Driver:
             self.fluid = FluidIdeal(self.gmma,self.Rgas)
         elif self.fluidModel.lower()=='real':
             fluidLibrary = self.config.getFluidLibrary()
-            availFluidLibs = ['REFPROP', 'RefProp', 'CoolProp', 'StanMix', 'PCP-SAFT']
+            availFluidLibs = ['StanMix', 'GasMix', 'PCP-SAFT', 'RefProp', 'qPCP-SAFT', 'HOGC-PCP-SAFT',
+                                'CoolProp', 'REFPROP', 'HEOS',
+                                'Humid Air', 'Humid Air Mix', 'LuT', 'feos::HOGC-PCP-SAFT']
             if fluidLibrary not in availFluidLibs:
                 raise ValueError(f"Invalid fluid library: {fluidLibrary}. Must be one of {availFluidLibs}")
             self.fluid = FluidReal(self.fluidName, fluidLibrary, False)

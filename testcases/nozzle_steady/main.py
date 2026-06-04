@@ -3,7 +3,7 @@ from pyshockflow import Config
 
 # pressureList = [45, 75, 90, 94, 97]
 pressureList = [45]
-configList = ['input_%ikPa.ini' %(pressure) for pressure in pressureList]
+configList = ['inputs/input_files/input_%ikPa.ini' %(pressure) for pressure in pressureList]
 
 for configFile in configList:
     config = Config(configFile)

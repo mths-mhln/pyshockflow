@@ -1,0 +1,123 @@
+###########################################
+# Imports
+###########################################
+from matplotlib import ticker
+import matplotlib.pyplot as plt
+
+from labelling import draw_isolines_labeled
+from isolines import (isobar_lines_ts, isenthalp_lines_ts, isotherm_lines_ph, isentrop_lines_ph, construct_quality_isolines,
+    construct_saturation_dome, construct_critical_isoline)
+
+from configthermoplot import ConfigThermoplot
+from general_helpers import configure_matplotlib, extract_critical_point
+from coolprop_interface_thermoplot import CoolPropAbstractState
+### Note: in this code I retaliate against the standard use of extracting fluid properties using FP since I think it is silly...
+
+
+
+def thermoplot(thermoplot_config_file_path: str, thermoplot_overwrite_settings: dict[str, list] = None) -> type[plt.Figure]:
+    # load configuration 
+    config = ConfigThermoplot(config_file=thermoplot_config_file_path)
+    config.get_thermoplot_settings()
+
+    # if thermoplot settings are provided, overwrite any setting that is specified to be overwritten through the thermoplot_settings dictionary.  
+    if thermoplot_overwrite_settings is not None:
+        for setting_name, setting_value in thermoplot_overwrite_settings.items():
+            try:
+                config.thermoplot_settings[setting_name] = setting_value
+            except KeyError:
+                print("Attempting to adapt thermoplot settings with user-provided settings, but the following setting name is not recognized: ", setting_name)
+
+    # Create figure and axis objects
+    configure_matplotlib()
+    fig, ax = plt.subplots(figsize=(10, 7))
+
+    # create log axis for pressure in case of PH
+    if config.thermoplot_settings['diagram_type'] == "PH":
+        ax.set_yscale('log')
+
+    # define color palette
+    quality_isoline_color    = '#1a3a6b'   # dark blue
+    isoline_2_color          = '#6ab0de'   # light blue  (isobars on TS, isentropes on PH)
+    isoline_3_color          = '#e07b20'   # orange      (isenthalps on TS, isotherms on PH)
+
+    # Set plot limits according to user specification.
+    iv_lo = config.thermoplot_settings[f"{config.diagram_type[-1]}_range"][0]
+    iv_hi = config.thermoplot_settings[f"{config.diagram_type[-1]}_range"][1]
+    dv_lo = config.thermoplot_settings[f"{config.diagram_type[0]}_range"][0]
+    dv_hi = config.thermoplot_settings[f"{config.diagram_type[0]}_range"][1]
+    ax.set_xlim(iv_lo, iv_hi)
+    ax.set_ylim(dv_lo, dv_hi)
+
+    # instantiate fluid object
+    AS = CoolPropAbstractState("REFPROP", config.thermoplot_settings["fluid_name"])
+
+    # extract critical point, and plot as yellow circle with black edge.
+    crit_coords = extract_critical_point(config, AS)
+    ax.plot(crit_coords[:, 0], crit_coords[:, 1], marker='o', markerfacecolor='yellow',
+        markersize=5, markeredgecolor='black', zorder=9)
+
+    # construct and draw saturation dome. Consists of three parts: isoline for Q = 0, critical point, and isoline for Q = 1. 
+    dome_coords = construct_saturation_dome(config, AS)
+    ax.plot(dome_coords[:, 0], dome_coords[:, 1], color='black', lw=1.0, zorder=3) # plot saturation dome
+
+    # construct and draw critical isoline as dashed black line
+    critical_isoline_coords = construct_critical_isoline(config, AS, n_pts=400)
+    ax.plot(critical_isoline_coords[:, 0], critical_isoline_coords[:, 1], color='black', lw=1.0, ls=':', zorder=2)
+
+    # Construct and plot isolines if user specified to do so.
+    if config.thermoplot_settings["show_isolines"]:
+        # construct and plot quality isolines. 
+        n_iq_lines = 10
+        quality_isolines_data = construct_quality_isolines(config, AS, n_iq_lines)
+        draw_isolines_labeled(ax, quality_isolines_data, 
+            color=quality_isoline_color, frac=0.15, 
+            lbl_fmt_short = lambda v: rf"${v:.2f}$", 
+            lbl_fmt_named=lambda v: rf"$x={v:.2f}$", 
+            yscale='linear')
+
+        # construct isolines 2 and 3 metadata. 
+        # TS diagram: (2) isobars        (3) isenthalps
+        # PH diagram: (2) isentropes     (3) isotherms
+        if config.diagram_type == "TS":
+            isobar_lines_ts_data = isobar_lines_ts(config, AS)
+            draw_isolines_labeled(ax, isobar_lines_ts_data,  
+                color=isoline_2_color, frac=0.83,
+                lbl_fmt_short=lambda v: rf"${v/1e3:.0f}$",
+                lbl_fmt_named=lambda v: rf"$p={v/1e3:.0f}\,\mathrm{{kPa}}$",
+                yscale='linear')
+            isenthalp_lines_ts_data = isenthalp_lines_ts(config, AS)
+            draw_isolines_labeled(ax, isenthalp_lines_ts_data,  
+                color=isoline_3_color, frac=0.1,
+                lbl_fmt_short=lambda v: rf"${v/1e3:.0f}$",
+                lbl_fmt_named=lambda v: rf"$h={v/1e3:.0f}\,\mathrm{{kJ/kg}}$",
+                yscale='linear')
+            
+        elif config.diagram_type == "PH":
+            isotherm_lines_ph_data = isotherm_lines_ph(config, AS)
+            draw_isolines_labeled(ax, isotherm_lines_ph_data,  
+                color=isoline_3_color, frac=0.90,
+                lbl_fmt_short=lambda v: rf"${v:.0f}$",
+                lbl_fmt_named=lambda v: rf"$T={v:.0f}\,\mathrm{{K}}$",
+                yscale='log')
+            isentrop_lines_ph_data = isentrop_lines_ph(config, AS)
+            draw_isolines_labeled(ax, isentrop_lines_ph_data,
+                color=isoline_2_color, frac=0.83,
+                lbl_fmt_short=lambda v: rf"${v:.0f}$",
+                lbl_fmt_named=lambda v: rf"$s={v:.0f}\,\mathrm{{kJ/kg/K}}$",
+                yscale='log')
+
+    # Set plot labels and aesthetics.
+    if config.thermoplot_settings["diagram_type"] == "TS":
+        ax.set_xlabel(r"$s\ [\mathrm{J/kg/K}]$")
+        ax.set_ylabel(r"$T\ [\mathrm{K}]$")
+    elif config.thermoplot_settings["diagram_type"] == "PH":
+        ax.set_xlabel(r"$h\ [\mathrm{kJ/kg}]$")
+        ax.set_ylabel(r"$p\ [\mathrm{Pa}]$")
+        ax.xaxis.set_major_formatter(
+            ticker.FuncFormatter(lambda x, _: f"${x/1000:.0f}$"))
+    fig.tight_layout()
+
+    return fig
+
+ 
