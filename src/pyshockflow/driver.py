@@ -845,7 +845,7 @@ class Driver:
         print(" "*34 + "END SOLVER")
         print("="*80)
         print(" "*25 + "FINAL ASSEMBLY OF THE RESULTS")
-        # output = Output(self.resultsPath)
+        output = Output(self.resultsPath)
         print(" "*34 + "END ASSEMBLER")
         print("="*80)
     
