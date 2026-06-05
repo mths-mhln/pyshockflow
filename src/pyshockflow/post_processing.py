@@ -154,19 +154,19 @@ def results_plots(pickleList: list[type[WindowsPath]], Driver: type[Driver], out
     -------
     None. Saves the plot in the directory from which the file in which the function is called is executed.
     """
-    # Load nozzle geometry from nozzle csv
+    # Load nozzle geometry from pickle file, any pickle file will do
     if showNozzleGeometry:
-        nozzleData = np.loadtxt(Driver.config.getNozzleFilePath(), skiprows=1, delimiter=',', dtype=float)
-        nozzleX = nozzleData[:,0]
-        nozzleArea = nozzleData[:,1]
-
-        # Interpolate nozzle area to the virtual mesh nodes, extend the nozzle area to the ghost nodes by keeping the area constant.
-        interpolatedNozzleArea = np.interp(Driver.xNodesVirtual, nozzleX, nozzleArea, left=nozzleData[0,1], right=nozzleData[-1,1])
+        output_dict = get_expansion_data(pickleList[0])
+        nozzleX = output_dict["X Coords"]
+        nozzleArea = output_dict["Area Tube"]
 
     for output_var in outputVars:
         # instantiate figure and axes objects
         fig, ax = plt.subplots(figsize=(12, 6))
         
+        # instantiate variable to keep track of maximum y value across all steps, to be able to scale the nozzle geometry accordingly.
+        max_y = 0
+
         for pickleFile in pickleList:
             # load expansion data
             output_dict = get_expansion_data(pickleFile)
@@ -185,7 +185,8 @@ def results_plots(pickleList: list[type[WindowsPath]], Driver: type[Driver], out
             }
             # Extract the y range for the current variable to be plotted, to be able to scale the nozzle geometry accordingly in the plot
             # such that the nozzle geometry I will display in the background is of adequate size.
-            y_interval = [0, 1.2*max(output_dict[output_var])]
+            if np.abs(output_dict[output_var]).max() > max_y:
+                max_y = np.abs(output_dict[output_var]).max()
 
             # plot variable of interest and set y label to the variable name using the translation dict
             step = pickleFile.stem.split("_")[-1].lstrip('0')
@@ -193,8 +194,9 @@ def results_plots(pickleList: list[type[WindowsPath]], Driver: type[Driver], out
             ax.set_ylabel(translation_dict[output_var])
 
         # plot nozzle scaled to y range
+        y_interval = [0, 1.2*max_y]
         if showNozzleGeometry:
-            ax.plot(Driver.xNodesVirtual, interpolatedNozzleArea*y_interval[1]*0.3/max(interpolatedNozzleArea), label='Nozzle Geometry', color='gray', alpha=0.5, zorder=-1)
+            ax.plot(nozzleX, nozzleArea*y_interval[1]*0.3/max(nozzleArea), label='Nozzle Geometry', color='gray', alpha=0.5, zorder=-1)
         
         # set legend, adjust subplot to make room for legend, save figure
         fig.legend(loc='lower center', bbox_to_anchor=(0.5, 0.02), ncol=3, fontsize = 6)
@@ -225,20 +227,19 @@ def get_expansion_data(pickleFile: type[WindowsPath]) -> dict:
 
     # two options: fully finished sim, or partially finished sim. The datastructure of the output files will be slightly different due to the 
     # transformation output.py (see folder of this file) applies to the output 
-    try:
-        solution['Primitive']['Density'].shape[1] # indicates multi dimensional primitive arrays: indicating merged results file, processed by the output object, indicating sim successfully finished
+    if solution['Primitive']['Density'].shape[1] > 1: # indicates multi dimensional primitive arrays: indicating merged results file, processed by the output object, indicating sim successfully finished
         output_dict["X Coords"] = solution['X Coords'][1:-1]
+        output_dict["Area Tube"] = solution['Area Tube'][1:-1]
         output_dict["Density"] = solution['Primitive']["Density"][1:-1,-1]
         output_dict["Pressure"] = solution['Primitive']["Pressure"][1:-1,-1]
         output_dict["Velocity"] = solution['Primitive']["Velocity"][1:-1,-1]
         output_dict["Mach"] = solution['Fluid'].computeMach_u_p_rho(output_dict["Velocity"], output_dict["Pressure"], output_dict["Density"])
         output_dict["Entropy"] = solution['Fluid'].computeEntropy_p_rho(output_dict["Pressure"], output_dict["Density"])
-        output_dict["TotalPressure"] = solution['Fluid'].computeTotalPressure_p_M(output_dict["Pressure"], output_dict["Mach"])
         output_dict["Temperature"] = solution['Fluid'].computeTemperature_p_rho(output_dict["Pressure"], output_dict["Density"])
-        output_dict["TotalTemperature"] = solution['Fluid'].computeTotalTemperature_T_M(output_dict["Temperature"], output_dict["Mach"])
-    except:
+    else:
         # only partial finished sim. Solution file arrays are 1D
         output_dict["X Coords"] = solution['X Coords'][1:-1]
+        output_dict["Area Tube"] = solution['Area Tube'][1:-1]
         output_dict["Density"] = solution['Primitive']["Density"][1:-1]
         output_dict["Pressure"] = solution['Primitive']["Pressure"][1:-1]
         output_dict["Velocity"] = solution['Primitive']["Velocity"][1:-1]

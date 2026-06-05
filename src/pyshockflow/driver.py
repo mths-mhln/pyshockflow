@@ -186,8 +186,8 @@ class Driver:
             # do nothing, append new iterations to the current working directory
             pass
         elif self.config.getOverwriteResults():
-            if os.path.exists(self.resultsDirectoryName) and os.path.isdir(self.resultsDirectoryName):
-                shutil.rmtree(self.resultsDirectoryName)
+            if os.path.exists(self.resultsPath) and os.path.isdir(self.resultsPath):
+                shutil.rmtree(self.resultsPath)
         else:
             dum = self.resultsPath
             counter = 1

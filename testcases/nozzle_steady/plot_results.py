@@ -24,7 +24,7 @@ pickleList = sorted(Path(f"{output_path}").glob("*.pik"))
 outputVars = ["Pressure", "Mach"]  
 
 # plot results
-fig = results_plots(pickleList, Driver, outputVars, showNozzleGeometry=False)
+fig = results_plots(pickleList, driver_object, outputVars, showNozzleGeometry=True)
 
 # show figure
 plt.show()

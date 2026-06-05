@@ -18,5 +18,4 @@ dependencies = [
 
 [tool.uv.workspace]
 members = [
-    "testcases/nozzle_steady_two_phase",
 ]

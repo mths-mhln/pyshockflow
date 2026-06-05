@@ -9,7 +9,9 @@ import re
 def remove_between_chars(s, start_char, end_char):
     return re.sub(f'{re.escape(start_char)}.*?{re.escape(end_char)}', '', s)
 
+
 class CoolPropFluid(base_interface.Fluid):
+    # does not return value for rho = 519.20049536, U (internal energy) = 259012.115143168
 
     def __init__(self, library, name):
         if library == 'CoolProp':
@@ -17,7 +19,8 @@ class CoolPropFluid(base_interface.Fluid):
         super().__init__(library, name)
         self.get_cmp_cnc()
 
-    def PropsSI(self, prop, x_str, x, y_str, y):
+    def PropsSI(self, prop, x_str, x, y_str, y): 
+        
         prop = coolprop_functions.translate_fluidprop_coolprop_prop(prop)
         # print("prop:",prop)
         # print("x_str:", x_str)

@@ -1,7 +1,7 @@
 from pyshockflow import Driver
 from pyshockflow import Config
 
-configFile = 'inputs/input_files/lettieri/L1/StanMix.ini'
+configFile = "inputs/input_files/lettieri/L1/GasMix.ini"
 
 
 config = Config(configFile)
