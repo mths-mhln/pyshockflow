@@ -2,6 +2,7 @@
 # Imports
 ###########################################
 import numpy as np
+import matplotlib.pyplot as plt
 
 
 
@@ -10,7 +11,22 @@ import numpy as np
 ###########################################
 # Labelling
 ###########################################
-def compute_label_coord_and_angle(ax, isoline_data, frac, y_scale):
+def compute_label_coord_and_angle(ax: type[plt.Axes], isoline_data: dict, frac: float, y_scale: str) -> tuple[np.ndarray, float] | None:
+    """
+    Computes the coordinates of the isoline label along the isoline, such that (1) the label is placed at the specified fraction along the isoline (if the isoline has 100 values, and frac=0.25,
+    the label will be placed at the 25th value), and (2) the angle of the label such that it is aligned with the local slope of the isoline at that coordinate. Note that the angle should be computed in 
+    physical space, meaning that it is independent of the axis limits and units, and will look visually aligned with the isoline in the image. The function returns the label coordinates and angle as a 
+    tuple (label_coord, label_ang).
+    Arguments
+    ---------
+    ax: matplotlib axis object
+    isoline_data: dict
+        Dictionary containing the isoline data, including the "coords" key with the isoline coordinates. For a clearer description of the structure of the dict, check out isolines.py
+    frac: float
+        Fraction of the isoline length at which to place the label.
+    y_scale: str
+        Scale of the y-axis ("linear" or "log"). Necessary for PH diagram on which the y axis is typically logarithmic.
+    """
     # extract coordinates from isoline data for clarity of the code. 
     x = isoline_data["coords"][:, 0]
     y = isoline_data["coords"][:, 1]
@@ -56,7 +72,30 @@ def compute_label_coord_and_angle(ax, isoline_data, frac, y_scale):
 
     
 
-def draw_isolines_labeled(ax, isolines_data, color, frac, lbl_fmt_short, lbl_fmt_named, yscale='linear'):
+def draw_isolines_labeled(ax: type[plt.Axes], isolines_data: list[dict], color: str, frac: float, lbl_fmt_short: callable, lbl_fmt_named: callable, yscale='linear') -> None:
+    """
+    Passes the computed isoline data and the computed label coordinates and angles to the axes object for later visualization using the plt.show functionality.
+
+    Arguments
+    ---------
+    ax: matplotlib axis object
+    isolines_data: list[dict]
+        List of dictionaries containing the isoline data, including the "coords" key with the isoline coordinates.
+    color: str
+        Color of the isolines.
+    frac: float
+        Fraction of the isoline length at which to place the label.
+    lbl_fmt_short: callable
+        Function to format the short label. Typically a lambda function, see use case in thermoplot.py
+    lbl_fmt_named: callable
+        Function to format the named label. Typically a lambda function, see use case in thermoplot.py.
+    yscale: str
+        Scale of the y-axis ("linear" or "log"). Necessary for PH diagram on which the y axis is typically logarithmic.
+
+    Returns
+    -------
+    None
+    """
     # if no data is passed to the function, draw nothing.
     if not isolines_data:
         return

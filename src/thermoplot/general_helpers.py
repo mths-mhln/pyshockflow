@@ -12,7 +12,21 @@ from coolprop_interface_thermoplot import CoolPropAbstractState
 
 
 def extract_critical_point(config: type[ConfigThermoplot], AS: type[CoolPropAbstractState]) -> np.ndarray:
-    """extract correct critical point coordinates according to diagram type. """
+    """
+    Extract correct critical point coordinates. Depending on diagram type a different approach is necessary. The name of the diagram can be used to create a code that works in general.  
+
+    Arguments
+    ---------
+    config: ConfigThermoplot
+        Configuration object containing thermoplot settings, extracted from a .ini file. For more information please refer to configthermoplot.py
+    AS: CoolPropAbstractState
+        Abstract state object for property calculations. Created in coolprop_interface_thermoplot.py. See file for more information.
+
+    Returns
+    -------
+    np.ndarray
+        Array containing the critical point coordinates.
+    """
     # Only T_crit, P_crit and rho_crit can be used for extracting critical point coordinates. 
     # use rho_crit as second variable for extracting S and H information. 
     iv_type = config.thermoplot_settings["diagram_type"][0]
@@ -28,20 +42,41 @@ def extract_critical_point(config: type[ConfigThermoplot], AS: type[CoolPropAbst
 
 
 
-def configure_matplotlib():
-    # give matplotlib a LaTeX formatting
-    plt.rcParams.update({
-        "text.usetex": True,
-        "font.family": "serif",
-        "font.serif": ["Utopia"],
-        "text.latex.preamble": (
-            r"\usepackage[T1]{fontenc}"
-            r"\usepackage{lmodern}"
-            r"\usepackage{siunitx}"
-            r"\usepackage{bm}"
-            r"\sisetup{group-separator={\,},group-minimum-digits=4}"
-        ),
-    })
-    plt.rcParams['path.simplify'] = True
-    plt.rcParams['path.simplify_threshold'] = 0.1
-    return None
+def configure_matplotlib(func):
+    """
+    Simple decorator function to configure matplotlib with the desired settings for the thermoplot. 
+    """
+    def wrapper(*args, **kwargs):
+        # give matplotlib a LaTeX formatting
+        plt.rcParams.update({
+            "text.usetex": True,
+            "font.family": "serif",
+            "font.serif": ["Utopia"],
+            "text.latex.preamble": (
+                r"\usepackage[T1]{fontenc}"
+                r"\usepackage{lmodern}"
+                r"\usepackage{siunitx}"
+                r"\usepackage{bm}"
+                r"\sisetup{group-separator={\,},group-minimum-digits=4}"
+            ),
+        })
+        plt.rcParams['path.simplify'] = True
+        plt.rcParams['path.simplify_threshold'] = 0.1
+
+        # give matplotlib a LaTeX formatting
+        plt.rcParams.update({
+            "text.usetex": True,
+            "font.family": "serif",
+            "font.serif": ["Utopia"],
+            "text.latex.preamble": (
+                r"\usepackage[T1]{fontenc}"
+                r"\usepackage{lmodern}"
+                r"\usepackage{siunitx}"
+                r"\usepackage{bm}"
+                r"\sisetup{group-separator={\,},group-minimum-digits=4}"
+            ),
+        })
+        plt.rcParams['path.simplify'] = True
+        plt.rcParams['path.simplify_threshold'] = 0.1
+        return func(*args, **kwargs)
+    return wrapper

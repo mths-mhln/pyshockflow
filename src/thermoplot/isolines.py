@@ -17,6 +17,21 @@ import numpy as np
 # Isoline generation - General
 ###########################################
 def construct_saturation_dome(config: type[ConfigThermoplot], AS: type[CoolPropAbstractState]) -> np.ndarray:
+    """
+    Constructs the saturation dome by evaluating the saturation branches at control points of the independent variable, and combining these with the critical point coordinates. 
+    The saturation dome is returned as an array of coordinates.
+
+    Attributes
+    ----------
+    config: ConfigThermoplot
+        Configuration object containing thermoplot settings, extracted from a .ini file. For more information please refer to configthermoplot.py
+    AS: CoolPropAbstractState
+        Abstract state object for property calculations. Created in coolprop_interface_thermoplot.py. See file for more information.
+
+    Returns
+    -------
+    
+    """
     # independent variable is the vertical axis variable in the diagram. This is necessary to obtain determinate thdy pairs. 
     iv_type = config.thermoplot_settings["diagram_type"][0]
     dv_type = config.thermoplot_settings["diagram_type"][-1]
@@ -124,6 +139,9 @@ def construct_critical_isoline(config: type[ConfigThermoplot], AS: type[CoolProp
 # Isoline generation - TS
 ###########################################
 def isobar_lines_ts(config: type[ConfigThermoplot], AS: type[CoolPropAbstractState], n_lines=12):
+    """
+    Construction of isobars in TS diagram starts at the lowest possible isobar for which the pressure is still larger than that 
+    """
     # extract plot limits
     T_lo, T_hi = config.thermoplot_settings["T_range"]
     s_lo, s_hi = config.thermoplot_settings["S_range"]

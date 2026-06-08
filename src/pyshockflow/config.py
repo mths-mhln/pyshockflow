@@ -157,7 +157,7 @@ class Config:
         return str(self.config_parser.get('FLUID', 'FLUID_LIBRARY'))
     
     def getPropertyExtractionMethod(self):
-        property_extraction_method = str(self.config_parser.get('FLUID', 'PROPERTY_EXTRACTION_METHOD')).lower() 
+        property_extraction_method = str(self.config_parser.get('FLUID', 'PROPERTY_EXTRACTION_METHOD', fallback = 'fluid')).lower() 
         if property_extraction_method not in ['fluid', 'abstractstate', 'abstractstate_v2']:
             raise ValueError(f"Invalid PROPERTY_EXTRACTION_METHOD. Must be one of 'fluid', 'abstractstate' or 'abstractstate_v2'. Not '{property_extraction_method}'.")
         return property_extraction_method

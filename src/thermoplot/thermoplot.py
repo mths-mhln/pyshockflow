@@ -4,18 +4,36 @@
 from matplotlib import ticker
 import matplotlib.pyplot as plt
 
-from labelling import draw_isolines_labeled
-from isolines import (isobar_lines_ts, isenthalp_lines_ts, isotherm_lines_ph, isentrop_lines_ph, construct_quality_isolines,
-    construct_saturation_dome, construct_critical_isoline)
-
 from configthermoplot import ConfigThermoplot
 from general_helpers import configure_matplotlib, extract_critical_point
 from coolprop_interface_thermoplot import CoolPropAbstractState
+from labelling import draw_isolines_labeled
+from isolines import (isobar_lines_ts, isenthalp_lines_ts, isotherm_lines_ph, isentrop_lines_ph, construct_quality_isolines,
+    construct_saturation_dome, construct_critical_isoline)
 ### Note: in this code I retaliate against the standard use of extracting fluid properties using FP since I think it is silly...
 
 
-
+@configure_matplotlib
 def thermoplot(thermoplot_config_file_path: str, thermoplot_overwrite_settings: dict[str, list] = None) -> type[plt.Figure]:
+    """
+    Integral functionality of the package. Combines functionality by all submodules to produce a thermodynamic diagram figure according
+    to user specifications in the config file, and returns the figure object to the user suc that they can further adapt it if they wish.
+
+    Arguments
+    ---------
+    thermoplot_config_file_path: str
+        File path to the config file with user specifications for the thermoplot. See configthermoplot.py for details on how to specify the config file and which settings are necessary.
+    thermoplot_overwrite_settings: dict[str, list], optional
+        A dictionary with keys corresponding to thermoplot settings (e.g. "show_isolines") and values corresponding to the value that the user wishes to overwrite this setting with. 
+        This allows users to overwrite settings specified in the config file without having to adapt the config file itself. This is useful for example when users want to produce multiple 
+        thermoplots with slightly different settings, but do not want to create multiple config files for this. By default, this is set to None, meaning that no settings will be overwritten 
+        and the function will use the settings specified in the config file.
+    
+    Returns
+    -------
+    plt.Figure
+        The figure object containing the thermodynamic diagram.
+    """
     # load configuration 
     config = ConfigThermoplot(config_file=thermoplot_config_file_path)
     config.get_thermoplot_settings()
@@ -29,7 +47,6 @@ def thermoplot(thermoplot_config_file_path: str, thermoplot_overwrite_settings: 
                 print("Attempting to adapt thermoplot settings with user-provided settings, but the following setting name is not recognized: ", setting_name)
 
     # Create figure and axis objects
-    configure_matplotlib()
     fig, ax = plt.subplots(figsize=(10, 7))
 
     # create log axis for pressure in case of PH
