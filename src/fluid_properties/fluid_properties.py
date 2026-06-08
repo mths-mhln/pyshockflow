@@ -40,11 +40,15 @@ def AbstractState(fluid_object, **kwargs):
         return FeosAbstractState(fluid_object, kwargs)
     elif fluid_object.Library in LuTLibraries:
         return LuTAbstractState(fluid_object, kwargs)
+    else:
+        raise Exception('library not recognized')
     
 def AbstractState_v2(library, name, **kwargs):
     if library in CoolPropLibraries:
         fluid_object = CoolPropAbstractState_v2(library, name)
         return fluid_object
+    else:
+        raise Exception('library not recognized')
 
 def add_lookup_table(lut_fluid, fluid_object, **kwargs):
     kwargs['fluidprop_language'] = True

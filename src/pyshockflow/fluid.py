@@ -91,10 +91,16 @@ class FluidReal():
     """
     Real Fluid Class, where thermodynamic properties and transformations are taken from coolprop
     """
-    def __init__(self, fluid_name, fluid_library, print_error=True):
+    def __init__(self, fluid_name, fluid_library, property_extraction_method, print_error=True):
         self.fluid_name = fluid_name
         self.fluid_library = fluid_library
-        self.fluid = FP.fluid(fluid_library, fluid_name, print_error=print_error)
+        if property_extraction_method.lower() == 'fluid':
+            self.fluid = FP.fluid(fluid_library, fluid_name,  print_error=print_error)
+        if property_extraction_method.lower() == 'abstractstate':
+            self.fluid = FP.AbstractState(fluid_library, fluid_name)
+        if property_extraction_method.lower() == 'abstractstate_v2':
+            self.fluid = FP.AbstractState_v2(fluid_library, fluid_name)
+            
 
     def computeStaticEnergy_p_rho(self, p, rho):
         e = FP.PropsSI('U', 'P', p, 'D', rho, self.fluid)

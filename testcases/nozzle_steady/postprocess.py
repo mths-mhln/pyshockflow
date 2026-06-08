@@ -4,7 +4,7 @@ from pathlib import Path
 from pyshockflow.plot_styles import *
 
 import pyshockflow.post_processing
-from pyshockflow.post_processing import results_plots, thermoplot_expansion_plot
+from pyshockflow.post_processing import results_plots, thermoplot_expansion_plot, nozzle_geometry_plot, get_expansion_data
 from pyshockflow import Driver, Config
 
 
@@ -28,7 +28,6 @@ fig = results_plots(pickleList, driver_object, outputVars, showNozzleGeometry=Tr
 
 # show figure
 plt.show()
-
 
 
 # plot expansion path on top of thermoplot
