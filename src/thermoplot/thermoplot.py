@@ -3,17 +3,62 @@
 ###########################################
 from matplotlib import ticker
 import matplotlib.pyplot as plt
+import hashlib
+import pickle
+import tempfile
+from pathlib import Path
 
 from configthermoplot import ConfigThermoplot
 from general_helpers import configure_matplotlib, extract_critical_point
 from coolprop_interface_thermoplot import CoolPropAbstractState
 from labelling import draw_isolines_labeled
-from isolines import (isobar_lines_ts, isenthalp_lines_ts, isotherm_lines_ph, isentrop_lines_ph, construct_quality_isolines,
-    construct_saturation_dome, construct_critical_isoline)
+from isolines import (isobar_lines_ts, isenthalp_lines_ts, isotherm_lines_ph, 
+        isentrop_lines_ph, construct_quality_isolines,
+        construct_saturation_dome, construct_critical_isoline)
 ### Note: in this code I retaliate against the standard use of extracting fluid properties using FP since I think it is silly...
 
 
+
+# Create temporary dir for caching of thermoplot
+_THERMOPLOT_CACHE_DIR = Path(tempfile.gettempdir()) / "pyshockflow_thermoplot_cache"
+
+def _thermoplot_cache_path(thermoplot_config_file_path: str, thermoplot_overwrite_settings: dict[str, object] | None) -> Path:
+    """
+    Creates a unique cache path for a given combination of thermoplot config file and thermoplot settings to overwrite. 
+    """
+    if thermoplot_overwrite_settings is None:
+        overwrite_settings_key = None
+    else:
+        overwrite_settings_key = tuple(sorted(thermoplot_overwrite_settings.items()))
+    # save input to cache
+    cache_input = (
+        thermoplot_config_file_path,
+        Path(thermoplot_config_file_path).stat().st_mtime_ns, # include modification time of config file in cache key to ensure that cache is invalidated when config file is updated
+        overwrite_settings_key,
+    )
+    # create cache key by hashing the cache input. Use pickle to serialize the cache input, and then hash the serialized input using sha256 to create a unique 
+    # cache key. This ensures that different inputs will result in different cache keys, and that the same input will always result in the same cache key.
+    cache_key = hashlib.sha256(pickle.dumps(cache_input, protocol=pickle.HIGHEST_PROTOCOL)).hexdigest()
+    return _THERMOPLOT_CACHE_DIR / f"{cache_key}.pkl"
+
+
 @configure_matplotlib
+def thermoplot_cached(thermoplot_config_file_path: str, thermoplot_overwrite_settings: dict[str, list] = None) -> type[plt.Figure]:
+    """
+    Disk-cached version of the thermoplot function.
+    """
+    cache_path = _thermoplot_cache_path(thermoplot_config_file_path, thermoplot_overwrite_settings)
+    if cache_path.exists():
+        with cache_path.open("rb") as cache_file:
+            return pickle.load(cache_file)
+
+    fig = thermoplot(thermoplot_config_file_path, thermoplot_overwrite_settings)
+    _THERMOPLOT_CACHE_DIR.mkdir(parents=True, exist_ok=True)
+    with cache_path.open("wb") as cache_file:
+        pickle.dump(fig, cache_file, protocol=pickle.HIGHEST_PROTOCOL)
+    return fig
+
+
 def thermoplot(thermoplot_config_file_path: str, thermoplot_overwrite_settings: dict[str, list] = None) -> type[plt.Figure]:
     """
     Integral functionality of the package. Combines functionality by all submodules to produce a thermodynamic diagram figure according

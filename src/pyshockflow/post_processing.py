@@ -9,7 +9,7 @@ from numpy.compat import Path
 from scipy.optimize import fsolve
 from pathlib import Path, WindowsPath
 
-from thermoplot.thermoplot import thermoplot
+from thermoplot.thermoplot import thermoplot_cached
 from pyshockflow.driver import Driver
 from pyshockflow.config import Config
 
@@ -264,7 +264,7 @@ def thermoplot_expansion_plot(thermoplot_config_file_path: str, pickleFile: type
         thermoplot_overwrite_settings["fluid_name"] = config.getFluidName()
 
     # get plot background
-    fig = thermoplot(thermoplot_config_file_path, thermoplot_overwrite_settings=thermoplot_overwrite_settings)
+    fig = thermoplot_cached(thermoplot_config_file_path, thermoplot_overwrite_settings=thermoplot_overwrite_settings)
 
     # get expansion data
     output_dict = get_expansion_data(pickleFile)
