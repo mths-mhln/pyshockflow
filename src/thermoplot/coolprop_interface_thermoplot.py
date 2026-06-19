@@ -3,18 +3,6 @@ from CoolProp import AbstractState
 import CoolProp.CoolProp as CP
 
 
-
-# Utilities
-def update_wrapper(AS, input_spec, x, y):
-        """
-        Coolprop utility to allow nan return upon vectorized evaluation of AbstractState.
-        """
-        try:
-            AS.update(input_spec, x, y)
-            return False
-        except ValueError:
-            return True
-
 class CoolPropAbstractState():
     """
     CoolProp AbstractState wrapper. allows user to use the familiar PropsSI syntax for CoolProp property extraction, while using the AbstractState under the hood for better performance. 
@@ -44,8 +32,33 @@ class CoolPropAbstractState():
             library = 'HEOS'
         self.Name = name
         self.Library = library
+        self._abstract_state = None
 
-    def PropsSI_syntax_to_AbstractState_syntax(self, str):
+    @staticmethod
+    def _update_wrapper(AS, input_spec, x, y):
+        """
+        Coolprop utility to allow nan return upon vectorized evaluation of AbstractState.
+        """
+        try:
+            AS.update(input_spec, x, y)
+            return False
+        except ValueError:
+            return True
+
+    def _get_abstract_state(self):
+        """
+        If AbstractState instance is already created for the fluid type and library, no need to create it over and over again.
+        """
+        if self._abstract_state is None:
+            str_len = int(len(self.Name))
+            if str_len > 3 and self.Name[str_len - 3: str_len] == '[1]':
+                name = self.Name[0:str_len - 3]
+            else:
+                name = self.Name
+            self._abstract_state = AbstractState(self.Library, name)
+        return self._abstract_state
+
+    def _PropsSI_syntax_to_AbstractState_syntax(self, str):
         """
         Converts PropsSI syntax to AbstractState syntax. for properties that are typically mass-averaged, the subscript mass should be added behind it.
         """
@@ -55,7 +68,7 @@ class CoolPropAbstractState():
         else:
             return str
         
-    def get_input_spec(self, x_str, y_str):
+    def _get_input_spec(self, x_str, y_str):
         """
         Method to convert specified PropsSI input spec into a coolprop inputs object, required for updating the abstractstate thermodynamic state in update_and_get using the coolprop abstractstate
         update method. 
@@ -79,8 +92,9 @@ class CoolPropAbstractState():
             reorder = True
             return getattr(CP, y_str + x_str + "_INPUTS"), reorder
         
-    @np.vectorize(otypes=[float]) # update abstract state can only happen with single thermodynamic point, arrays are not supported.
-    def update_and_get(AS, input_spec, x, y, output, reorder): # need no arg self since the vectorize decorator adds this automatically
+    @staticmethod # necessary to allow for vectorization of the method
+    @np.vectorize(otypes=[float])
+    def _update_and_get(AS, input_spec, x, y, output, reorder):
         """
         Vectorized method to update the AbstractState with the specified input specification and input variables, and return the specified output variable. 
         The method returns nan for points that are not valid for the AbstractState (e.g. points outside the phase envelope).
@@ -107,15 +121,15 @@ class CoolPropAbstractState():
             For points that are not valid for the AbstractState (e.g. points outside the phase envelope), nan will be returned.
         """
         if reorder:
-            skip_update = update_wrapper(AS, input_spec, y, x)
+            skip_update = CoolPropAbstractState._update_wrapper(AS, input_spec, y, x)
         else:
-            skip_update = update_wrapper(AS, input_spec, x, y)
+            skip_update = CoolPropAbstractState._update_wrapper(AS, input_spec, x, y)
         if skip_update:
             return np.nan
         if output == 'drhomassdPcT':
             return AS.first_partial_deriv(CP.iP, CP.iDmass, CP.iT)
         return getattr(AS, output)()    
-    
+
     def PropsSI(self, prop, x_str=None, x=None, y_str=None, y=None):
         """
         Integral functionality, uses various methods to convert user input to an input spec accepted by AbstractState syntax, and extracts fluid thermodynamic property according to user specification. 
@@ -140,15 +154,7 @@ class CoolPropAbstractState():
             Value of the desired output variable, e.g. temperature or pressure. Will be a float for single point evaluation, or a numpy array for vectorized evaluation. 
             For points that are not valid for the AbstractState (e.g. points outside the phase envelope), nan will be returned.       
         """
-        str_len = int(len(self.Name))
-        if str_len > 3:
-            if self.Name[str_len - 3: str_len] == '[1]':
-                name = self.Name[0:str_len - 3]
-            else:
-                name = self.Name
-        else:
-            name = self.Name
-        AS = AbstractState(self.Library, name)
+        AS = self._get_abstract_state()
         if prop in ['Tcrit', 'Pcrit', 'Dcrit', 'Tmax', 'M', 'Ttriple']: # translation necessary to comply with AS syntax, see: https://coolprop.org/_static/doxygen/html/class_cool_prop_1_1_abstract_state.html
             if prop== 'Tcrit':
                 return AS.T_critical()
@@ -162,14 +168,14 @@ class CoolPropAbstractState():
                 return AS.molar_mass()
             elif prop == 'Ttriple':
                 return AS.Ttriple()
-        prop_AS = self.PropsSI_syntax_to_AbstractState_syntax(prop)
-        x_str_AS = self.PropsSI_syntax_to_AbstractState_syntax(x_str)
-        y_str_AS = self.PropsSI_syntax_to_AbstractState_syntax(y_str)
-        input_spec, reorder = self.get_input_spec(x_str_AS, y_str_AS)
+        prop_AS = self._PropsSI_syntax_to_AbstractState_syntax(prop)
+        x_str_AS = self._PropsSI_syntax_to_AbstractState_syntax(x_str)
+        y_str_AS = self._PropsSI_syntax_to_AbstractState_syntax(y_str)
+        input_spec, reorder = self._get_input_spec(x_str_AS, y_str_AS)
         if prop_AS == 'Q':
-            out = self.update_and_get(AS, input_spec, x, y, prop_AS, reorder)
+            out = self._update_and_get(AS, input_spec, x, y, prop_AS, reorder)
             if out == -1:
-                phase = self.update_and_get(AS, input_spec, x, y, 'phase', reorder)
+                phase = self._update_and_get(AS, input_spec, x, y, 'phase', reorder)
                 # when not in VLE zone, coolprop gives -1 as result. Here we make uniform result with Fluidprop
                 if phase == 0 or phase == 3:  # corresponds to liquid or liquid above critical pressure
                     return 0
@@ -192,7 +198,7 @@ class CoolPropAbstractState():
                 "Cvmass": "cvmass",
                 "d(P)/d(D)|T": "drhomassdPcT",
             }
-            return self.update_and_get(AS, input_spec, x, y, translator[prop_AS], reorder)
+            return self._update_and_get(AS, input_spec, x, y, translator[prop_AS], reorder)
         
 
 

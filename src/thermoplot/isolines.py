@@ -3,8 +3,8 @@
 ###########################################
 import copy
 
+from utils import extract_critical_point
 from configthermoplot import ConfigThermoplot
-from general_helpers import extract_critical_point
 from coolprop_interface_thermoplot import CoolPropAbstractState
 
 import numpy as np

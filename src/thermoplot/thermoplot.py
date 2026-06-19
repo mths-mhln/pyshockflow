@@ -9,13 +9,15 @@ import tempfile
 from pathlib import Path
 
 from configthermoplot import ConfigThermoplot
-from general_helpers import configure_matplotlib, extract_critical_point
+from utils import configure_matplotlib, extract_critical_point
 from coolprop_interface_thermoplot import CoolPropAbstractState
 from labelling import draw_isolines_labeled
 from isolines import (isobar_lines_ts, isenthalp_lines_ts, isotherm_lines_ph, 
         isentrop_lines_ph, construct_quality_isolines,
         construct_saturation_dome, construct_critical_isoline)
 ### Note: in this code I retaliate against the standard use of extracting fluid properties using FP since I think it is silly...
+
+
 
 
 

@@ -6,6 +6,7 @@ from scipy.optimize import fsolve
 import sys
 import timeit
 import fluid_properties.fluid_properties as FP
+from functools import partial
 
 class FluidIdeal():
     """
@@ -109,26 +110,59 @@ class FluidReal():
     def computePressure_rho_e(self, rho, e):
         p = FP.PropsSI('P', 'D', rho, 'U', e, self.fluid)
         return p
-
+    
     def computeSoundSpeed_p_rho(self, p, rho):
-        try:
-            a = FP.PropsSI("A", "P", p, "D", rho, self.fluid)
+        """Public method - handles self.fluid and vectorization"""
+        # Ensure inputs are numpy arrays
+        p = np.asarray(p, dtype=float)
+        rho = np.asarray(rho, dtype=float)
+        p, rho = np.broadcast_arrays(p, rho)
+        
+        # Vectorize the core function, passing self.fluid
+        vectorized_func = np.vectorize(
+            partial(self._computeSoundSpeed_p_rho_single, fluid=self.fluid),
+            otypes=[float]
+        )
+        
+        return vectorized_func(p, rho)
+
+    @staticmethod
+    def _computeSoundSpeed_p_rho_single(p, rho, fluid):
+        """Core scalar function - no self, pure computation"""
+        # check if the state is single phase or two phase
+        alpha = FP.PropsSI("Q", "P", p, "D", rho, fluid)
+        
+        if alpha <= 0 or alpha >= 1:
+            # single phase
+            a = FP.PropsSI("A", "P", p, "D", rho, fluid)
             return a
-        except:
-            # two phase region (or close) 
-            T = self.computeTemperature_p_rho(p, rho)
-            try:
-                Q = FP.PropsSI("Q", "T", T, "P", p, self.fluid)
-            except:
-                # if the state is very close to saturation line it fails to find the quality -> set artifically to 1
-                Q = 1
-
-            # Speed of sound in liquid and vapor phases at the given T and P
-            a_liquid = FP.PropsSI("A", "T", T, "Q", 0, self.fluid)  # sound speed for liquid phase
-            a_vapor = FP.PropsSI("A", "T", T, "Q", 1, self.fluid)   # sound speed for vapor phase
-
-            # Calculate weighted speed of sound based on quality
-            a = (1 - Q) * a_liquid + Q * a_vapor
+        else:
+            # two-phase (HEM model from Cioffi et al.)
+            T = FP.PropsSI("T", "P", p, "D", rho, fluid)
+            alpha_L = alpha                    # already computed
+            alpha_V = 1 - alpha_L
+            
+            soundSpeed_L = FP.PropsSI("A", "P", p, "Q", 0, fluid)
+            soundSpeed_V = FP.PropsSI("A", "P", p, "Q", 1, fluid)
+            rho_L = FP.PropsSI("D", "P", p, "Q", 0, fluid)
+            rho_V = FP.PropsSI("D", "P", p, "Q", 1, fluid)
+            c_p_L = FP.PropsSI("Cpmass", "P", p, "Q", 0, fluid)
+            c_p_V = FP.PropsSI("Cpmass", "P", p, "Q", 1, fluid)
+            
+            # Finite difference for ds/dp at constant Q
+            ds_dp_cQ_L = (FP.PropsSI("S", "P", p + 1e3, "Q", 0, fluid) -
+                         FP.PropsSI("S", "P", p - 1e3, "Q", 0, fluid)) / (2 * 1e3)
+            ds_dp_cQ_V = (FP.PropsSI("S", "P", p + 1e3, "Q", 1, fluid) -
+                         FP.PropsSI("S", "P", p - 1e3, "Q", 1, fluid)) / (2 * 1e3)
+            
+            # Sound speed according to Eq. 29 (Cioffi et al.)
+            a = (rho * (
+                    alpha_L / (rho_L * soundSpeed_L**2) +
+                    alpha_V / (rho_V * soundSpeed_V**2) +
+                    T * ((alpha_L * rho_L / c_p_L) * ds_dp_cQ_L +
+                         (alpha_V * rho_V / c_p_V) * ds_dp_cQ_V)
+                 ))**(-0.5)
+            
             return a
 
     def computeMach_u_p_rho(self, u, p, rho):

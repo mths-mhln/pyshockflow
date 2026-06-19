@@ -33,8 +33,8 @@ def Init_FluidProp():
     elif platform == 'darwin':
        FPP[0] = cdll.LoadLibrary('/Applications/FluidProp/lib/FPPython.dylib')
     elif platform == 'win32':
-       # FPP[0] = cdll.LoadLibrary('C:/Program Files (x86)/FluidProp/FPPython.dll')
-       FPP[0] = cdll.LoadLibrary('C:/fluidprop/Sources/Libraries/API/Python/Windows/bin/x64/FPPython.dll')
+       FPP[0] = cdll.LoadLibrary('C:/Program Files/FluidProp/FPPython.dll')
+    #    FPP[0] = cdll.LoadLibrary('C:/fluidprop/Sources/Libraries/API/Python/Windows/bin/x64/FPPython.dll')
     elif platform == 'win64':
        # FPP[0] = cdll.LoadLibrary('C:/Program Files/FluidProp/FPPython.dll')
        FPP[0] = cdll.LoadLibrary('C:/fluidprop/Sources/Libraries/API/Python/Windows/bin/x64/FPPython.dll')

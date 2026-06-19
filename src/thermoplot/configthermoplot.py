@@ -26,6 +26,7 @@ class ConfigThermoplot:
         Helper function to parse values from the config file. It checks if the value is a list 
         (enclosed in square brackets), a boolean (true/false), or a float. If none of these, 
         it returns the value as a string.
+        Necessary because configparser returns all input entries as strings.
         """
         value = value.strip()
         if value.startswith("[") and value.endswith("]"):

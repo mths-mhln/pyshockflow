@@ -133,6 +133,9 @@ class Driver:
         else:
             self.imposeInitialConditions()
         self.setBoundaryConditions()
+
+        for attr, value in vars(self).items():
+            print(f"{attr}: {value}")
         if self.restartFilePath is not None:
             self.solve()
     
@@ -799,6 +802,9 @@ class Driver:
         else:
             self.time = 0
             self.iterationIndex = 0
+
+        # start convergence history
+        convergence_hist = []
         
         # main loop
         while self.time < self.timeMax:
@@ -834,6 +840,10 @@ class Driver:
                 else:
                     convergenceList.append(False)
             if all(convergenceList):
+                convergence_hist.append(self.iterationIndex)
+            else: 
+                convergence_hist = []
+            if len(convergence_hist) >= 20:
                 dt = self.timeMax - self.time
 
             # perform time update
@@ -911,7 +921,9 @@ class Driver:
         speedOfSound = np.zeros_like(velocity)
         for i in range(len(speedOfSound)):
             speedOfSound[i] = self.fluid.computeSoundSpeed_p_rho(primitive['Pressure'][i+1], primitive['Density'][i+1])
+        print("speedOfSound:", speedOfSound)
         dtMax = np.min(self.dx[1:-1] * self.cflMax / (np.abs(velocity)+speedOfSound))
+        # print("dtMax:", dtMax)
         return dtMax
     
     

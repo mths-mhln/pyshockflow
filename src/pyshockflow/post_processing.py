@@ -227,7 +227,8 @@ def get_expansion_data(pickleFile: type[WindowsPath]) -> dict:
 
     # two options: fully finished sim, or partially finished sim. The datastructure of the output files will be slightly different due to the 
     # transformation output.py (see folder of this file) applies to the output 
-    if solution['Primitive']['Density'].shape[1] > 1: # indicates multi dimensional primitive arrays: indicating merged results file, processed by the output object, indicating sim successfully finished
+    try:
+        solution['Primitive']['Density'].shape[1] > 1 # indicates multi dimensional primitive arrays: indicating merged results file, processed by the output object, indicating sim successfully finished
         output_dict["X Coords"] = solution['X Coords'][1:-1]
         output_dict["Area Tube"] = solution['Area Tube'][1:-1]
         output_dict["Density"] = solution['Primitive']["Density"][1:-1,-1]
@@ -236,7 +237,7 @@ def get_expansion_data(pickleFile: type[WindowsPath]) -> dict:
         output_dict["Mach"] = solution['Fluid'].computeMach_u_p_rho(output_dict["Velocity"], output_dict["Pressure"], output_dict["Density"])
         output_dict["Entropy"] = solution['Fluid'].computeEntropy_p_rho(output_dict["Pressure"], output_dict["Density"])
         output_dict["Temperature"] = solution['Fluid'].computeTemperature_p_rho(output_dict["Pressure"], output_dict["Density"])
-    else:
+    except:
         # only partial finished sim. Solution file arrays are 1D
         output_dict["X Coords"] = solution['X Coords'][1:-1]
         output_dict["Area Tube"] = solution['Area Tube'][1:-1]
