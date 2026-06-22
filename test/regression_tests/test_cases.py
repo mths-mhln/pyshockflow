@@ -8,7 +8,7 @@ import pickle
 import numpy as np
 
 BASE_DIR = Path(__file__).resolve().parent.parent
-CASES_DIR = BASE_DIR / "system_tests"
+CASES_DIR = BASE_DIR / "regression_tests"
 
 
 def discover_cases():

@@ -229,6 +229,7 @@ def get_expansion_data(pickleFile: type[WindowsPath]) -> dict:
     # transformation output.py (see folder of this file) applies to the output 
     try:
         solution['Primitive']['Density'].shape[1] > 1 # indicates multi dimensional primitive arrays: indicating merged results file, processed by the output object, indicating sim successfully finished
+        print("Simulation successfully finished, loading data accordingly.")
         output_dict["X Coords"] = solution['X Coords'][1:-1]
         output_dict["Area Tube"] = solution['Area Tube'][1:-1]
         output_dict["Density"] = solution['Primitive']["Density"][1:-1,-1]

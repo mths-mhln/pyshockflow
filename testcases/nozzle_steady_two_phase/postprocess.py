@@ -10,13 +10,14 @@ from pyshockflow import Driver, Config
 
 
 # Extrcact outputpath from config file
-config = Config("inputs/input_files/orchid/input_HEOS_CoolProp.ini")
+config = Config("inputs/input_files/orchid/input_REFPROP_CoolProp.ini")
 with pyshockflow.post_processing.HiddenPrints():
     driver_object = Driver(config)
 output_path = driver_object.resultsPath
 
 # Extract all pickle files stored in that output path
 pickleList = sorted(Path(f"{output_path}").glob("*.pik"))
+print(pickleList)
 
 # Specify output variables of interest. Currently supported variables are:
 # for ideal ["X Coords","Density", "Pressure", "Velocity", "Mach", "Entropy", "TotalPressure", "Temperature", "TotalTemperature"] 
@@ -31,7 +32,7 @@ plt.show()
 
 
 # plot expansion path on top of thermoplot
-fig = thermoplot_expansion_plot("inputs/thermoplot/thermoplot.ini", pickleList[-2], config)
+fig = thermoplot_expansion_plot("inputs/thermoplot/thermoplot.ini", pickleList[-1], config)
 
 # extract data
 data = get_expansion_data(pickleList[-1])

@@ -130,40 +130,65 @@ class FluidReal():
     def _computeSoundSpeed_p_rho_single(p, rho, fluid):
         """Core scalar function - no self, pure computation"""
         # check if the state is single phase or two phase
-        alpha = FP.PropsSI("Q", "P", p, "D", rho, fluid)
-        
-        if alpha <= 0 or alpha >= 1:
-            # single phase
+        T = FP.PropsSI("T", "P", p, "D", rho, fluid)
+        T_crit = FP.PropsSI("Tcrit", fluid_object = fluid)
+        if T < T_crit:
+            S_sat_V = FP.PropsSI("S", "T", T, "Q", 1, fluid)
+            S_sat_L = FP.PropsSI("S", "T", T, "Q", 0, fluid)
+            non_saturable = False
+        else:
+            non_saturable = True
+        S = FP.PropsSI("S", "T", T, "D", rho, fluid)
+
+        def _computeSoundSpeed_p_rho_single_phase(p, rho, fluid):
             a = FP.PropsSI("A", "P", p, "D", rho, fluid)
             return a
-        else:
+        
+        def _computeSoundSpeed_p_rho_two_phase(p, rho, fluid):
             # two-phase (HEM model from Cioffi et al.)
-            T = FP.PropsSI("T", "P", p, "D", rho, fluid)
-            alpha_L = alpha                    # already computed
-            alpha_V = 1 - alpha_L
-            
+            x_V = FP.PropsSI("Q", "P", p, "D", rho, fluid)
+            x_L = 1 - x_V
             soundSpeed_L = FP.PropsSI("A", "P", p, "Q", 0, fluid)
             soundSpeed_V = FP.PropsSI("A", "P", p, "Q", 1, fluid)
             rho_L = FP.PropsSI("D", "P", p, "Q", 0, fluid)
             rho_V = FP.PropsSI("D", "P", p, "Q", 1, fluid)
             c_p_L = FP.PropsSI("Cpmass", "P", p, "Q", 0, fluid)
             c_p_V = FP.PropsSI("Cpmass", "P", p, "Q", 1, fluid)
+            alpha_V = x_V * (rho/rho_V)
+            alpha_L = x_L * (rho/rho_L)
             
             # Finite difference for ds/dp at constant Q
             ds_dp_cQ_L = (FP.PropsSI("S", "P", p + 1e3, "Q", 0, fluid) -
-                         FP.PropsSI("S", "P", p - 1e3, "Q", 0, fluid)) / (2 * 1e3)
+                            FP.PropsSI("S", "P", p - 1e3, "Q", 0, fluid)) / (2 * 1e3)
             ds_dp_cQ_V = (FP.PropsSI("S", "P", p + 1e3, "Q", 1, fluid) -
-                         FP.PropsSI("S", "P", p - 1e3, "Q", 1, fluid)) / (2 * 1e3)
+                            FP.PropsSI("S", "P", p - 1e3, "Q", 1, fluid)) / (2 * 1e3)
             
             # Sound speed according to Eq. 29 (Cioffi et al.)
             a = (rho * (
                     alpha_L / (rho_L * soundSpeed_L**2) +
                     alpha_V / (rho_V * soundSpeed_V**2) +
                     T * ((alpha_L * rho_L / c_p_L) * ds_dp_cQ_L +
-                         (alpha_V * rho_V / c_p_V) * ds_dp_cQ_V)
-                 ))**(-0.5)
+                            (alpha_V * rho_V / c_p_V) * ds_dp_cQ_V)
+                    ))**(-0.5)
             
             return a
+        if non_saturable:
+            # only option is single phase
+            a = _computeSoundSpeed_p_rho_single_phase(p, rho, fluid)
+            return a
+        else:
+            # can be two-phase or single phase:
+            if S <= S_sat_L or S >= S_sat_V:
+                # try single phase first. At boundary can yield some errors.
+                try: 
+                    a = _computeSoundSpeed_p_rho_single_phase(p, rho, fluid)
+                except:
+                    a = _computeSoundSpeed_p_rho_two_phase(p, rho, fluid)
+                return a
+            else:
+                a = _computeSoundSpeed_p_rho_two_phase(p, rho, fluid)
+                return a 
+        
 
     def computeMach_u_p_rho(self, u, p, rho):
         soundSpeed = self.computeSoundSpeed_p_rho(p, rho)
@@ -174,6 +199,7 @@ class FluidReal():
         return T
 
     def computeDensity_p_T(self, p, T):
+        print("computeDensity_p_T is called")
         rho = FP.PropsSI('D', 'P', p, 'T', T, self.fluid)
         return rho
 
@@ -251,6 +277,15 @@ class FluidReal():
     
     def computeDensity_p_h(self, p, h):
         return FP.PropsSI('D', 'P', p, 'H', h, self.fluid)
+    
+    def computeEnthalpy_p_T(self, p, T):
+        return FP.PropsSI('H', 'P', p, 'T', T, self.fluid)
+
+    def computeEnthalpy_p_s(self, p, s):
+        return FP.PropsSI('H', 'P', p, 'S', s, self.fluid)
+    
+    def computeDensity_p_s(self, p, s):
+        return FP.PropsSI('D', 'P', p, 'S', s, self.fluid)
 
     def compute_gammapv_p_rho(self, p, rho):
         cp = FP.PropsSI("Cpmass", "P", p, "D", rho, self.fluid)
@@ -271,8 +306,7 @@ class FluidReal():
 
 
     def computeMach_pt_p_gammapv(self, pt, p, gamma_pv):
-        """Reference to equation 8.10 Nederstigt MS thesis
-        """
+        """Reference to equation 8.10 Nederstigt MS thesis"""
         mach = np.sqrt(2/(gamma_pv-1) * ((pt/p)**((gamma_pv-1)/gamma_pv) - 1))
         return mach
     

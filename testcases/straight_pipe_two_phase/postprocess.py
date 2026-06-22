@@ -30,10 +30,10 @@ outputVars = ["Pressure", "Mach"]
 # plt.show()
 
 # plot expansion path on top of thermoplot
-fig = thermoplot_expansion_plot("inputs/thermoplot/thermoplot.ini", pickleList[-1], config)
+fig = thermoplot_expansion_plot("inputs/thermoplot/thermoplot.ini", pickleList[-2], config)
 
 # extract data
-data = get_expansion_data(pickleList[-1])
+data = get_expansion_data(pickleList[-2])
 
 # show figure
 plt.show()

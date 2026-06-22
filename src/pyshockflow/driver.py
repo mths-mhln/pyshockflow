@@ -131,8 +131,23 @@ class Driver:
             self.time = timeElapsed
             self.iterationIndex = iterationIndex
         else:
-            self.imposeInitialConditions()
+            print("Setting initial conditions")
+            if self.topology.lower()=='nozzle':
+                if self.fluidModel.lower()=='real' and ((self.boundaryType[0].lower() == "inlet" and self.boundaryType[1].lower() == "outlet") or (self.boundaryType[0].lower() == "outlet" and self.boundaryType[1].lower() == "inlet") or \
+                   (self.boundaryType[0].lower() == "inlet" and self.boundaryType[1].lower() == "transparent") or (self.boundaryType[0].lower() == "transparent" and self.boundaryType[1].lower() == "inlet")):
+                    print("The simulation topology is: nozzle. The fluid model is real. The boundary conditions are inlet and outlet or transparent. Initializing the flow field with a linear interpolation between inlet and outlet conditions, following the advice of Cioffi et al. (2025) A Hyperbolic One-Dimensional Model for Two-Phase Flows in Converging-Diverging Nozzles.")
+                    self.imposeInitialConditionsNozzle()
+                else:
+                    print("Boundary conditions or fluid model specified not yet supported for linear property initialization, will initialize the flow field like shock tube")
+                    self.imposeInitialConditionsShocktube()
+            elif self.topology.lower()=='default':
+                print("The simulation proceeds with default topology: shock tube. Initializing the flow field with left and right values specified in the configuration file, with a discontinuity at the middle of the domain.")
+                self.imposeInitialConditionsShocktube()
+            else:
+                raise ValueError(f"Invalid topology: {self.topology}. Must be either 'nozzle' or 'default' = shocktube")
         self.setBoundaryConditions()
+
+        print("post-boundary condition imposition self.solutionPrimitive", self.solutionPrimitive)
 
         for attr, value in vars(self).items():
             print(f"{attr}: {value}")
@@ -418,7 +433,7 @@ class Driver:
             self.solutionConservative[name] = np.zeros(self.nNodesHalo)
         
 
-    def imposeInitialConditions(self):
+    def imposeInitialConditionsShocktube(self):
         """
         Method reserved for shocktube experiments. Intended to initialize the state of the system at either side of the interface. All information is contained in the configuration file. 
         The interface is imposed into the array through the copyInitialState method.
@@ -446,6 +461,69 @@ class Driver:
         print(f"Initial L/R temperature values [K]:          ({self.temperatureLeft:.6e}, {self.temperatureRight:.6e})")
         print(f"Initial L/R energy values [J/kg]:            ({self.energyLeft:.6e}, {self.energyRight:.6e})")
         
+
+    def imposeInitialConditionsNozzle(self):
+        """
+        Method reserved for nozzle flow experiments. Following the advice of Cioffi et al. (2025) A Hyperbolic One-Dimensional Model for Two-Phase Flows in Converging-Diverging
+        Nozzles, the flow field is initialized in linear fashion from inlet to outlet.
+        
+        Arguments
+        ---------
+        None
+        
+        Returns
+        -------
+        None, but sets the solutionPrimitive attribute of the Driver class to the initial conditions based on the left and right values provided in the configuration file,
+        and prints these values to the terminal.       
+        """
+        # Set inlet conditions. 
+        if self.boundaryType[0].lower()=='inlet':
+            self.setInletBoundaryConditions('left')
+            inletEntropy = self.fluid.computeEntropy_p_rho(self.solutionPrimitive['Pressure'][0], self.solutionPrimitive['Density'][0])
+            tempEntropyField = np.full_like(self.solutionPrimitive['Pressure'], inletEntropy)
+            if self.config.getInletConditionsType().lower()=="total":
+                totalTemperature = self.config.getInletConditions()[1]
+                totalEnthalpy = self.fluid.computeEnthalpy_p_T(self.solutionPrimitive['Pressure'][0], totalTemperature)
+                totalEnthalpyField = np.full_like(self.solutionPrimitive['Pressure'], totalEnthalpy)
+
+        if self.boundaryType[1].lower()=='inlet':
+            self.setInletBoundaryConditions('right')
+            inletEntropy = self.fluid.computeEntropy_p_rho(self.solutionPrimitive['Pressure'][-1], self.solutionPrimitive['Density'][-1])
+            tempEntropyField = np.full_like(self.solutionPrimitive['Pressure'], inletEntropy)
+            if self.config.getInletConditionsType().lower()=="total":
+                totalTemperature = self.config.getInletConditions()[1]
+                totalEnthalpy = self.fluid.computeEnthalpy_p_T(self.solutionPrimitive['Pressure'][-1], totalTemperature)
+                totalEnthalpyField = np.full_like(self.solutionPrimitive['Pressure'], totalEnthalpy)
+
+        # set outlet conditions. 
+        if self.boundaryType[0].lower()=='outlet':
+            self.solutionPrimitive['Pressure'][0] = self.config.getOutletConditions()
+        if self.boundaryType[1].lower()=='outlet':
+            self.solutionPrimitive['Pressure'][-1] = self.config.getOutletConditions()
+
+        print(self.solutionPrimitive['Pressure'])
+
+        # if transparent boundary conditions, impose outlet boundary condition for initialization, then will be overwritten by the transparent BC method
+        if self.boundaryType[0].lower()=='transparent':
+            pressure = self.config.getInletConditions()[0] / 10 # note that the pressure from inletconditions can be total or static.
+            self.solutionPrimitive['Pressure'][0] = pressure
+        if self.boundaryType[1].lower()=='transparent':
+            pressure = self.config.getOutletConditions()[0] / 10 # note that the pressure from outletconditions can be total or static.
+            self.solutionPrimitive['Pressure'][-1] = pressure
+
+        self.solutionPrimitive["Pressure"] = np.interp(self.xNodesVirtual, [self.xNodesVirtual[0], self.xNodesVirtual[-1]], [self.solutionPrimitive['Pressure'][0], self.solutionPrimitive['Pressure'][-1]])
+        self.solutionPrimitive["Density"] = self.fluid.computeDensity_p_s(self.solutionPrimitive["Pressure"], tempEntropyField)
+        self.solutionPrimitive["Energy"] = self.fluid.computeStaticEnergy_p_rho(self.solutionPrimitive["Pressure"], self.solutionPrimitive["Density"])
+        if self.config.getInletConditionsType().lower()=="static":
+            # if inlet boundary condition type is static conditions, linear initialization of pressure, other quantities are evaluated from pressure and inlet entropy, velocity is initialized
+            # initialize velocity linearly from 0 to 200 m/s
+            self.solutionPrimitive["Velocity"] = np.interp(self.xNodesVirtual, [self.xNodesVirtual[0], self.xNodesVirtual[-1]], [10, 200])
+        if self.config.getInletConditionsType().lower()=="total":
+            # if inlet boundary condition type is total conditions, linear interpolation of pressure, other quantities are evaluated from pressure and inlet entropy, velocity is initialized
+            # using the equation u_i = sqrt(2*(h_t - h_s)), where h_t is the total enthalpy and h_s is the static enthalpy evaluated from the pressure and entropy.
+            self.solutionPrimitive["Velocity"] = np.sqrt(2*(totalEnthalpyField - self.fluid.computeEnthalpy_p_s(self.solutionPrimitive["Pressure"], tempEntropyField)))
+
+        print(self.solutionPrimitive)
 
 
     # def initialConditionsArrays(self, dictIn):
@@ -742,7 +820,7 @@ class Driver:
             iInternal = 1
         else:
             raise ValueError('Unknown location specified')
-            
+        
         machOutlet = self.fluid.computeMach_u_p_rho(self.solutionPrimitive['Velocity'][iInternal], self.solutionPrimitive['Pressure'][iInternal], self.solutionPrimitive['Density'][iInternal])        
         if machOutlet<1:
             pressure = self.config.getOutletConditions() # the pressure is the information taken from outside
@@ -804,7 +882,7 @@ class Driver:
             self.iterationIndex = 0
 
         # start convergence history
-        convergence_hist = []
+        convergence_hist = []        
         
         # main loop
         while self.time < self.timeMax:

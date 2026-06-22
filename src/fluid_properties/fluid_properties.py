@@ -62,7 +62,7 @@ def build_lookup_table_fluid(fluid_object, arguments):
     return LuTFluid(abstractstate, arguments)
 
 
-def PropsSI(prop, x_str, x, y_str, y, fluid_object):
+def PropsSI(prop, x_str=None, x=None, y_str=None, y=None, fluid_object=None):
     return fluid_object.PropsSI(prop, x_str, x, y_str, y)
 
 if __name__ == '__main__':
