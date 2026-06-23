@@ -34,22 +34,6 @@ def configure_matplotlib(func):
         })
         plt.rcParams['path.simplify'] = True
         plt.rcParams['path.simplify_threshold'] = 0.1
-
-        # give matplotlib a LaTeX formatting
-        plt.rcParams.update({
-            "text.usetex": True,
-            "font.family": "serif",
-            "font.serif": ["Utopia"],
-            "text.latex.preamble": (
-                r"\usepackage[T1]{fontenc}"
-                r"\usepackage{lmodern}"
-                r"\usepackage{siunitx}"
-                r"\usepackage{bm}"
-                r"\sisetup{group-separator={\,},group-minimum-digits=4}"
-            ),
-        })
-        plt.rcParams['path.simplify'] = True
-        plt.rcParams['path.simplify_threshold'] = 0.1
         return func(*args, **kwargs)
     return wrapper
 

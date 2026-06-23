@@ -131,23 +131,17 @@ class Driver:
             self.time = timeElapsed
             self.iterationIndex = iterationIndex
         else:
-            print("Setting initial conditions")
             if self.topology.lower()=='nozzle':
                 if self.fluidModel.lower()=='real' and ((self.boundaryType[0].lower() == "inlet" and self.boundaryType[1].lower() == "outlet") or (self.boundaryType[0].lower() == "outlet" and self.boundaryType[1].lower() == "inlet") or \
                    (self.boundaryType[0].lower() == "inlet" and self.boundaryType[1].lower() == "transparent") or (self.boundaryType[0].lower() == "transparent" and self.boundaryType[1].lower() == "inlet")):
-                    print("The simulation topology is: nozzle. The fluid model is real. The boundary conditions are inlet and outlet or transparent. Initializing the flow field with a linear interpolation between inlet and outlet conditions, following the advice of Cioffi et al. (2025) A Hyperbolic One-Dimensional Model for Two-Phase Flows in Converging-Diverging Nozzles.")
                     self.imposeInitialConditionsNozzle()
                 else:
-                    print("Boundary conditions or fluid model specified not yet supported for linear property initialization, will initialize the flow field like shock tube")
                     self.imposeInitialConditionsShocktube()
             elif self.topology.lower()=='default':
-                print("The simulation proceeds with default topology: shock tube. Initializing the flow field with left and right values specified in the configuration file, with a discontinuity at the middle of the domain.")
                 self.imposeInitialConditionsShocktube()
             else:
                 raise ValueError(f"Invalid topology: {self.topology}. Must be either 'nozzle' or 'default' = shocktube")
         self.setBoundaryConditions()
-
-        print("post-boundary condition imposition self.solutionPrimitive", self.solutionPrimitive)
 
         for attr, value in vars(self).items():
             print(f"{attr}: {value}")

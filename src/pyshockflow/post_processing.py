@@ -167,6 +167,8 @@ def results_plots(pickleList: list[type[WindowsPath]], Driver: type[Driver], out
         # instantiate variable to keep track of maximum y value across all steps, to be able to scale the nozzle geometry accordingly.
         max_y = 0
 
+        if type(pickleList) is not list:
+            raise TypeError("pickleList must be a list of pickle file paths. If you are trying to view the results of a single step, convert the file path string to a list, e.g. [pickleFilePath]")
         for pickleFile in pickleList:
             # load expansion data
             output_dict = get_expansion_data(pickleFile)
@@ -226,10 +228,8 @@ def get_expansion_data(pickleFile: type[WindowsPath]) -> dict:
     output_dict = {}
 
     # two options: fully finished sim, or partially finished sim. The datastructure of the output files will be slightly different due to the 
-    # transformation output.py (see folder of this file) applies to the output 
-    try:
-        solution['Primitive']['Density'].shape[1] > 1 # indicates multi dimensional primitive arrays: indicating merged results file, processed by the output object, indicating sim successfully finished
-        print("Simulation successfully finished, loading data accordingly.")
+    # transformation output.py (see folder of this file) applies to the output
+    if len(solution['Primitive']['Density'].shape) > 1: # indicates multi dimensional primitive arrays: indicating merged results file, processed by the output object, indicating sim successfully finished
         output_dict["X Coords"] = solution['X Coords'][1:-1]
         output_dict["Area Tube"] = solution['Area Tube'][1:-1]
         output_dict["Density"] = solution['Primitive']["Density"][1:-1,-1]
@@ -238,7 +238,7 @@ def get_expansion_data(pickleFile: type[WindowsPath]) -> dict:
         output_dict["Mach"] = solution['Fluid'].computeMach_u_p_rho(output_dict["Velocity"], output_dict["Pressure"], output_dict["Density"])
         output_dict["Entropy"] = solution['Fluid'].computeEntropy_p_rho(output_dict["Pressure"], output_dict["Density"])
         output_dict["Temperature"] = solution['Fluid'].computeTemperature_p_rho(output_dict["Pressure"], output_dict["Density"])
-    except:
+    else:
         # only partial finished sim. Solution file arrays are 1D
         output_dict["X Coords"] = solution['X Coords'][1:-1]
         output_dict["Area Tube"] = solution['Area Tube'][1:-1]

@@ -3,8 +3,7 @@ from CoolProp.CoolProp import PropsSI
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.optimize import fsolve
-import sys
-import timeit
+import math
 import fluid_properties.fluid_properties as FP
 from functools import partial
 
@@ -132,13 +131,15 @@ class FluidReal():
         # check if the state is single phase or two phase
         T = FP.PropsSI("T", "P", p, "D", rho, fluid)
         T_crit = FP.PropsSI("Tcrit", fluid_object = fluid)
-        if T < T_crit:
+        if T < 0.99 * T_crit: 
+            # 0.99 because an evaluation had T = 304.1281982111877, T_crit = 304.1282 (CO2) 
+            # and S_sat_V was not defined, which is acceptable from CoolProp
             S_sat_V = FP.PropsSI("S", "T", T, "Q", 1, fluid)
             S_sat_L = FP.PropsSI("S", "T", T, "Q", 0, fluid)
             non_saturable = False
         else:
             non_saturable = True
-        S = FP.PropsSI("S", "T", T, "D", rho, fluid)
+        S = FP.PropsSI("S", "P", p, "D", rho, fluid)
 
         def _computeSoundSpeed_p_rho_single_phase(p, rho, fluid):
             a = FP.PropsSI("A", "P", p, "D", rho, fluid)
@@ -162,16 +163,16 @@ class FluidReal():
                             FP.PropsSI("S", "P", p - 1e3, "Q", 0, fluid)) / (2 * 1e3)
             ds_dp_cQ_V = (FP.PropsSI("S", "P", p + 1e3, "Q", 1, fluid) -
                             FP.PropsSI("S", "P", p - 1e3, "Q", 1, fluid)) / (2 * 1e3)
-            
+
             # Sound speed according to Eq. 29 (Cioffi et al.)
             a = (rho * (
                     alpha_L / (rho_L * soundSpeed_L**2) +
                     alpha_V / (rho_V * soundSpeed_V**2) +
-                    T * ((alpha_L * rho_L / c_p_L) * ds_dp_cQ_L +
-                            (alpha_V * rho_V / c_p_V) * ds_dp_cQ_V)
+                    T * ((alpha_L * rho_L / c_p_L) * ds_dp_cQ_L**2 +
+                            (alpha_V * rho_V / c_p_V) * ds_dp_cQ_V**2)
                     ))**(-0.5)
-            
             return a
+        
         if non_saturable:
             # only option is single phase
             a = _computeSoundSpeed_p_rho_single_phase(p, rho, fluid)
@@ -199,7 +200,6 @@ class FluidReal():
         return T
 
     def computeDensity_p_T(self, p, T):
-        print("computeDensity_p_T is called")
         rho = FP.PropsSI('D', 'P', p, 'T', T, self.fluid)
         return rho
 
