@@ -478,6 +478,9 @@ class Driver:
         """
         # Set inlet conditions. 
         if self.boundaryType[0].lower()=='inlet':
+            if self.config.getInletConditionsType().lower()=="total":
+                # total inlet conditions require static pressure for initialization
+                self.solutionPrimitive['Pressure'][1] = 0.99 * self.config.getInletConditions()[0]
             self.setInletBoundaryConditions('left')
             inletEntropy = self.fluid.computeEntropy_p_rho(self.solutionPrimitive['Pressure'][0], self.solutionPrimitive['Density'][0])
             tempEntropyField = np.full_like(self.solutionPrimitive['Pressure'], inletEntropy)
@@ -487,6 +490,9 @@ class Driver:
                 totalEnthalpyField = np.full_like(self.solutionPrimitive['Pressure'], totalEnthalpy)
 
         if self.boundaryType[1].lower()=='inlet':
+            if self.config.getInletConditionsType().lower()=="total":
+                # total inlet conditions require static pressure for initialization
+                self.solutionPrimitive['Pressure'][-2] = 0.99 * self.config.getInletConditions()[0]
             self.setInletBoundaryConditions('right')
             inletEntropy = self.fluid.computeEntropy_p_rho(self.solutionPrimitive['Pressure'][-1], self.solutionPrimitive['Density'][-1])
             tempEntropyField = np.full_like(self.solutionPrimitive['Pressure'], inletEntropy)
@@ -501,19 +507,28 @@ class Driver:
         if self.boundaryType[1].lower()=='outlet':
             self.solutionPrimitive['Pressure'][-1] = self.config.getOutletConditions()
 
-        print(self.solutionPrimitive['Pressure'])
-
         # if transparent boundary conditions, impose outlet boundary condition for initialization, then will be overwritten by the transparent BC method
         if self.boundaryType[0].lower()=='transparent':
             pressure = self.config.getInletConditions()[0] / 10 # note that the pressure from inletconditions can be total or static.
             self.solutionPrimitive['Pressure'][0] = pressure
         if self.boundaryType[1].lower()=='transparent':
-            pressure = self.config.getOutletConditions()[0] / 10 # note that the pressure from outletconditions can be total or static.
+            pressure = self.config.getInletConditions()[0] / 10 # note that the pressure from outletconditions can be total or static.
             self.solutionPrimitive['Pressure'][-1] = pressure
+        
+        print(type(self.solutionPrimitive['Pressure']))
+        print("Pressure", self.solutionPrimitive['Pressure'])
+        
+
 
         self.solutionPrimitive["Pressure"] = np.interp(self.xNodesVirtual, [self.xNodesVirtual[0], self.xNodesVirtual[-1]], [self.solutionPrimitive['Pressure'][0], self.solutionPrimitive['Pressure'][-1]])
+        print(type(tempEntropyField))
+        print("Entropy", tempEntropyField)
         self.solutionPrimitive["Density"] = self.fluid.computeDensity_p_s(self.solutionPrimitive["Pressure"], tempEntropyField)
+        print(type(self.solutionPrimitive["Density"]))
+        print("Density", self.solutionPrimitive["Density"])
+
         self.solutionPrimitive["Energy"] = self.fluid.computeStaticEnergy_p_rho(self.solutionPrimitive["Pressure"], self.solutionPrimitive["Density"])
+
         if self.config.getInletConditionsType().lower()=="static":
             # if inlet boundary condition type is static conditions, linear initialization of pressure, other quantities are evaluated from pressure and inlet entropy, velocity is initialized
             # initialize velocity linearly from 0 to 200 m/s
@@ -1056,6 +1071,7 @@ class Driver:
         Returns:
             np.ndarray: source terms arrays (nPoints, 3)
         """
+        print(self.solutionPrimitive)
         totalEnergy = primitive['Energy'][:] + 0.5*primitive['Velocity']**2
         source = np.zeros((self.nNodesHalo,3))
         source[:,0] = - primitive['Density'] * primitive['Velocity']*self.dAreaTube_dx/self.areaTube

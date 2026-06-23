@@ -1,7 +1,8 @@
 from pyshockflow import Driver
 from pyshockflow import Config
 
-configFile = "inputs/input_files/orchid/input_REFPROP_CoolProp.ini"
+# configFile = "inputs/input_files/lettieri/L1/RefProp.ini"
+configFile = "inputs/input_files/lettieri/L1/input_REFPROP_CoolProp.ini"
 # configFile = "inputs/input_files/orchid/input_recovery.ini"
 
 
