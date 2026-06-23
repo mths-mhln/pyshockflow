@@ -515,17 +515,10 @@ class Driver:
             pressure = self.config.getInletConditions()[0] / 10 # note that the pressure from outletconditions can be total or static.
             self.solutionPrimitive['Pressure'][-1] = pressure
         
-        print(type(self.solutionPrimitive['Pressure']))
-        print("Pressure", self.solutionPrimitive['Pressure'])
-        
 
 
         self.solutionPrimitive["Pressure"] = np.interp(self.xNodesVirtual, [self.xNodesVirtual[0], self.xNodesVirtual[-1]], [self.solutionPrimitive['Pressure'][0], self.solutionPrimitive['Pressure'][-1]])
-        print(type(tempEntropyField))
-        print("Entropy", tempEntropyField)
         self.solutionPrimitive["Density"] = self.fluid.computeDensity_p_s(self.solutionPrimitive["Pressure"], tempEntropyField)
-        print(type(self.solutionPrimitive["Density"]))
-        print("Density", self.solutionPrimitive["Density"])
 
         self.solutionPrimitive["Energy"] = self.fluid.computeStaticEnergy_p_rho(self.solutionPrimitive["Pressure"], self.solutionPrimitive["Density"])
 
@@ -537,8 +530,6 @@ class Driver:
             # if inlet boundary condition type is total conditions, linear interpolation of pressure, other quantities are evaluated from pressure and inlet entropy, velocity is initialized
             # using the equation u_i = sqrt(2*(h_t - h_s)), where h_t is the total enthalpy and h_s is the static enthalpy evaluated from the pressure and entropy.
             self.solutionPrimitive["Velocity"] = np.sqrt(2*(totalEnthalpyField - self.fluid.computeEnthalpy_p_s(self.solutionPrimitive["Pressure"], tempEntropyField)))
-
-        print(self.solutionPrimitive)
 
 
     # def initialConditionsArrays(self, dictIn):
@@ -1071,7 +1062,6 @@ class Driver:
         Returns:
             np.ndarray: source terms arrays (nPoints, 3)
         """
-        print(self.solutionPrimitive)
         totalEnergy = primitive['Energy'][:] + 0.5*primitive['Velocity']**2
         source = np.zeros((self.nNodesHalo,3))
         source[:,0] = - primitive['Density'] * primitive['Velocity']*self.dAreaTube_dx/self.areaTube
