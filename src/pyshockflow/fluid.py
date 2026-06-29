@@ -1,3 +1,5 @@
+import sys
+
 import CoolProp.CoolProp as CP
 from CoolProp.CoolProp import PropsSI
 import numpy as np
@@ -249,6 +251,8 @@ class FluidReal():
             entropyStatic = self.computeEntropy_p_T(pressure, temperatureGuess)
             entropyTotal = self.computeEntropy_p_T(totPressure, totTemperature)
             residual = entropyStatic - entropyTotal
+            print(f"  T_guess={temperatureGuess} pressure={pressure} entropyStatic={entropyStatic} pressure={totPressure} totTemperature={totTemperature} entropyTotal={entropyTotal} resid={residual}", flush=True)
+            sys.stdout.flush()  # belt-and-suspenders
             return residual
 
         # temperature = fsolve(compute_function_residual, totTemperature, xtol=1e-8)[0]

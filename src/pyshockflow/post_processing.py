@@ -7,7 +7,10 @@ import matplotlib.animation as animation
 
 from numpy.compat import Path
 from scipy.optimize import fsolve
+from scipy.interpolate import interp1d
 from pathlib import Path, WindowsPath
+from rich.table import Table
+from rich.console import Console
 
 from thermoplot.thermoplot import thermoplot_cached
 from pyshockflow.driver import Driver
@@ -302,6 +305,87 @@ def construct_ideal_expansion_path(pickleFile: type[WindowsPath]) -> np.ndarray:
                 machTheory[iPoint] = fsolve(machFunction, 1.2, args=(areaRatio[iPoint], gammaFluid))[0]
 
         return np.column_stack((xArea, machTheory))
+
+
+
+def v_and_v(verification_data: dict = None, validation_data: dict = None, simulation_data: dict = None) -> dict:
+    """
+    Compare the simulation results with the verification or validation data and return a dictionary containing the comparison results.
+
+    Arguments
+    ---------
+    verification_data : dict
+        A dictionary containing the verification data with keys as variable names and values as numpy arrays.
+    validation_data : dict
+        A dictionary containing the validation data with keys as variable names and values as numpy arrays.
+    simulation_data : dict
+        A dictionary containing the simulation data with keys as variable names and values as numpy arrays.
+
+    Returns
+    -------
+    comparison_results : dict
+        A dictionary containing the comparison results with keys as variable names and values as dictionaries containing 'error' and 'relative_error'.
+    """
+    # instantiate comparison results dict and v_and_v_data dict. 
+    comparison_results = {}
+    v_and_v_data = {}
+
+    # extract unique variables from the available data
+    if verification_data is not None:
+        v_and_v_variables = list(verification_data.keys())
+        v_and_v_variables.remove('X Coords')
+        v_and_v_data = verification_data
+    elif validation_data is not None:
+        v_and_v_variables = list(validation_data.keys())
+        v_and_v_variables.remove('X Coords')
+        v_and_v_data = validation_data
+    else:
+        raise ValueError("Either verification_data or validation_data must be provided")
+
+    # interpolate simulation data to v_and_v_data x-coordinates if they are not already aligned
+    if not np.array_equal(v_and_v_data['X Coords'], simulation_data['X Coords']):
+        for var in v_and_v_variables:
+            if var in simulation_data:
+                print("simulation_data[var]:")
+                print(simulation_data[var])
+                print("v_and_v_data[var]:")
+                print(v_and_v_data[var])
+                # Interpolate simulation data to v_and_v_data x-coordinates
+                sim_interpolant = interp1d(simulation_data['X Coords'], simulation_data[var], kind='linear', fill_value='extrapolate')
+                simulation_data[var] = sim_interpolant(v_and_v_data['X Coords'])
+                print("Interpolated simulation_data[var]:")
+                print(simulation_data[var])
+
+    # Extract absolute and relative errors for each variable in v_and_v_data at the shared x-coordinates    
+    for var in v_and_v_variables:
+        print(var)
+        print(simulation_data[var])
+        if var in simulation_data:
+            abs_error = simulation_data[var] - v_and_v_data[var]
+            relative_error = np.abs(abs_error) / np.abs(v_and_v_data[var])
+            comparison_results[var] = {
+                'absolute_error': abs_error,
+                'relative_error': relative_error
+            }
+    if len(comparison_results) != len(v_and_v_variables):
+        missing_keys = set(v_and_v_variables) - set(comparison_results.keys())
+        raise ValueError(f"Missing keys in simulation data due to different naming than simulation data dict keys: {missing_keys}")
+    
+    # set up rich table for printing the comparison results to terminal
+    table = Table(title="Verification and Validation Comparison Results")
+    table.add_column("Variable", justify="left", style="cyan", no_wrap=True)
+    table.add_column("Error", justify="right", style="magenta")
+    table.add_column("Relative Error", justify="right", style="green")
+    # populate the rich table with the comparison results, displaying only the maximum absolute and relative errors for each variable
+    for key, value in comparison_results.items():
+        absolute_error_str = f"{value['absolute_error']:.6e}" if np.isscalar(value['absolute_error']) else f"{np.max(value['absolute_error']):.6e}"
+        relative_error_str = f"{value['relative_error']:.6e}" if np.isscalar(value['relative_error']) else f"{np.max(value['relative_error']):.6e}"
+        table.add_row(key, absolute_error_str, relative_error_str)
+    # display the rich table in the terminal
+    console = Console()
+    console.print(table)
+    
+    return comparison_results
 
 
 
