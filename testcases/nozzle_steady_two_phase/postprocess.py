@@ -24,7 +24,7 @@ pickleList = sorted(Path(f"{output_path}").glob("*.pik"))
 # for ideal ["X Coords","Density", "Pressure", "Velocity", "Mach", "Entropy", "TotalPressure", "Temperature", "TotalTemperature"] 
 # for real ["X Coords","Density", "Pressure", "Velocity", "Mach", "Entropy", "Temperature"]
 outputVars = ["Pressure", "Mach"]  
-fig = results_plots([pickleList[-1]], Driver, outputVars, showNozzleGeometry=False)
+fig = results_plots([pickleList[-1]], outputVars, showNozzleGeometry=True)
 plt.show()
 
 
@@ -34,18 +34,20 @@ plt.show()
 
 
 # perform verification on the simulation
-verification_cases = ["lettieri/L1"]
+verification_cases = ["lettieri/L1_pressure"]
+
+
 
 # convert csv information to dict to comply with v_and_v function argument data format.
 for verification_case in verification_cases:
-    df = pd.read_csv(f"validation_data/{verification_case}.csv")
+    df = pd.read_csv(f"verification_data/{verification_case}.csv")
     v_and_v_data = dict.fromkeys(df.columns)
     for i, col in enumerate(df.columns):
         v_and_v_data[col] = df.iloc[1:, i].values
     
     # extract the simulation data
     simulation_data = get_expansion_data(pickleList[-1])
-    comparison_results = v_and_v(verification_data = v_and_v_data, simulation_data = simulation_data)
+    comparison_results = v_and_v(verification_data = v_and_v_data, simulation_data = simulation_data, show_plots = True)
 
     
         

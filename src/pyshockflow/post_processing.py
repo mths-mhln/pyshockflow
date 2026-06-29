@@ -138,7 +138,7 @@ def nozzle_geometry_plot(Driver: type[Driver]) -> None:
 
 
 
-def results_plots(pickleList: list[type[WindowsPath]], Driver: type[Driver], outputVars: list[str], showNozzleGeometry: bool = False) -> type[plt.Figure]:
+def results_plots(pickleList: list[type[WindowsPath]], outputVars: list[str], showNozzleGeometry: bool = False) -> type[plt.Figure]:
     """
     Plot the results of the simulation for a list of specified steps.
 
@@ -308,7 +308,7 @@ def construct_ideal_expansion_path(pickleFile: type[WindowsPath]) -> np.ndarray:
 
 
 
-def v_and_v(verification_data: dict = None, validation_data: dict = None, simulation_data: dict = None) -> dict:
+def v_and_v(verification_data: dict = None, validation_data: dict = None, simulation_data: dict = None, show_plots: bool = False) -> dict:
     """
     Compare the simulation results with the verification or validation data and return a dictionary containing the comparison results.
 
@@ -343,25 +343,18 @@ def v_and_v(verification_data: dict = None, validation_data: dict = None, simula
         raise ValueError("Either verification_data or validation_data must be provided")
 
     # interpolate simulation data to v_and_v_data x-coordinates if they are not already aligned
+    simulation_interpolated = {}
     if not np.array_equal(v_and_v_data['X Coords'], simulation_data['X Coords']):
         for var in v_and_v_variables:
             if var in simulation_data:
-                print("simulation_data[var]:")
-                print(simulation_data[var])
-                print("v_and_v_data[var]:")
-                print(v_and_v_data[var])
                 # Interpolate simulation data to v_and_v_data x-coordinates
                 sim_interpolant = interp1d(simulation_data['X Coords'], simulation_data[var], kind='linear', fill_value='extrapolate')
-                simulation_data[var] = sim_interpolant(v_and_v_data['X Coords'])
-                print("Interpolated simulation_data[var]:")
-                print(simulation_data[var])
+                simulation_interpolated[var] = sim_interpolant(v_and_v_data['X Coords'])
 
     # Extract absolute and relative errors for each variable in v_and_v_data at the shared x-coordinates    
     for var in v_and_v_variables:
-        print(var)
-        print(simulation_data[var])
         if var in simulation_data:
-            abs_error = simulation_data[var] - v_and_v_data[var]
+            abs_error = simulation_interpolated[var] - v_and_v_data[var]
             relative_error = np.abs(abs_error) / np.abs(v_and_v_data[var])
             comparison_results[var] = {
                 'absolute_error': abs_error,
@@ -372,10 +365,10 @@ def v_and_v(verification_data: dict = None, validation_data: dict = None, simula
         raise ValueError(f"Missing keys in simulation data due to different naming than simulation data dict keys: {missing_keys}")
     
     # set up rich table for printing the comparison results to terminal
-    table = Table(title="Verification and Validation Comparison Results")
+    table = Table(title="Verification and Validation")
     table.add_column("Variable", justify="left", style="cyan", no_wrap=True)
-    table.add_column("Error", justify="right", style="magenta")
-    table.add_column("Relative Error", justify="right", style="green")
+    table.add_column("Max Absolute Error", justify="right", style="magenta")
+    table.add_column("Max Relative Error", justify="right", style="green")
     # populate the rich table with the comparison results, displaying only the maximum absolute and relative errors for each variable
     for key, value in comparison_results.items():
         absolute_error_str = f"{value['absolute_error']:.6e}" if np.isscalar(value['absolute_error']) else f"{np.max(value['absolute_error']):.6e}"
@@ -385,6 +378,32 @@ def v_and_v(verification_data: dict = None, validation_data: dict = None, simula
     console = Console()
     console.print(table)
     
+    # Plot the comparison results for each variable
+    if show_plots:
+        # extract nozzle geometry
+        nozzleX = simulation_data["X Coords"]
+        nozzleArea = simulation_data["Area Tube"]
+        
+        # instantiate max_y necessary for rescaling the nozzle geometry to the y range of the variable of interest
+        max_y = 0
+        
+        # plot variable progression for each variable in v_and_v_data
+        for var in v_and_v_variables:
+            if var in simulation_data:
+                max_y = max(max_y, np.max(np.abs(simulation_data[var])), np.max(np.abs(v_and_v_data[var])))                
+                plt.figure(figsize=(10, 5))
+                plt.plot(v_and_v_data['X Coords'], v_and_v_data[var], label='Verification/Validation Data', marker='o')
+                plt.plot(simulation_data['X Coords'], simulation_data[var], label='Simulation Data', marker='x')
+                # plot nozzle scaled to y range
+                y_interval = [0, 1.2*max_y]
+                plt.plot(nozzleX, nozzleArea*y_interval[1]*0.3/max(nozzleArea), label='Nozzle Geometry', color='gray', alpha=0.5, zorder=-1)
+                plt.title(f'Comparison of {var}')
+                plt.xlabel('X Coords')
+                plt.ylabel(var)
+                plt.legend()
+                plt.grid()
+                plt.show()
+                
     return comparison_results
 
 
