@@ -104,50 +104,8 @@ class FluidReal():
         if property_extraction_method.lower() == 'abstractstate_v2':
             self.fluid = FP.AbstractState_v2(fluid_library, fluid_name)
 
-        global computeStaticEnergy_p_rho_calls
-        computeStaticEnergy_p_rho_calls = {}
-
-        global computeSoundSpeed_p_rho_calls
-        computeSoundSpeed_p_rho_calls = {}
-
-        global computeDensity_p_T_calls
-        computeDensity_p_T_calls = {}
-
-        global computeEntropy_p_rho_calls
-        computeEntropy_p_rho_calls = {}
-
-        global computeEntropy_p_T_calls
-        computeEntropy_p_T_calls = {}
-
-        global computeDensity_p_h_calls
-        computeDensity_p_h_calls = {}
-
-        global computeEnthalpy_p_T_calls
-        computeEnthalpy_p_T_calls = {}
-
-        global computeEnthalpy_p_s_calls
-        computeEnthalpy_p_s_calls = {}
-
-        global computeDensity_p_s_calls
-        computeDensity_p_s_calls = {}
-
-
 
     def computeStaticEnergy_p_rho(self, p, rho):
-        
-        frame = inspect.stack()[1]  # [1] = the caller, [0] = this function itself
-        update = False
-        if str(frame.filename) not in computeStaticEnergy_p_rho_calls.keys():
-            computeStaticEnergy_p_rho_calls[str(frame.filename)] = {}
-            update = True
-        if str(frame.function) not in computeStaticEnergy_p_rho_calls[str(frame.filename)]:
-            computeStaticEnergy_p_rho_calls[str(frame.filename)][str(frame.function)] = []
-            update = True
-        if str(frame.lineno) not in computeStaticEnergy_p_rho_calls[str(frame.filename)][str(frame.function)]:
-            computeStaticEnergy_p_rho_calls[str(frame.filename)][str(frame.function)].append(str(frame.lineno))
-            update = True
-        if update:
-            print("computeStaticEnergy_p_rho calls:", computeStaticEnergy_p_rho_calls, flush=True)
         e = FP.PropsSI('U', 'P', p, 'D', rho, self.fluid)
         return e
     
@@ -157,20 +115,6 @@ class FluidReal():
     
     def computeSoundSpeed_p_rho(self, p, rho):
         """Public method - handles self.fluid and vectorization"""
-        
-        frame = inspect.stack()[1]  # [1] = the caller, [0] = this function itself
-        update = False
-        if str(frame.filename) not in computeSoundSpeed_p_rho_calls.keys():
-            computeSoundSpeed_p_rho_calls[str(frame.filename)] = {}
-            update = True
-        if str(frame.function) not in computeSoundSpeed_p_rho_calls[str(frame.filename)]:
-            computeSoundSpeed_p_rho_calls[str(frame.filename)][str(frame.function)] = []
-            update = True
-        if str(frame.lineno) not in computeSoundSpeed_p_rho_calls[str(frame.filename)][str(frame.function)]:
-            computeSoundSpeed_p_rho_calls[str(frame.filename)][str(frame.function)].append(str(frame.lineno))
-            update = True
-        if update:
-            print("computeSoundSpeed_p_rho calls:", computeSoundSpeed_p_rho_calls, flush=True)
         # Ensure inputs are numpy arrays
         p = np.asarray(p, dtype=float)
         rho = np.asarray(rho, dtype=float)
@@ -259,56 +203,14 @@ class FluidReal():
         return T
 
     def computeDensity_p_T(self, p, T):
-        
-        frame = inspect.stack()[1]  # [1] = the caller, [0] = this function itself
-        update = False
-        if str(frame.filename) not in computeDensity_p_T_calls.keys():
-            computeDensity_p_T_calls[str(frame.filename)] = {}
-            update = True
-        if str(frame.function) not in computeDensity_p_T_calls[str(frame.filename)]:
-            computeDensity_p_T_calls[str(frame.filename)][str(frame.function)] = []
-            update = True
-        if str(frame.lineno) not in computeDensity_p_T_calls[str(frame.filename)][str(frame.function)]:
-            computeDensity_p_T_calls[str(frame.filename)][str(frame.function)].append(str(frame.lineno))
-            update = True
-        if update:
-            print("computeDensity_p_T calls:", computeDensity_p_T_calls, flush=True)
         rho = FP.PropsSI('D', 'P', p, 'T', T, self.fluid)
         return rho
 
     def computeEntropy_p_rho(self, p, rho):
-        
-        frame = inspect.stack()[1]  # [1] = the caller, [0] = this function itself
-        update = False
-        if str(frame.filename) not in computeEntropy_p_rho_calls.keys():
-            computeEntropy_p_rho_calls[str(frame.filename)] = {}
-            update = True
-        if str(frame.function) not in computeEntropy_p_rho_calls[str(frame.filename)]:
-            computeEntropy_p_rho_calls[str(frame.filename)][str(frame.function)] = []
-            update = True
-        if str(frame.lineno) not in computeEntropy_p_rho_calls[str(frame.filename)][str(frame.function)]:
-            computeEntropy_p_rho_calls[str(frame.filename)][str(frame.function)].append(str(frame.lineno))
-            update = True
-        if update:
-            print("computeEntropy_p_rho calls:", computeEntropy_p_rho_calls, flush=True)
         s = FP.PropsSI('S', 'P', p, 'D', rho, self.fluid)
         return s
 
     def computeEntropy_p_T(self, p, T):
-        
-        frame = inspect.stack()[1]  # [1] = the caller, [0] = this function itself
-        update = False
-        if str(frame.filename) not in computeEntropy_p_T_calls.keys():
-            computeEntropy_p_T_calls[str(frame.filename)] = {}
-            update = True
-        if str(frame.function) not in computeEntropy_p_T_calls[str(frame.filename)]:
-            computeEntropy_p_T_calls[str(frame.filename)][str(frame.function)] = []
-            update = True
-        if str(frame.lineno) not in computeEntropy_p_T_calls[str(frame.filename)][str(frame.function)]:
-            computeEntropy_p_T_calls[str(frame.filename)][str(frame.function)].append(str(frame.lineno))
-            update = True
-        if update:
-            print("computeEntropy_p_T calls:", computeEntropy_p_T_calls, flush=True)
         s = FP.PropsSI('S', 'P', p, 'T', T, self.fluid)
         return s
 
@@ -381,71 +283,15 @@ class FluidReal():
         return density, energy
     
     def computeDensity_p_h(self, p, h):
-        
-        frame = inspect.stack()[1]  # [1] = the caller, [0] = this function itself
-        update = False
-        if str(frame.filename) not in computeDensity_p_h_calls.keys():
-            computeDensity_p_h_calls[str(frame.filename)] = {}
-            update = True
-        if str(frame.function) not in computeDensity_p_h_calls[str(frame.filename)]:
-            computeDensity_p_h_calls[str(frame.filename)][str(frame.function)] = []
-            update = True
-        if str(frame.lineno) not in computeDensity_p_h_calls[str(frame.filename)][str(frame.function)]:
-            computeDensity_p_h_calls[str(frame.filename)][str(frame.function)].append(str(frame.lineno))
-            update = True
-        if update:
-            print("computeDensity_p_h calls:", computeDensity_p_h_calls, flush=True)
         return FP.PropsSI('D', 'P', p, 'H', h, self.fluid)
     
     def computeEnthalpy_p_T(self, p, T):
-        
-        frame = inspect.stack()[1]  # [1] = the caller, [0] = this function itself
-        update = False
-        if str(frame.filename) not in computeEnthalpy_p_T_calls.keys():
-            computeEnthalpy_p_T_calls[str(frame.filename)] = {}
-            update = True
-        if str(frame.function) not in computeEnthalpy_p_T_calls[str(frame.filename)]:
-            computeEnthalpy_p_T_calls[str(frame.filename)][str(frame.function)] = []
-            update = True
-        if str(frame.lineno) not in computeEnthalpy_p_T_calls[str(frame.filename)][str(frame.function)]:
-            computeEnthalpy_p_T_calls[str(frame.filename)][str(frame.function)].append(str(frame.lineno))
-            update = True
-        if update:
-            print("computeEnthalpy_p_T calls:", computeEnthalpy_p_T_calls, flush=True)
         return FP.PropsSI('H', 'P', p, 'T', T, self.fluid)
 
     def computeEnthalpy_p_s(self, p, s):
-        
-        frame = inspect.stack()[1]  # [1] = the caller, [0] = this function itself
-        update = False
-        if str(frame.filename) not in computeEnthalpy_p_s_calls.keys():
-            computeEnthalpy_p_s_calls[str(frame.filename)] = {}
-            update = True
-        if str(frame.function) not in computeEnthalpy_p_s_calls[str(frame.filename)]:
-            computeEnthalpy_p_s_calls[str(frame.filename)][str(frame.function)] = []
-            update = True
-        if str(frame.lineno) not in computeEnthalpy_p_s_calls[str(frame.filename)][str(frame.function)]:
-            computeEnthalpy_p_s_calls[str(frame.filename)][str(frame.function)].append(str(frame.lineno))
-            update = True
-        if update:
-            print("computeEnthalpy_p_s calls:", computeEnthalpy_p_s_calls, flush=True)
         return FP.PropsSI('H', 'P', p, 'S', s, self.fluid)
     
     def computeDensity_p_s(self, p, s):
-
-        frame = inspect.stack()[1]  # [1] = the caller, [0] = this function itself
-        update = False
-        if str(frame.filename) not in computeDensity_p_s_calls.keys():
-            computeDensity_p_s_calls[str(frame.filename)] = {}
-            update = True
-        if str(frame.function) not in computeDensity_p_s_calls[str(frame.filename)]:
-            computeDensity_p_s_calls[str(frame.filename)][str(frame.function)] = []
-            update = True
-        if str(frame.lineno) not in computeDensity_p_s_calls[str(frame.filename)][str(frame.function)]:
-            computeDensity_p_s_calls[str(frame.filename)][str(frame.function)].append(str(frame.lineno))
-            update = True
-        if update:
-            print("computeDensity_p_s calls:", computeDensity_p_s_calls, flush=True)
         return FP.PropsSI('D', 'P', p, 'S', s, self.fluid)
 
     def compute_gammapv_p_rho(self, p, rho):

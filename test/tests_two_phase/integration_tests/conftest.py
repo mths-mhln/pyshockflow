@@ -72,7 +72,3 @@ def mock_fluid():
     fluid.computeDensity_p_T.return_value = 1.2
     fluid.computeStaticEnergy_p_rho.return_value = 2.15e5
     return fluid
-
-
-
- 

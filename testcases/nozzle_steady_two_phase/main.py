@@ -1,7 +1,7 @@
 from pyshockflow import Driver
 from pyshockflow import Config
 
-configFile = "inputs/config_files/lettieri/L1.ini"
+configFile = "inputs/config_files/orchid/testcase.ini"
 # configFile = "inputs/config_files/orchid/testcase.ini"
 # configFile = "inputs/config_files/orchid/input_recovery.ini"
 
