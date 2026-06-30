@@ -7,7 +7,8 @@ configFile = "inputs/config_files/lettieri/L1.ini"
 
 
 config = Config(configFile)
-driver = Driver(config, restartFilePath="Results/berana/output_B1_NX_200/step_001700.pik")
+# driver = Driver(config, restartFilePath="Results/berana/output_B1_NX_200/step_001700.pik")
+driver = Driver(config)
 driver.solve()
 
 # configFile = 'input.ini'

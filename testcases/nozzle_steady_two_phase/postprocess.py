@@ -36,8 +36,7 @@ plt.show()
 # perform verification on the simulation
 verification_cases = ["lettieri/L1_pressure"]
 
-
-
+print(pickleList[-1])
 # convert csv information to dict to comply with v_and_v function argument data format.
 for verification_case in verification_cases:
     df = pd.read_csv(f"verification_data/{verification_case}.csv")
