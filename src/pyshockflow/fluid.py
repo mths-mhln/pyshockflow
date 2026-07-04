@@ -112,9 +112,9 @@ class FluidReal():
     def computePressure_rho_e(self, rho, e):
         p = FP.PropsSI('P', 'D', rho, 'U', e, self.fluid)
         return p
+
     
-    def computeSoundSpeed_p_rho(self, p, rho):
-        """Public method - handles self.fluid and vectorization"""
+    def computeSoundSpeed_p_rho(self, p: float | np.ndarray, rho: float | np.ndarray) -> float | np.ndarray:
         # Ensure inputs are numpy arrays
         p = np.asarray(p, dtype=float)
         rho = np.asarray(rho, dtype=float)
@@ -125,31 +125,29 @@ class FluidReal():
             partial(self._computeSoundSpeed_p_rho_single, fluid=self.fluid),
             otypes=[float]
         )
-        
         return vectorized_func(p, rho)
 
     @staticmethod
-    def _computeSoundSpeed_p_rho_single(p, rho, fluid):
-        """Core scalar function - no self, pure computation"""
-        # check if the state is single phase or two phase
-        T = FP.PropsSI("T", "P", p, "D", rho, fluid)
-        T_crit = FP.PropsSI("Tcrit", fluid_object = fluid)
-        if T < 0.99 * T_crit: 
-            # 0.99 because an evaluation had T = 304.1281982111877, T_crit = 304.1282 (CO2) 
-            # and S_sat_V was not defined, which is acceptable from CoolProp
-            S_sat_V = FP.PropsSI("S", "T", T, "Q", 1, fluid)
-            S_sat_L = FP.PropsSI("S", "T", T, "Q", 0, fluid)
-            non_saturable = False
-        else:
-            non_saturable = True
-        S = FP.PropsSI("S", "P", p, "D", rho, fluid)
+    def _computeSoundSpeed_p_rho_single(p: float, rho: float, fluid: str) -> float:
+        """single thdy point evaluation"""
+        # check if the state is two phase
+        # readers can find interpretation of the phase number in the CoolProp documentation:
+        # https://coolprop.org/_static/doxygen/html/namespace_cool_prop.html#aa1ce7c368d1058004293708038241850a648039a97f7392876038eaf56cf91e95
+        # under section "phases"
+        phase = FP.PropsSI("Phase", "P", p, "D", rho, fluid)
+        
+        # if phase == 6, fluid is in two-phase region. 
+        two_phase = False
+        if phase == 6:
+            two_phase = True
 
-        def _computeSoundSpeed_p_rho_single_phase(p, rho, fluid):
-            a = FP.PropsSI("A", "P", p, "D", rho, fluid)
+        def _computeSoundSpeed_p_rho_single_phase(p: float, rho: float) -> float:
+            a = FP.PropsSI("A", "P", p, "D", rho, fluid)      
             return a
         
-        def _computeSoundSpeed_p_rho_two_phase(p, rho, fluid):
+        def _computeSoundSpeed_p_rho_two_phase(p: float, rho: float) -> float:
             # two-phase (HEM model from Cioffi et al.)
+            T = FP.PropsSI("T", "P", p, "D", rho, fluid)
             x_V = FP.PropsSI("Q", "P", p, "D", rho, fluid)
             x_L = 1 - x_V
             soundSpeed_L = FP.PropsSI("A", "P", p, "Q", 0, fluid)
@@ -175,23 +173,30 @@ class FluidReal():
                             (alpha_V * rho_V / c_p_V) * ds_dp_cQ_V**2)
                     ))**(-0.5)
             return a
-        
-        if non_saturable:
-            # only option is single phase
-            a = _computeSoundSpeed_p_rho_single_phase(p, rho, fluid)
+        if not two_phase:
+            # from tests performed in pyshockflow of this function, when computesoundspeed
+            # is called in any region other than two-phase near the two-phase dome, 
+            # the value is stable. Values inside the two-phase dome (phase == 6) near the 
+            # dome can return -9999980 or nan. 
+            a = _computeSoundSpeed_p_rho_single_phase(p, rho)
+            # common errors:
+            if abs(a) > 99999:
+                print(f"Warning: Computed sound speed {a} is unusually high for p={p}, rho={rho}.\n"
+                    "This issue is common when the thdy pair is considered two-phase by CoolProp\n"
+                    "but is nevertheless evaluated using PropsSI, which from experience only\n"
+                    "returns sensible values for non-two-phase regions.")
+            if np.isnan(a):
+                print(f"Warning: Computed sound speed is NaN for p={p}, rho={rho}.\n"
+                    "This issue is common when the thdy pair is close to the critical point.\n"
+                    "The user may try relaxing the tolerance of the CoolPropAbstractState_v2\n"
+                    "_critical_value method. However if the relaxation required is too large\n"
+                    "it is recommended to launch a separate investigation.")
             return a
         else:
-            # can be two-phase or single phase:
-            if S <= S_sat_L or S >= S_sat_V:
-                # try single phase first. At boundary can yield some errors.
-                try: 
-                    a = _computeSoundSpeed_p_rho_single_phase(p, rho, fluid)
-                except:
-                    a = _computeSoundSpeed_p_rho_two_phase(p, rho, fluid)
-                return a
-            else:
-                a = _computeSoundSpeed_p_rho_two_phase(p, rho, fluid)
-                return a 
+            # but if the value is computed using the cioffi equation, the returned value
+            # has no risk of being -9999980 or nan either, so we can be ensured about stability.
+            a = _computeSoundSpeed_p_rho_two_phase(p, rho)
+            return a
         
 
     def computeMach_u_p_rho(self, u, p, rho):
@@ -211,7 +216,10 @@ class FluidReal():
         return s
 
     def computeEntropy_p_T(self, p, T):
+        print("computeEntropy_p_T:")
+        print("pressure", p, "temperature", T)
         s = FP.PropsSI('S', 'P', p, 'T', T, self.fluid)
+        print("entropy", s)
         return s
 
     def computeFunDerGamma_p_rho(self, p, rho):
@@ -255,7 +263,7 @@ class FluidReal():
             if verbose:
                 print(f"  T_guess={temperatureGuess} pressure={pressure} entropyStatic={entropyStatic} pressure={totPressure} \
                       totTemperature={totTemperature} entropyTotal={entropyTotal} resid={residual}", flush=True)
-                sys.stdout.flush()  # belt-and-suspenders
+                sys.stdout.flush()  
             return residual
 
         # temperature = fsolve(compute_function_residual, totTemperature, xtol=1e-8)[0]

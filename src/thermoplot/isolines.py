@@ -54,7 +54,7 @@ def construct_saturation_dome(config: type[ConfigThermoplot], AS: type[CoolPropA
 
     # evaluate critical point coordinates and combine with dome branches
     crit_coords = extract_critical_point(config, AS)
-    dome_coords = np.concatenate([dome_coords_Q_0, crit_coords, dome_coords_Q_1[::-1]]) # combine into single array of coordinates for saturation dome
+    dome_coords = np.concatenate([dome_coords_Q_0[:-1], crit_coords, dome_coords_Q_1[:-1][::-1]]) # combine into single array of coordinates for saturation dome
 
     return dome_coords
 
