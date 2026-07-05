@@ -151,7 +151,8 @@ for i, col in enumerate(df.columns):
     data[col] = df.iloc[1:, i].values
 
 
-AS = CoolPropAbstractState_v2("REFPROP", "water")
+AS = CoolPropAbstractState_v2("REFPROP", "Water")
+fluid_real_obj = FluidReal("Water", "REFPROP", "abstractstate_v2")
 # # Test requires some additional calculations to convert quality into void fraction
 # alpha_V = data["alpha_V"]
 # # the next parameters are known from how the test case was constructed.
@@ -192,14 +193,15 @@ p = np.ones_like(alpha_V) * 0.1e6  # 0.1 MPa
 rho_v = AS.PropsSI("D", "P", p, "Q", np.ones_like(alpha_V))
 
 # solve equation iteratively for rho
-def func(Q, alpha_v, rho_v, p, fluid_real_obj):
+def func(Q, alpha_v, rho_v, p):
     if np.any(Q < 0) or np.any(Q > 1):
         return np.inf  # Return a large number to indicate an invalid solution
     else:
-        return (alpha_v / Q) * rho_v - AS.PropsSI("D", "P", p, "Q", Q)
+        return (AS.PropsSI("D", "P", p, "Q", Q)/rho_v)*Q - alpha_v
 
 Q = newton(func, x0=np.full_like(alpha_V, 1e-6),
-        args=(alpha_V, rho_v, p, fluid_real_obj))
+        args=(alpha_V, rho_v, p))
+print("obtained Q", Q)
 
 rho = AS.PropsSI("D", "P", p, "Q", Q)
 

@@ -159,7 +159,7 @@ class FluidReal():
             alpha_V = x_V * (rho/rho_V)
             alpha_L = x_L * (rho/rho_L)
             
-            # Finite difference for ds/dp at constant Q
+            # Central difference for ds/dp at constant Q
             ds_dp_cQ_L = (FP.PropsSI("S", "P", p + 1e3, "Q", 0, fluid) -
                             FP.PropsSI("S", "P", p - 1e3, "Q", 0, fluid)) / (2 * 1e3)
             ds_dp_cQ_V = (FP.PropsSI("S", "P", p + 1e3, "Q", 1, fluid) -
@@ -181,6 +181,8 @@ class FluidReal():
             a = _computeSoundSpeed_p_rho_single_phase(p, rho)
             # common errors:
             if abs(a) > 99999:
+                # for qualities near 0, I did see two-phase SOS in the thousands, but that
+                # is considered acceptably finite for an edge case.
                 print(f"Warning: Computed sound speed {a} is unusually high for p={p}, rho={rho}.\n"
                     "This issue is common when the thdy pair is considered two-phase by CoolProp\n"
                     "but is nevertheless evaluated using PropsSI, which from experience only\n"
