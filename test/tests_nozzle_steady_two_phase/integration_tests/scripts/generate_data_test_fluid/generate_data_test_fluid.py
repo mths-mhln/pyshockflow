@@ -1,14 +1,17 @@
 import sys
-import numpy as np
-np.set_printoptions(threshold=sys.maxsize)
-import pandas as pd
 import copy
 import pickle
+
+import matplotlib.pyplot as plt
+import pandas as pd
+import numpy as np
+np.set_printoptions(threshold=sys.maxsize)
+
 from scipy.optimize import newton
+from PIL import Image
 
 from pyshockflow.fluid import FluidReal
 from fluid_properties.coolprop_interface import CoolPropAbstractState_v2
-
 from thermoplot.isolines import construct_saturation_dome
 from thermoplot.thermoplot import thermoplot_cached
 from thermoplot.configthermoplot import ConfigThermoplot
@@ -150,41 +153,9 @@ data = dict.fromkeys(df.columns)
 for i, col in enumerate(df.columns):
     data[col] = df.iloc[1:, i].values
 
-
+# Instantiate necessary objects
 AS = CoolPropAbstractState_v2("REFPROP", "Water")
 fluid_real_obj = FluidReal("Water", "REFPROP", "abstractstate_v2")
-# # Test requires some additional calculations to convert quality into void fraction
-# alpha_V = data["alpha_V"]
-# # the next parameters are known from how the test case was constructed.
-# p = np.ones_like(alpha_V) * 0.1e6  # 0.1 MPa
-# rho_v = AS.PropsSI("D", "P", p, "Q", np.ones_like(alpha_V))
-# print(rho_v)
-
-# # solve equation iteratively for quality
-# def func(Q, alpha_v, rho_v, p):
-#     if Q>= 1 or Q <= 0:
-#         return np.inf  # Return a large number to indicate an invalid solution
-#     else:
-#         return (alpha_v / Q) * rho_v - AS.PropsSI("D", "P", p, "Q", Q)
-
-# print("optimizing")
-# for alpha_v_val, rho_v_val, p_val in zip(alpha_V, rho_v, p):
-#     Q = newton(func, x0=1e-6, args=(alpha_v_val, rho_v_val, p_val))
-#     print(f"alpha_v: {alpha_v_val}, rho_v: {rho_v_val}, Q: {Q}")
-
-# # plot variation of function with Q
-# Q = np.linspace(0.000001, 0.999, len(alpha_V))
-# func_values = [func(Q_val, alpha_V[0], rho_v[0], p[0]) for Q_val in Q]
-# # print(func_values)
-# # print(alpha_V[0], rho_v[0])
-# import matplotlib.pyplot as plt
-# fig, ax = plt.subplots()
-# ax.plot(Q, func_values)
-# ax.set_xlabel("Quality (Q)")   
-# ax.set_ylabel("Function Value")
-# ax.set_title("Variation of Function with Quality (Q)")
-# ax.grid()
-# plt.show()
 
 # Test requires some additional calculations to convert quality into void fraction
 alpha_V = data["alpha_V"]
@@ -201,21 +172,44 @@ def func(Q, alpha_v, rho_v, p):
 
 Q = newton(func, x0=np.full_like(alpha_V, 1e-6),
         args=(alpha_V, rho_v, p))
-print("obtained Q", Q)
 
 rho = AS.PropsSI("D", "P", p, "Q", Q)
 
 # compute the sound speed using the FluidReal method
 soundSpeed_HEM = fluid_real_obj.computeSoundSpeed_p_rho(p, rho)
 
-import matplotlib.pyplot as plt
-fig, ax = plt.subplots()
-ax.plot(alpha_V, soundSpeed_HEM, label="Computed Sound Speed (HEM)")
-ax.plot(alpha_V, data["HEM_sound_speed"], label="Expected Sound Speed (De Lorenzo)")
-ax.set_xlabel("Void Fraction (alpha_V)")
-ax.set_ylabel("Sound Speed (m/s)")
-ax.legend()
-plt.show()
+# Problem: human error introduced through plot digitization leads to very large errors in
+# the computed sound speed. Although I have to agree there is a visible bias in my clicking
+# suggesting the plot i was digitizing in fact showed slight offset compared to the 
+# resulting calculations. However, when plotting the SOS predicted by my implementation
+# on the original figure, the results matched very closely, showing proper matching.
+#  System tests for exapnsions at high vapour fractions should verify implementation for 
+# higher vapour volume fractions as well. 
 
+plotting = False
+if plotting:
+    # plot digitization verification
+    fig, ax = plt.subplots()
+    ax.plot(alpha_V, soundSpeed_HEM, label="Computed Sound Speed (HEM)")
+    ax.plot(alpha_V, data["HEM_sound_speed"], label="Expected Sound Speed (De Lorenzo)")
+    ax.set_xlabel("Void Fraction (alpha_V)")
+    ax.set_ylabel("Sound Speed (m/s)")
+    ax.legend()
+    plt.show()
+
+    # plotting on figure verication
+    img = np.asarray(Image.open('data/benchmark_of_dem_figure_1b.jpg'))
+    imgplot = plt.imshow(img, origin = 'upper')
+
+    x_min, x_max, y_min, y_max = imgplot.get_extent()
+    alpha_V_scaled = (alpha_V - 0) / (1 - 0) * (x_max - x_min) + x_min
+    soundSpeed_HEM_scaled = (soundSpeed_HEM - 0) / (120 - 0) * (y_max - y_min) + y_min
+
+    plt.plot(alpha_V_scaled, soundSpeed_HEM_scaled, label="Computed Sound Speed (HEM)", color='red')
+    plt.show()
+
+# hence verification will be performed against the calculated values rather than the 
+# digitized values. 
+data["HEM_sound_speed"] = soundSpeed_HEM
 with open("../../data/test_fluid/HEM_sos_benchmark_of_dem_fig_1b.pkl", "wb") as f:
     pickle.dump(data, f)

@@ -110,7 +110,7 @@ def test_computeSoundSpeed_p_rho_de_lorenzo(fluid_real_obj, verification_data_pa
         data = pickle.load(f)
     
     # data structure
-    # {"alpha_V": np.1darray([...]), "sound_speed": np.1darray([...])}
+    # {"alpha_V": np.1darray([...]), "HEM_sound_speed": np.1darray([...])}
 
     # Test requires some additional calculations to convert quality into void fraction
     alpha_V = data["alpha_V"]
