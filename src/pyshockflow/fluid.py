@@ -218,11 +218,10 @@ class FluidReal():
         return s
 
     def computeEntropy_p_T(self, p, T):
-        print("computeEntropy_p_T:")
-        print("pressure", p, "temperature", T)
-        s = FP.PropsSI('S', 'P', p, 'T', T, self.fluid)
-        print("entropy", s)
+        s = FP.PropsSI('S', 'P', p, 'T', T, self.fluid) 
         return s
+    
+    
 
     def computeFunDerGamma_p_rho(self, p, rho):
         try: # if single phase this will work

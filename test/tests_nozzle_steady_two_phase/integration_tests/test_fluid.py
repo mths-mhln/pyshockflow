@@ -2,7 +2,6 @@ import sys
 import pickle
 import pytest
 
-import pandas as pd
 import numpy as np
 np.set_printoptions(threshold=sys.maxsize)
 from scipy.optimize import newton
@@ -18,14 +17,14 @@ def fluid_real_obj(request):
 @pytest.mark.parametrize(
     ("fluid_real_obj", "verification_data_path"),
     (
-        ("CO2", "data/test_fluid/data_test_fluid_CO2.pkl"),
-        ("R1234ze(E)", "data/test_fluid/data_test_fluid_R1234ze(E).pkl"),
+        ("CO2", "data/test_fluid/CM56_SOS_testing_test_1_CO2.pkl"),
+        ("R1234ze(E)", "data/test_fluid/CM56_SOS_testing_test_1_R1234ze(E).pkl"),
     ),
     # Don't pass this value straight into the test function. Instead, find the fixture
     # called fluid_real_obj, and feed this value into that fixture as request.param
     indirect=["fluid_real_obj"]
 )
-def test_computeSoundSpeed_p_rho(fluid_real_obj, verification_data_path):
+def test_CM56_SOS_testing_test_1(fluid_real_obj, verification_data_path):
     """ 
     Pytest to verify the computeSoundSpeed_p_rho method of the FluidReal class.
     For two fluids of interest, five test cases will be run: 
@@ -36,6 +35,7 @@ def test_computeSoundSpeed_p_rho(fluid_real_obj, verification_data_path):
     5) a set of thdy states running parallel to the saturation dome at +000% it's temperature value
     The latter three check if the function behaves well close to the saturation dome and 
     returns single phase speeds of sound or two-phase speeds of sound as appropriate.
+    For more info, see the script test/tests_nozzle_steady_two_phase/integration_tests/scripts/generate_data_test_fluid/generate_data_test_fluid.py
     """
     with open(verification_data_path, "rb") as f:
         data = pickle.load(f)
@@ -98,13 +98,16 @@ def test_computeSoundSpeed_p_rho(fluid_real_obj, verification_data_path):
 
 @pytest.mark.parametrize(
     ("fluid_real_obj", "verification_data_path"),
-    (("Water", "data/test_fluid/HEM_sos_benchmark_of_dem_fig_1b.pkl"),),
+    (("Water", "data/test_fluid/CM56_SOS_testing_test_2.pkl"),),
     indirect=["fluid_real_obj"],
 )
-def test_computeSoundSpeed_p_rho_de_lorenzo(fluid_real_obj, verification_data_path):
+def test_CM56_SOS_testing_test_2(fluid_real_obj, verification_data_path):
     """
-    Verification of function against figure 1b of Marco De Lorenzo "Benchmark of the Delayed Equilibrium Model". 
-    Pertains variation of HEM sound speed with volume fraction of vapour for pressure 0.1 MPa and water as working fluid. 
+    Verification of computeSoundSpeed_p_rho method of the FluidReal class against figure 1b 
+    of Marco De Lorenzo "Benchmark of the Delayed Equilibrium Model". Pertains variation of 
+    HEM sound speed with volume fraction of vapour for pressure 0.1 MPa and water as working
+    fluid. For more info, see the script test/tests_nozzle_steady_two_phase/integration_
+    tests/scripts/generate_data_test_fluid/generate_data_test_fluid.py
     """
     with open(verification_data_path, "rb") as f:
         data = pickle.load(f)
@@ -136,3 +139,36 @@ def test_computeSoundSpeed_p_rho_de_lorenzo(fluid_real_obj, verification_data_pa
     # compare the computed sound speed with the expected sound speed from the verification data
     expected_soundSpeed_HEM = data["HEM_sound_speed"]
     assert soundSpeed_HEM == pytest.approx(expected_soundSpeed_HEM, rel=1e-3)
+
+
+
+@pytest.mark.parametrize(
+    ("fluid_real_obj"),
+    (("Water"),),
+    indirect=["fluid_real_obj"],
+)
+def test_CM56_SOS_testing_test_3(fluid_real_obj):
+    """
+    Verification of computeSoundSpeed_p_rho method of the FluidReal class against the HEM
+    SOS equation presented in Marco De Lorenzo "Benchmark of the Delayed Equilibrium Model".
+    This formulation differs from the Cioffi et al. formulation implemented in the FluidReal.
+    class. 
+    """
+    # extract tests data generated in scripts/generate_data_test_fluid/generate_data_test_fluid.py
+    # for CM56_SOS_testing_test_3
+    with open("data/test_fluid/CM56_SOS_testing_test_3.pkl", "rb") as f:
+        data = pickle.load(f)
+    
+    # data structure
+    # {"p": np.1darray([...]), "rho": np.1darray([...]), "soundSpeed_HEM_de_lorenzo": np.1darray([...])}
+    p = data["p"]
+    rho = data["rho"]
+    expected_soundSpeed_HEM_de_lorenzo = data["soundSpeed_HEM_de_lorenzo"]
+
+    # compute sound speed using the FluidReal method (Cioffi et al. A Hyperbolic One-Dimensional Model 
+    # for Two-Phase Flows in Converging-Diverging Nozzles)
+    soundSpeed_HEM = fluid_real_obj.computeSoundSpeed_p_rho(p, rho)
+
+    # compare if the two formulations agree, increasing confidence in correct implementation
+    # of the Cioffi formulation.
+    assert soundSpeed_HEM == pytest.approx(expected_soundSpeed_HEM_de_lorenzo, rel=1e-3)

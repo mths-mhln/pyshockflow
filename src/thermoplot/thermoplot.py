@@ -35,7 +35,7 @@ def _thermoplot_cache_path(thermoplot_config_file_path: str, thermoplot_overwrit
     # save input to cache
     cache_input = (
         thermoplot_config_file_path,
-        Path(thermoplot_config_file_path).stat().st_mtime_ns, # include modification time of config file in cache key to ensure that cache is invalidated when config file is updated
+        Path(thermoplot_config_file_path).read_bytes(), # include file contents in cache key so any config change invalidates the cache
         overwrite_settings_key,
     )
     # create cache key by hashing the cache input. Use pickle to serialize the cache input, and then hash the serialized input using sha256 to create a unique 
@@ -44,7 +44,7 @@ def _thermoplot_cache_path(thermoplot_config_file_path: str, thermoplot_overwrit
     return _THERMOPLOT_CACHE_DIR / f"{cache_key}.pkl"
 
 
-@configure_matplotlib
+
 def thermoplot_cached(thermoplot_config_file_path: str, thermoplot_overwrite_settings: dict[str, list] = None) -> type[plt.Figure]:
     """
     Disk-cached version of the thermoplot function.
@@ -92,6 +92,16 @@ def thermoplot(thermoplot_config_file_path: str, thermoplot_overwrite_settings: 
                 config.thermoplot_settings[setting_name] = setting_value
             except KeyError:
                 print("Attempting to adapt thermoplot settings with user-provided settings, but the following setting name is not recognized: ", setting_name)
+
+    # apply or clear LaTeX-specific matplotlib settings after all overrides have been resolved.
+    if config.thermoplot_settings["latex_formatting"]:
+        configure_matplotlib()
+    # else:
+    #     plt.rcParams.update({
+    #         "text.usetex": False,
+    #         "font.family": "sans-serif",
+    #         "text.latex.preamble": "",
+    #     })
 
     # Create figure and axis objects
     fig, ax = plt.subplots(figsize=(10, 7))

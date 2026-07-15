@@ -655,7 +655,8 @@ class Driver:
         else:
             raise ValueError("Unknown boundary condition type on the right")
         
-        # update also the conservative variable arrays based on what has been done on the primitive
+        # update also the conservative variable arrays based on what has been done on the primitive, this will only update the halo nodes
+        # the remainder of the primitive internal field will be the same as the one resulting after updating the solution using the residuals
         self.solutionConservative['u1'], self.solutionConservative['u2'], self.solutionConservative['u3'] = (getConservativesFromPrimitives(
             self.solutionPrimitive['Density'], self.solutionPrimitive['Velocity'], self.solutionPrimitive['Pressure'], self.fluid))
 

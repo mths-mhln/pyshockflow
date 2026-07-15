@@ -523,6 +523,7 @@ class CoolPropAbstractState_v2():
                 "T": "T",
                 "Q": "Q",
                 "P": "p",
+                "G": "gibbsmass",
                 "Smass": "smass",
                 "Cpmass": "cpmass",
                 "Cvmass": "cvmass",

@@ -1,3 +1,4 @@
+from functools import partial
 import sys
 import copy
 import pickle
@@ -17,13 +18,45 @@ from thermoplot.thermoplot import thermoplot_cached
 from thermoplot.configthermoplot import ConfigThermoplot
 
 
+# Description: 
+# ############
+# File generates the verification data used for testing the methods stored in
+# pyshockflow's fluid.py file for the respective objects (focus lies primarily 
+# with the FluidReal class). Verification data would be too extensive to 
+# store as full arrays generated once and copied over from output. Hence this
+# data generator file to 1) generate the compact data files, and 2) store the 
+# method by which data was generated. 
 
-# prepare saturation_dome_testing data
+
+
+#########################################################
+#                CM-5.6: SOS testing
+#########################################################
+# Test 1: Saturation dome testing
+# ===============================
+# saturation dome testing consists of 5 cases, testing the ability of the 
+# computeSoundSpeed_p_rho function to compute the sound speed for thdy states 
+# close to the saturation dome. The five cases are:
+# 1) isentropic expansion case: a set of thdy states with constant entropy 
+#    expanding from subcooled fluid to the two -phase region at quality ~0.3
+# 2) isothermal process case: a set of thdy states with constant temperature 
+#    going form quality ~0.3 to superheated vapour. The case is isothermal rather
+#    than isentropic due to the "dryness" of the working fluid, see Martin T. White
+#    paper "Cycle and turbine optimisation for an ORC operating with two-phase expansion"
+# 3) parallel plus 001 case: a set of thdy states running parallel to the saturation dome
+#    at +001% it's temperature value.
+# 4) parallel minus 001 case: a set of thdy states running parallel to the saturation dome 
+#    at -001% it's temperature value.
+# 5) parallel 000 case: a set of thdy states running parallel to the saturation dome
+#    at exactly it's temperature value.
+#
+# I believe that these cases perform an exhaustive test of computeSoundSpeed_p_rho's ability to return sensible values
+# close to the saturation dome.
 # Data generated using current code implementation. Verification performed by inspection.
 fluid_data = {
     "CO2": {
         "config_file": "config/CO2.ini",
-        "data_file_path": "../../data/test_fluid/data_test_fluid_CO2.pkl",
+        "data_file_path": "../../data/test_fluid/CM56_SOS_testing_test_1_CO2.pkl",
         "isentropic_expansion_config": {
             "T_start": 288,
             "T_end": 240,
@@ -37,7 +70,7 @@ fluid_data = {
     },
     "R1234ze(E)": {
         "config_file": "config/R1234ze(E).ini",
-        "data_file_path": "../../data/test_fluid/data_test_fluid_R1234ze(E).pkl",
+        "data_file_path": "../../data/test_fluid/CM56_SOS_testing_test_1_R1234ze(E).pkl",
         "isentropic_expansion_config": {
             "T_start": 288,
             "T_end": 240,
@@ -66,6 +99,7 @@ for fluid in fluid_data.keys():
     config = ConfigThermoplot(config_file=input_file_path)
     config.get_thermoplot_settings()
     dome_coords = construct_saturation_dome(config, AS)
+    plt.show()
 
     # instantiate dictionary containing the verification data for the five test cases. 
     data_dict = dict.fromkeys(
@@ -139,13 +173,16 @@ for fluid in fluid_data.keys():
     thdy_coords = np.column_stack((dome_coords_5[:, 0], dome_coords_5[:, 1]))
     data_dict["parallel_000"]["thdy_coords"] = thdy_coords
     data_dict["parallel_000"]["sound_speed"] = sound_speeds
-    print(data_dict["parallel_000"]["sound_speed"])
     
     # save dict as pkl file
     with open(fluid_data[fluid]["data_file_path"], "wb") as f:
         pickle.dump(data_dict, f)
 
 
+# Test 2: verification against fig 1b of De Lorenzo et al. "Benchmark of Delayed Equilibrium Model ..."
+# =====================================================================================================
+# figure presents the variation in SOS against vapour volume fraction. Adequate matching would indicate
+# proper implementation of the HEM SOS equation. 
 
 # prepare benchmark_of_the_dem_data:
 df = pd.read_csv("data/HEM_sos_benchmark_of_dem_fig_1b.csv")
@@ -183,10 +220,10 @@ soundSpeed_HEM = fluid_real_obj.computeSoundSpeed_p_rho(p, rho)
 # suggesting the plot i was digitizing in fact showed slight offset compared to the 
 # resulting calculations. However, when plotting the SOS predicted by my implementation
 # on the original figure, the results matched very closely, showing proper matching.
-#  System tests for exapnsions at high vapour fractions should verify implementation for 
-# higher vapour volume fractions as well. 
+# System tests for exapnsions at high vapour fractions should verify implementation for 
+# higher vapour volume fractions as well... 
 
-plotting = False
+plotting = True
 if plotting:
     # plot digitization verification
     fig, ax = plt.subplots()
@@ -197,7 +234,11 @@ if plotting:
     ax.legend()
     plt.show()
 
-    # plotting on figure verication
+    # due to the large induced human error by digitization, I wondered whether I could plot
+    # the progression of the computed SOS on top of the .jpg figure of the original paper, and
+    # perform visual verification. I would subsequently still be performing the pytest against 
+    # the digitized values to prevent having to manually verify every single time (if there is
+    # deviation wrt the digitized values then the previous visual verification is invalidated)
     img = np.asarray(Image.open('data/benchmark_of_dem_figure_1b.jpg'))
     imgplot = plt.imshow(img, origin = 'upper')
 
@@ -208,8 +249,121 @@ if plotting:
     plt.plot(alpha_V_scaled, soundSpeed_HEM_scaled, label="Computed Sound Speed (HEM)", color='red')
     plt.show()
 
-# hence verification will be performed against the calculated values rather than the 
+# ... hence verification will be performed against the calculated values rather than the 
 # digitized values. 
 data["HEM_sound_speed"] = soundSpeed_HEM
-with open("../../data/test_fluid/HEM_sos_benchmark_of_dem_fig_1b.pkl", "wb") as f:
+with open("../../data/test_fluid/CM56_SOS_testing_test_2.pkl", "wb") as f:
     pickle.dump(data, f)
+
+
+# Test 3: verification against De Lorenzo et al. "Benchmark of Delayed Equilibrium Model ..." SOS equation
+# ========================================================================================================
+# In the same paper, De Lorenzo et al. presents an alternative formulation for computing the HEM SOS. 
+# given the failure of the Test 2 verification, adequate matching with the De Lorenzo et al. formulation 
+# increases confidence in the proper implementation of the HEM SOS equation, coming from Cioffi et al. 
+# "A Hyperbolic One-Dimensional Model for Two-Phase Flows in Converging-Diverging Nozzles"
+
+def computeSoundSpeed_de_lorenzo_p_rho(p: float | np.ndarray, rho: float | np.ndarray, AS: CoolPropAbstractState_v2) -> float | np.ndarray:
+    # Ensure inputs are numpy arrays
+    p = np.asarray(p, dtype=float)
+    rho = np.asarray(rho, dtype=float)
+    p, rho = np.broadcast_arrays(p, rho)
+    
+    # Vectorize the core function, passing self.fluid
+    vectorized_func = np.vectorize(
+        partial(_computeSingleSoundSpeed_de_lorenzo_p_rho, AS=AS),
+        otypes=[float]
+    )
+    return vectorized_func(p, rho)
+
+def _computeSingleSoundSpeed_de_lorenzo_p_rho(p: float, rho: float, AS: CoolPropAbstractState_v2) -> float:
+    """single thdy point evaluation"""
+    # check if the state is two phase
+    # readers can find interpretation of the phase number in the CoolProp documentation:
+    # https://coolprop.org/_static/doxygen/html/namespace_cool_prop.html#aa1ce7c368d1058004293708038241850a648039a97f7392876038eaf56cf91e95
+    # under section "phases"
+    phase = AS.PropsSI("Phase", "P", p, "D", rho)
+    
+    # if phase == 6, fluid is in two-phase region. 
+    two_phase = False
+    if phase == 6:
+        two_phase = True
+
+    def _computeSingleSoundSpeed_de_lorenzo_p_rho_single_phase(p: float, rho: float) -> float:
+        a = AS.PropsSI("A", "P", p, "D", rho)      
+        return a
+    
+    def _computeSingleSoundSpeed_de_lorenzo_p_rho_two_phase(p: float, rho: float) -> float:
+        # two-phase (HEM model from De Lorenzo et al.)
+        # compute thdy quantities
+        x_eq = AS.PropsSI("Q", "P", p, "D", rho)
+        rho_L = AS.PropsSI("D", "P", p, "Q", 0)
+        rho_V = AS.PropsSI("D", "P", p, "Q", 1)
+        s_L = AS.PropsSI("S", "P", p, "Q", 0)
+        s_V = AS.PropsSI("S", "P", p, "Q", 1)
+
+        # compute specific volumes
+        nu_L = 1 / rho_L
+        nu_V = 1 / rho_V
+        nu_m =   x_eq * nu_V + (1 - x_eq) * nu_L  
+
+        # central difference for d(nu)/d(p) at saturation dome boundary
+        dnu_dp_cQ_L = (AS.PropsSI("D", "P", p + 1e3, "Q", 0)**(-1) -
+                        AS.PropsSI("D", "P", p - 1e3, "Q", 0)**(-1)) / (2 * 1e3)
+        dnu_dp_cQ_V = (AS.PropsSI("D", "P", p + 1e3, "Q", 1)**(-1) -
+                        AS.PropsSI("D", "P", p - 1e3, "Q", 1)**(-1)) / (2 * 1e3)
+
+        # central difference ds_dp_cQ at the Q under current evaluation. 
+        ds_dp_cQ = (AS.PropsSI("S", "P", p + 1e3, "Q", x_eq) -
+                    AS.PropsSI("S", "P", p - 1e3, "Q", x_eq)) / (2 * 1e3)    
+
+        # Sound speed according to Eq 27 (De Lorenzo et al.)
+        a = np.sqrt( -nu_m**2 *(
+            dnu_dp_cQ_L - ds_dp_cQ * (nu_V - nu_L)/(s_V - s_L) + 
+            x_eq * (dnu_dp_cQ_V - dnu_dp_cQ_L)
+        )**(-1)
+        )
+        return a
+    
+    if not two_phase:
+        # from tests performed in pyshockflow of this function, when computesoundspeed
+        # is called in any region other than two-phase near the two-phase dome, 
+        # the value is stable. Values inside the two-phase dome (phase == 6) near the 
+        # dome can return -9999980 or nan. 
+        a = _computeSingleSoundSpeed_de_lorenzo_p_rho_single_phase(p, rho)
+        # common errors:
+        if abs(a) > 99999:
+            print(f"Warning: Computed sound speed {a} is unusually high for p={p}, rho={rho}.\n"
+                "This issue is common when the thdy pair is considered two-phase by CoolProp\n"
+                "but is nevertheless evaluated using PropsSI, which from experience only\n"
+                "returns sensible values for non-two-phase regions.")
+        if np.isnan(a):
+            print(f"Warning: Computed sound speed is NaN for p={p}, rho={rho}.\n"
+                "This issue is common when the thdy pair is close to the critical point.\n"
+                "The user may try relaxing the tolerance of the CoolPropAbstractState_v2\n"
+                "_critical_value method. However if the relaxation required is too large\n"
+                "it is recommended to launch a separate investigation.")
+        return a
+    else:
+        # but if the value is computed using the de Lorenzo equation, the returned value
+        # has no risk of being -9999980 or nan either, so we can be ensured about stability.
+        a = _computeSingleSoundSpeed_de_lorenzo_p_rho_two_phase(p, rho)
+        return a
+
+# instantiate abstractstate for fluid object. In the computeSoundSpeed_p_rho method, 
+# the fluid object is instantiated as attribute to the class, but this internal routine
+# cannot be used for the new implementation that will be used right now.
+AS = CoolPropAbstractState_v2("REFPROP", "water")
+
+# set up common input
+Q = np.linspace(0, 1, 10000) 
+p = np.ones_like(Q) * 0.1e6  # 0.1 MPa
+rho = AS.PropsSI("D", "P", p, "Q", Q)
+
+# compute the sound speed
+soundSpeed_HEM_de_lorenzo = computeSoundSpeed_de_lorenzo_p_rho(p, rho, AS)
+
+# save data, together with the thdy input pair to a file
+with open("../../data/test_fluid/CM56_SOS_testing_test_3.pkl", "wb") as f:
+    pickle.dump({"p": p, "rho": rho, "soundSpeed_HEM_de_lorenzo": soundSpeed_HEM_de_lorenzo}, f)
+
