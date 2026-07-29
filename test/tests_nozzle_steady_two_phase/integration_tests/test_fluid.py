@@ -8,6 +8,7 @@ from scipy.optimize import newton
 
 from pyshockflow.fluid import FluidReal
 import fluid_properties.fluid_properties as FP
+from fluid_properties.coolprop_interface import CoolPropAbstractState_v2
 
 @pytest.fixture
 def fluid_real_obj(request):
@@ -143,11 +144,11 @@ def test_CM56_SOS_testing_test_2(fluid_real_obj, verification_data_path):
 
 
 @pytest.mark.parametrize(
-    ("fluid_real_obj"),
-    (("Water"),),
+    ("fluid_real_obj", "verification_data_path"),
+    (("Water", "data/test_fluid/CM56_SOS_testing_test_3.pkl"),),
     indirect=["fluid_real_obj"],
 )
-def test_CM56_SOS_testing_test_3(fluid_real_obj):
+def test_CM56_SOS_testing_test_3(fluid_real_obj, verification_data_path):
     """
     Verification of computeSoundSpeed_p_rho method of the FluidReal class against the HEM
     SOS equation presented in Marco De Lorenzo "Benchmark of the Delayed Equilibrium Model".
@@ -156,7 +157,7 @@ def test_CM56_SOS_testing_test_3(fluid_real_obj):
     """
     # extract tests data generated in scripts/generate_data_test_fluid/generate_data_test_fluid.py
     # for CM56_SOS_testing_test_3
-    with open("data/test_fluid/CM56_SOS_testing_test_3.pkl", "rb") as f:
+    with open(verification_data_path, "rb") as f:
         data = pickle.load(f)
     
     # data structure
@@ -172,3 +173,57 @@ def test_CM56_SOS_testing_test_3(fluid_real_obj):
     # compare if the two formulations agree, increasing confidence in correct implementation
     # of the Cioffi formulation.
     assert soundSpeed_HEM == pytest.approx(expected_soundSpeed_HEM_de_lorenzo, rel=1e-3)
+
+
+
+@pytest.mark.parametrize(
+    ("fluid_real_obj", "verification_data_path"),
+    (("R1234ze(E)", "data/test_fluid/CM92_CoolProp_mixture_thdy_properties.pkl"),),
+    indirect=["fluid_real_obj"],
+)
+def test_CM92_CoolProp_mixture_thdy_properties(fluid_real_obj, verification_data_path):
+    """
+    Verification of the CoolProp mixture properties against the values obtained 
+    when solving the Giljarhus system. For a more comprehensive description of the 
+    test, please refer to the script test/tests_nozzle_steady_two_phase/integration_
+    tests/scripts/generate_data_test_fluid/generate_data_test_fluid.py
+    """
+
+    # extract test data generated in scripts/generate_data_test_fluid/generate_data_test_fluid.py
+    with open(verification_data_path, "rb") as f:
+        data = pickle.load(f)
+
+    # data structure
+    # {"D": {"vals": np.2darray([...]), "coords": (S_grid, T_grid)},
+    #  "U": {"vals": np.2darray([...]), "coords": (S_grid, T_grid)},
+    #  "P": {"vals": np.2darray([...]), "coords": (S_grid, T_grid)},
+    #  "Q": {"vals": np.2darray([...]), "coords": (S_grid, T_grid)}}
+
+    AS = CoolPropAbstractState_v2(fluid_real_obj.fluid.Library, fluid_real_obj.fluid.Name)
+
+    for prop_type in data.keys():
+        # extract coords (at which to evaluate the property)
+        S_eval, T_eval = data[prop_type]["coords"]
+
+        # compute the property using the FluidReal class
+        prop_eval = AS.PropsSI(prop_type, "T", T_eval.ravel(), "S", S_eval.ravel(), verbose=False)
+        # Normally, methods of the fluid_real object must be used for proper testing. 
+        # In my opinion, use of the fluid_real object is quite silly. It is a very roundabout way of 
+        # calling the FP class PropsSI method, which already generalizes. The problem:
+        # the fluid_real object does not have methods to evaluate properties from S, T inputs
+        # for all variables of interest during this investigation, hence for me to test, 
+        # new methods must be made. Instead I just used the AS method I created. This does not generalize to 
+        # all fluid-dynamic libraries and may have to be extended in the future, but for now 
+        # the two-phase flow implementation only works for CoolProp, so this is sufficient.
+        # I use the AS object due to it's verbose option, which suppresses the CoolProp warnings.
+
+        # drop all NaN values, for assertion testing.
+        prop_eval = prop_eval[~np.isnan(prop_eval)]    
+        print(np.sum(np.isnan(prop_eval)))
+
+        # compare the computed property with the expected property from the verification data
+        expected_prop_eval = data[prop_type]["vals"].ravel()
+        print(np.sum(np.isnan(expected_prop_eval)))
+
+        print(prop_eval.size, expected_prop_eval.size)
+        assert prop_eval == pytest.approx(expected_prop_eval, rel=1e-3)

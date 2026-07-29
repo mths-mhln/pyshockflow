@@ -18,6 +18,7 @@ from thermoplot.thermoplot import thermoplot_cached
 from thermoplot.configthermoplot import ConfigThermoplot
 
 
+
 # Description: 
 # ############
 # File generates the verification data used for testing the methods stored in
@@ -27,6 +28,8 @@ from thermoplot.configthermoplot import ConfigThermoplot
 # data generator file to 1) generate the compact data files, and 2) store the 
 # method by which data was generated. 
 
+plotting = True
+
 
 
 #########################################################
@@ -34,7 +37,7 @@ from thermoplot.configthermoplot import ConfigThermoplot
 #########################################################
 # Test 1: Saturation dome testing
 # ===============================
-# saturation dome testing consists of 5 cases, testing the ability of the 
+# SOS test 1 consists of 5 cases, testing the ability of the 
 # computeSoundSpeed_p_rho function to compute the sound speed for thdy states 
 # close to the saturation dome. The five cases are:
 # 1) isentropic expansion case: a set of thdy states with constant entropy 
@@ -99,7 +102,8 @@ for fluid in fluid_data.keys():
     config = ConfigThermoplot(config_file=input_file_path)
     config.get_thermoplot_settings()
     dome_coords = construct_saturation_dome(config, AS)
-    plt.show()
+    if plotting:
+        plt.show()
 
     # instantiate dictionary containing the verification data for the five test cases. 
     data_dict = dict.fromkeys(
@@ -223,7 +227,6 @@ soundSpeed_HEM = fluid_real_obj.computeSoundSpeed_p_rho(p, rho)
 # System tests for exapnsions at high vapour fractions should verify implementation for 
 # higher vapour volume fractions as well... 
 
-plotting = True
 if plotting:
     # plot digitization verification
     fig, ax = plt.subplots()
@@ -366,4 +369,119 @@ soundSpeed_HEM_de_lorenzo = computeSoundSpeed_de_lorenzo_p_rho(p, rho, AS)
 # save data, together with the thdy input pair to a file
 with open("../../data/test_fluid/CM56_SOS_testing_test_3.pkl", "wb") as f:
     pickle.dump({"p": p, "rho": rho, "soundSpeed_HEM_de_lorenzo": soundSpeed_HEM_de_lorenzo}, f)
+
+
+
+
+#########################################################
+#    CM-9.2: CoolProp mixture thdy properties testing
+#########################################################
+# this test aims to verify that with the current implementation of the 
+# fluid_dynamic modelling in fluid.py and consequently the coolprop backend
+# source code in the fluid_properties folder, the thdy mixture properties
+# extracted from CoolProp 1) display smooth behavior, 2) match the mixture
+# properties obtained when solving the Giljarhus system of equations for the 
+# mixture properties of a two-phase fluid in thdy equilibrium. 
+# for reference, see equation 14 of "Solution of the Span-Wagner equation of 
+# state using a density-energy state function for ﬂuid-dynamic simulation of 
+# carbon dioxide". 
+
+# The test aims to verify this by copmputing mixture thdy properties all 
+# throughout the two-phase region using both coolprop and by solving the
+# Giljarhus system of equations. The results are then compared and CoolProp is
+# assumed to meet the two desired conditions if the results match within 
+# 1e-8 with the Giljarhus system, and when the properties are visually smooth. 
+# visual verification is performed once, after which the data is stored
+# and used for regression testing.
+
+# Any mismatch could lead to imporper prediction of the progression of the
+# two-phase flow thdy properties. Primary interest for the pyshockflow 
+# project lies in the total delta along the geometry. It is true that there
+# can be a local mismatch that does not influence the total delta, but 
+# capturing this case is quite difficult. Hence upon any mismatch an assert 
+# is thrown that should be investigated by the user. The first investigation 
+# should be to generate a similar field of values throughout the thdy map
+# as is generated in the code snippet below, and to compare the values to those
+# stored, and to observe where the deviation occurs. 
+
+# errors can only be CoolProp related and are hence considered unlikely.
+
+# fluid property extraction method
+AS = CoolPropAbstractState_v2("REFPROP", "R1234ze(E)")
+
+# Instantiate thermoplot configuration file, and extract the domain boundaries
+input_file_path = "config/R1234ze(E).ini"
+config = ConfigThermoplot(config_file=input_file_path)
+config.get_thermoplot_settings()
+if config.thermoplot_settings["diagram_type"] != "TS":
+    raise ValueError("Only TS diagram type is supported.")
+S_range = config.thermoplot_settings["S_range"]
+T_range = config.thermoplot_settings["T_range"]
+
+# create grid of S, T pairs at which to evaluate thermodynamic properties
+n_pts = 200
+S = np.linspace(S_range[0], S_range[1], n_pts)
+T = np.linspace(T_range[0], T_range[1], n_pts)
+S_grid, T_grid = np.meshgrid(S, T)   # shape (n_pts, n_pts)
+
+# The next steps aim to compute the total first derivative of the property on the 
+# normalized S and T grid. Normalization is necessary to obtain unbiased total derivative 
+# values. We are only interested in deviation from the neighbors.
+
+# Normalized coordinates (0 to 1)
+S_norm = (S - S_range[0]) / (S_range[1] - S_range[0])
+T_norm = (T - T_range[0]) / (T_range[1] - T_range[0])
+
+# Full 2D grids
+S_norm_grid, T_norm_grid = np.meshgrid(S_norm, T_norm)   # shape (n_pts, n_pts)
+
+# specify properties of which to evaluate gradient and instantiate total derivatives
+properties = ["D", "U", "P", "Q"]
+prop_vals = {}
+
+for prop_name in properties:
+    # instantiate dict
+    prop_vals[prop_name] = dict.fromkeys(["vals", "coords"], None)
+
+    # Evaluate property on full grid
+    prop_flat = AS.PropsSI(prop_name,
+                           "T", T_grid.ravel(),
+                           "S", S_grid.ravel(),
+                           verbose=False)
+    prop_grid = prop_flat.reshape(T_grid.shape)
+    prop_vals[prop_name]["vals"] = prop_grid
+    prop_vals[prop_name]["coords"] = (S_grid, T_grid)
+
+    if plotting:
+        # generate thermoplot figure to plot gradient information on. 
+        fig = thermoplot_cached(input_file_path)
+        axes = fig.get_axes()
+        # deviation[deviation > 0.2] = 0.2
+
+        scatter = axes[0].scatter(
+            S_grid,
+            T_grid,
+            c=prop_vals[prop_name]["vals"],
+            cmap='viridis',
+            s=5,
+            zorder=0,
+        )
+        fig.colorbar(scatter, ax=axes[0], label=f'values of {prop_name}')
+        axes[0].set_xlabel('Entropy (S) [J/kg-K]')
+        axes[0].set_ylabel('Temperature (T) [K]')
+        plt.show()
+    
+    # drop all NaN values, for assertion testing. 
+    prop_vals[prop_name]["vals"] = prop_vals[prop_name]["vals"][~np.isnan(prop_vals[prop_name]["vals"])]
+
+# store prop vals
+with open(f"../../data/test_fluid/CM92_CoolProp_mixture_thdy_properties.pkl", "wb") as f:
+    pickle.dump(prop_vals, f)
+
+
+
+
+
+
+
 

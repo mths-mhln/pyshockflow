@@ -298,7 +298,7 @@ class CoolPropAbstractState_v2():
         self._abstract_state = AbstractState(self.Library, name)
 
     @staticmethod
-    def _update_wrapper(AS: AbstractState, input_spec: CP.PQ_INPUTS, x: float, y: float) -> bool:
+    def _update_wrapper(AS: AbstractState, input_spec: CP.PQ_INPUTS, x: float, y: float, verbose: bool = True) -> bool:
         """
         Coolprop utility to allow nan return upon vectorized evaluation of AbstractState.
         """
@@ -306,7 +306,8 @@ class CoolPropAbstractState_v2():
             AS.update(input_spec, x, y)
             return False
         except Exception as e:
-            print("Failed to update abstractstate. CoolProp output:", e)
+            if verbose:
+                print("Failed to update abstractstate. CoolProp output:", e)
             return True
 
     def _get_abstract_state(self) -> AbstractState:
@@ -359,7 +360,7 @@ class CoolPropAbstractState_v2():
         
     @staticmethod # necessary to allow for vectorization of the method
     @np.vectorize(otypes=[float])
-    def _update_and_get(AS: AbstractState, input_spec: CP.PQ_INPUTS, x_str: str, x: float, y_str: str, y: float, output: str, reorder: bool):
+    def _update_and_get(AS: AbstractState, input_spec: CP.PQ_INPUTS, x_str: str, x: float, y_str: str, y: float, output: str, reorder: bool, verbose: bool = True) -> float:
         """
         Vectorized method to update the AbstractState with the specified input specification and input variables, and return the specified output variable. 
         The method returns nan for points that are not valid for the AbstractState (e.g. points outside the phase envelope).
@@ -402,9 +403,9 @@ class CoolPropAbstractState_v2():
             return getattr(AS, output)()
         
         if reorder:
-            skip_update = CoolPropAbstractState_v2._update_wrapper(AS, input_spec, y, x)
+            skip_update = CoolPropAbstractState_v2._update_wrapper(AS, input_spec, y, x, verbose)
         else:
-            skip_update = CoolPropAbstractState_v2._update_wrapper(AS, input_spec, x, y)
+            skip_update = CoolPropAbstractState_v2._update_wrapper(AS, input_spec, x, y, verbose)
         if skip_update:
             return np.nan
         if output == 'drhomassdPcT':
@@ -467,7 +468,7 @@ class CoolPropAbstractState_v2():
         else:
             return False   
 
-    def PropsSI(self, prop: str, x_str: str = None, x: float | np.ndarray = None, y_str: str = None, y: float | np.ndarray = None):
+    def PropsSI(self, prop: str, x_str: str = None, x: float | np.ndarray = None, y_str: str = None, y: float | np.ndarray = None, verbose: bool = True) -> float | np.ndarray:
         """
         Integral functionality, uses various methods to convert user input to an input spec accepted by AbstractState syntax, and extracts fluid thermodynamic property according to user specification. 
         using a CoolProp AbstractState syntax. 
@@ -510,7 +511,7 @@ class CoolPropAbstractState_v2():
         y_str_AS = self._PropsSI_syntax_to_AbstractState_syntax(y_str)
         input_spec, reorder = self._get_input_spec(x_str_AS, y_str_AS)
         if prop_AS == 'Q':
-            out = self._update_and_get(AS, input_spec, x_str_AS, x, y_str_AS, y, prop_AS, reorder)
+            out = self._update_and_get(AS, input_spec, x_str_AS, x, y_str_AS, y, prop_AS, reorder, verbose)
             out[out < 0] = 0
             out[out > 1] = 1
             return out
@@ -530,7 +531,7 @@ class CoolPropAbstractState_v2():
                 "d(P)/d(D)|T": "drhomassdPcT",
                 "Phase": "phase"
             }
-            return self._update_and_get(AS, input_spec, x_str_AS, x, y_str_AS, y, translator[prop_AS], reorder)
+            return self._update_and_get(AS, input_spec, x_str_AS, x, y_str_AS, y, translator[prop_AS], reorder, verbose)
 
 
 

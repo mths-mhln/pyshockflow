@@ -2,6 +2,7 @@
 # Imports
 ###########################################
 import configparser
+from pathlib import Path
 import numpy as np
 
 
@@ -13,6 +14,9 @@ class ConfigThermoplot:
         self.config_file = config_file
         self.config_parser = configparser.ConfigParser()
         self.config_parser.optionxform = str  # Preserve case sensitivity of keys
+        # configparser does not check whether the file exists, so we need to check that ourselves
+        if not Path(config_file).exists():
+            raise FileNotFoundError(f"Config file not found: {config_file}")
         self.config_parser.read(config_file)
         if not self.config_parser.has_section("THERMOPLOT SETTINGS"):
             raise ValueError("Missing 'THERMOPLOT SETTINGS' section in config file")
