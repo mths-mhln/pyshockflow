@@ -229,7 +229,7 @@ class FluidReal():
             try:
                 Q = FP.PropsSI("Q", "T", T, "P", p, self.fluid)
             except:
-                # if the state is very close to saturation line it fails to find the quality -> set artifically to 1
+                # if the state is very close to saturation line it fails to find the quality -> set artificially to 1
                 Q = 1
 
             # G in liquid and vapor phases at the given T
@@ -244,25 +244,28 @@ class FluidReal():
         Z = FP.PropsSI('Z', 'P', p, 'D', rho, self.fluid)
         return Z
     
-    def computeInletQuantitiesTotal(self, pressure, totPressure, totTemperature, direction):
+    def computeInletQuantitiesTotal_pt_Tt(self, pressure, totPressure, totTemperature, direction):
         """The full state must be reconstructed from the quantities given in the arguments.
         The entropy of the static and total state must be the same by definition. This is used to find the temperature.
+        Method used for computation of inlet static state for total state in single-phase region.
 
         Args:
             pressure (float): static pressure
             totPressure (float): total pressure
             totTemperature (float): total temperature
+            direction (float): flow direction, integer (-1 or 1)
         """
         # compute entropy from total conditions
         entropyTotal = self.computeEntropy_p_T(totPressure, totTemperature)
         # copmpute static temperature from total conditions and static pressure
         temperature = self.computeTemperature_p_S(pressure, entropyTotal)
-        # compute the rest
+        # compute density
         density = self.computeDensity_p_T(pressure, temperature)
-        gamma_pv = self.compute_gammapv_p_rho(pressure, density)
-        mach = self.computeMach_pt_p_gammapv(totPressure, pressure, gamma_pv)
-        soundSpeed = self.computeSoundSpeed_p_rho(pressure, density)
-        velocity = direction * mach * soundSpeed
+        # compute velocity from total and static enthalpy
+        enthalpyTotal = self.computeEnthalpy_p_T(totPressure, totTemperature)
+        enthalpyStatic = self.computeEnthalpy_p_T(pressure, temperature)
+        velocity = direction * np.sqrt(2 * (enthalpyTotal - enthalpyStatic))
+        # compute static energy
         energy = self.computeStaticEnergy_p_rho(pressure, density)
         return density, velocity, energy
 
@@ -295,10 +298,48 @@ class FluidReal():
         # velocity = direction * mach * soundSpeed
         # energy = self.computeStaticEnergy_p_rho(pressure, density)
         # return density, velocity, energy
+
+    def computeInletQuantitiesTotal_pt_Q(self, pressure, totPressure, quality, direction):
+        """
+        The full state must be reconstructed from the quantities given in the arguments.
+        The entropy of the static and total state must be the same by definition. This is used to find the temperature.
+        Method used for computation of inlet static state for total state in two-phase region.
+
+        Args:
+            pressure (float): static pressure
+            totPressure (float): total pressure
+            quality (float): vapor quality
+            direction (float): flow direction, integer (-1 or 1)
+        """
+        # compute entropy from total conditions
+        entropyTotal = self.computeEntropy_p_Q(totPressure, quality)
+        # copmpute static temperature from total conditions and static pressure
+        temperature = self.computeTemperature_p_S(pressure, entropyTotal)
+        # compute density
+        density = self.computeDensity_p_T(pressure, temperature)
+        # compute velocity from total and static enthalpy
+        enthalpyTotal = self.computeEnthalpy_p_Q(totPressure, quality)
+        enthalpyStatic = self.computeEnthalpy_p_T(pressure, temperature)
+        velocity = direction * np.sqrt(2 * (enthalpyTotal - enthalpyStatic))
+        # compute static energy
+        energy = self.computeStaticEnergy_p_rho(pressure, density)
+        return density, velocity, energy
+    
+    def computeEnthalpy_p_Q(self, p, Q):
+        h = FP.PropsSI('H', 'P', p, 'Q', Q, self.fluid)
+        return h
+
+    def computeStaticEnergy_p_s(self, p, s):
+        e = FP.PropsSI('U', 'P', p, 'S', s, self.fluid)
+        return e
     
     def computeTemperature_p_S(self, p, s):
         T = FP.PropsSI('T', 'P', p, 'S', s, self.fluid)
         return T
+    
+    def computeEntropy_p_Q(self, p, Q):
+        s = FP.PropsSI('S', 'P', p, 'Q', Q, self.fluid)
+        return s
 
     def computeInletQuantitiesStatic(self, pressure, enthalpy):
         density = self.computeDensity_p_h(pressure, enthalpy)
