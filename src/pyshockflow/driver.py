@@ -784,7 +784,7 @@ class Driver:
             # static pressure is the only info taken from the domain 
             pressure = self.solutionPrimitive['Pressure'][iInternal]
             if pressure>=totalPressure: # avoid the problems that can cause
-                pressure = 0.99*totalPressure 
+                pressure = 0.9999*totalPressure 
             density, velocity, energy = self.fluid.computeInletQuantitiesTotal(pressure, totalPressure, totalTemperature, direction)
         elif self.config.getInletConditionsType().lower()=="static":
             if self.fluidModel=='ideal':
