@@ -243,7 +243,6 @@ class FluidReal():
     def computeComprFactorZ_p_rho(self, p, rho):
         Z = FP.PropsSI('Z', 'P', p, 'D', rho, self.fluid)
         return Z
-
     
     def computeInletQuantitiesTotal(self, pressure, totPressure, totTemperature, direction):
         """The full state must be reconstructed from the quantities given in the arguments.
@@ -254,27 +253,11 @@ class FluidReal():
             totPressure (float): total pressure
             totTemperature (float): total temperature
         """
-        def compute_function_residual(temperatureGuess, verbose = False):
-            entropyStatic = self.computeEntropy_p_T(pressure, temperatureGuess)
-            entropyTotal = self.computeEntropy_p_T(totPressure, totTemperature)
-            residual = entropyStatic - entropyTotal
-            if verbose:
-                print(f"  T_guess={temperatureGuess} pressure={pressure} entropyStatic={entropyStatic} pressure={totPressure} \
-                      totTemperature={totTemperature} entropyTotal={entropyTotal} resid={residual}", flush=True)
-                sys.stdout.flush()  
-            return residual
-
-        # temperature = fsolve(compute_function_residual, totTemperature, xtol=1e-8)[0]
-        temperature, info, ier, msg = fsolve(
-            compute_function_residual,
-            totTemperature,
-            xtol=1e-6,
-            full_output=True
-        )
-        if ier != 1:
-            raise RuntimeError(f"fsolve did not converge: {msg}")
-        
-        temperature = temperature[0]
+        # compute entropy from total conditions
+        entropyTotal = self.computeEntropy_p_T(totPressure, totTemperature)
+        # copmpute static temperature from total conditions and static pressure
+        temperature = self.computeTemperature_p_S(pressure, entropyTotal)
+        # compute the rest
         density = self.computeDensity_p_T(pressure, temperature)
         gamma_pv = self.compute_gammapv_p_rho(pressure, density)
         mach = self.computeMach_pt_p_gammapv(totPressure, pressure, gamma_pv)
@@ -282,20 +265,36 @@ class FluidReal():
         velocity = direction * mach * soundSpeed
         energy = self.computeStaticEnergy_p_rho(pressure, density)
         return density, velocity, energy
-    
-    def computeInletQuantitiesTotal_v2(self, P_stat, P_total, T_total, direction):
-        # compute entropy from total conditions
-        entropyTotal = self.computeEntropy_p_T(P_total, T_total)
-        # copmpute static temperature from total conditions and static pressure
-        temperature = self.computeTemperature_p_S(P_stat, entropyTotal)
-        # compute the rest
-        density = self.computeDensity_p_T(P_stat, temperature)
-        gamma_pv = self.compute_gammapv_p_rho(P_stat, density)
-        mach = self.computeMach_pt_p_gammapv(P_total, P_stat, gamma_pv)
-        soundSpeed = self.computeSoundSpeed_p_rho(P_stat, density)
-        velocity = direction * mach * soundSpeed
-        energy = self.computeStaticEnergy_p_rho(P_stat, density)
-        return density, velocity, energy
+
+        # # old method
+        # def compute_function_residual(temperatureGuess, verbose = False):
+        #     entropyStatic = self.computeEntropy_p_T(pressure, temperatureGuess)
+        #     entropyTotal = self.computeEntropy_p_T(totPressure, totTemperature)
+        #     residual = entropyStatic - entropyTotal
+        #     if verbose:
+        #         print(f"  T_guess={temperatureGuess} pressure={pressure} entropyStatic={entropyStatic} pressure={totPressure} \
+        #               totTemperature={totTemperature} entropyTotal={entropyTotal} resid={residual}", flush=True)
+        #         sys.stdout.flush()  
+        #     return residual
+
+        # # temperature = fsolve(compute_function_residual, totTemperature, xtol=1e-8)[0]
+        # temperature, info, ier, msg = fsolve(
+        #     compute_function_residual,
+        #     totTemperature,
+        #     xtol=1e-6,
+        #     full_output=True
+        # )
+        # if ier != 1:
+        #     raise RuntimeError(f"fsolve did not converge: {msg}")
+        
+        # temperature = temperature[0]
+        # density = self.computeDensity_p_T(pressure, temperature)
+        # gamma_pv = self.compute_gammapv_p_rho(pressure, density)
+        # mach = self.computeMach_pt_p_gammapv(totPressure, pressure, gamma_pv)
+        # soundSpeed = self.computeSoundSpeed_p_rho(pressure, density)
+        # velocity = direction * mach * soundSpeed
+        # energy = self.computeStaticEnergy_p_rho(pressure, density)
+        # return density, velocity, energy
     
     def computeTemperature_p_S(self, p, s):
         T = FP.PropsSI('T', 'P', p, 'S', s, self.fluid)
