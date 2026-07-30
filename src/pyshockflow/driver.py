@@ -531,7 +531,6 @@ class Driver:
             # using the equation u_i = sqrt(2*(h_t - h_s)), where h_t is the total enthalpy and h_s is the static enthalpy evaluated from the pressure and entropy.
             self.solutionPrimitive["Velocity"] = np.sqrt(2*(totalEnthalpyField - self.fluid.computeEnthalpy_p_s(self.solutionPrimitive["Pressure"], tempEntropyField)))
 
-
     # def initialConditionsArrays(self, dictIn):
     #     """
     #     Method currently not used anywhere in Driver logic.
