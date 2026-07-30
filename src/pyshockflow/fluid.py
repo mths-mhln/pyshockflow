@@ -104,7 +104,6 @@ class FluidReal():
         if property_extraction_method.lower() == 'abstractstate_v2':
             self.fluid = FP.AbstractState_v2(fluid_library, fluid_name)
 
-
     def computeStaticEnergy_p_rho(self, p, rho):
         e = FP.PropsSI('U', 'P', p, 'D', rho, self.fluid)
         return e
@@ -218,11 +217,9 @@ class FluidReal():
         return s
 
     def computeEntropy_p_T(self, p, T):
-        s = FP.PropsSI('S', 'P', p, 'T', T, self.fluid) 
+        s = FP.PropsSI('S', 'P', p, 'T', T, self.fluid)
         return s
     
-    
-
     def computeFunDerGamma_p_rho(self, p, rho):
         try: # if single phase this will work
             G = FP.PropsSI("FUNDAMENTAL_DERIVATIVE_OF_GAS_DYNAMICS", "P", p, "D", rho, self.fluid)
@@ -285,6 +282,24 @@ class FluidReal():
         velocity = direction * mach * soundSpeed
         energy = self.computeStaticEnergy_p_rho(pressure, density)
         return density, velocity, energy
+    
+    def computeInletQuantitiesTotal_v2(self, P_stat, P_total, T_total, direction):
+        # compute entropy from total conditions
+        entropyTotal = self.computeEntropy_p_T(P_total, T_total)
+        # copmpute static temperature from total conditions and static pressure
+        temperature = self.computeTemperature_p_S(P_stat, entropyTotal)
+        # compute the rest
+        density = self.computeDensity_p_T(P_stat, temperature)
+        gamma_pv = self.compute_gammapv_p_rho(P_stat, density)
+        mach = self.computeMach_pt_p_gammapv(P_total, P_stat, gamma_pv)
+        soundSpeed = self.computeSoundSpeed_p_rho(P_stat, density)
+        velocity = direction * mach * soundSpeed
+        energy = self.computeStaticEnergy_p_rho(P_stat, density)
+        return density, velocity, energy
+    
+    def computeTemperature_p_S(self, p, s):
+        T = FP.PropsSI('T', 'P', p, 'S', s, self.fluid)
+        return T
 
     def computeInletQuantitiesStatic(self, pressure, enthalpy):
         density = self.computeDensity_p_h(pressure, enthalpy)

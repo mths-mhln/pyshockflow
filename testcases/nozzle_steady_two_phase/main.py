@@ -14,4 +14,4 @@ driver.solve()
 # configFile = 'input.ini'
 # config = Config(configFile)
 # driver = Driver(config = config, restartFilePath=restart_file)
-# driver.restart()
+# driver.solve()

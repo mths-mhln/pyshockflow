@@ -5,7 +5,6 @@ import pickle
 import csv
 import sys
 import copy
-import timeit
 import shutil
 from pathlib import Path
 from pyshockflow import RiemannProblem
@@ -63,26 +62,6 @@ class Driver:
                 raise ValueError(f"Invalid fluid library: {fluidLibrary}. Must be one of {availFluidLibs}")
             self.fluid = FluidReal(self.fluidName, fluidLibrary, self.config.getPropertyExtractionMethod(), False)
         
-        # fluid initial states
-        self.pressureLeft = self.config.getPressureLeft()
-        self.pressureRight = self.config.getPressureRight()
-        
-        try:
-            self.densityLeft = self.config.getDensityLeft()
-            self.densityRight = self.config.getDensityRight()
-            self.temperatureLeft = self.fluid.computeTemperature_p_rho(self.pressureLeft, self.densityLeft)
-            self.temperatureRight = self.fluid.computeTemperature_p_rho(self.pressureRight, self.densityRight)
-        except:
-            self.temperatureLeft = self.config.getTemperatureLeft()
-            self.temperatureRight = self.config.getTemperatureRight()
-            self.densityLeft = self.fluid.computeDensity_p_T(self.pressureLeft, self.temperatureLeft)
-            self.densityRight = self.fluid.computeDensity_p_T(self.pressureRight, self.temperatureRight)
-        
-        self.velocityLeft = self.config.getVelocityLeft()
-        self.velocityRight = self.config.getVelocityRight()
-        self.energyLeft = self.fluid.computeStaticEnergy_p_rho(self.pressureLeft, self.densityLeft)
-        self.energyRight = self.fluid.computeStaticEnergy_p_rho(self.pressureRight, self.densityRight)
-        
         # geometry
         self.length = self.config.getLength()
         self.nNodes = self.config.getNumberOfPoints()
@@ -134,19 +113,19 @@ class Driver:
             if self.topology.lower()=='nozzle':
                 if self.fluidModel.lower()=='real' and ((self.boundaryType[0].lower() == "inlet" and self.boundaryType[1].lower() == "outlet") or (self.boundaryType[0].lower() == "outlet" and self.boundaryType[1].lower() == "inlet") or \
                    (self.boundaryType[0].lower() == "inlet" and self.boundaryType[1].lower() == "transparent") or (self.boundaryType[0].lower() == "transparent" and self.boundaryType[1].lower() == "inlet")):
-                    self.imposeInitialConditionsNozzle()
+                    # linear nozzle initialization is currently only supported for real fluids with inlet, outlet or transparent boundary conditions.
+                    self.imposeInitialConditionsNozzleLinear()
                 else:
+                    # for other cases, initialization is done with constant primitive variable fields, just like for the shock tube case, hence
+                    # the same functionality is used.
                     self.imposeInitialConditionsShocktube()
             elif self.topology.lower()=='default':
                 self.imposeInitialConditionsShocktube()
             else:
                 raise ValueError(f"Invalid topology: {self.topology}. Must be either 'nozzle' or 'default' = shocktube")
         self.setBoundaryConditions()
+    
 
-        for attr, value in vars(self).items():
-            print(f"{attr}: {value}")
-        if self.restartFilePath is not None:
-            self.solve()
     
     def extractRestartData(self):
         """
@@ -441,6 +420,25 @@ class Driver:
         None, but sets the solutionPrimitive attribute of the Driver class to the initial conditions based on the left and right values provided in the configuration file, 
         and prints these values to the terminal.
         """
+        self.pressureLeft = self.config.getPressureLeft()
+        self.pressureRight = self.config.getPressureRight()
+        
+        try:
+            self.densityLeft = self.config.getDensityLeft()
+            self.densityRight = self.config.getDensityRight()
+            self.temperatureLeft = self.fluid.computeTemperature_p_rho(self.pressureLeft, self.densityLeft)
+            self.temperatureRight = self.fluid.computeTemperature_p_rho(self.pressureRight, self.densityRight)
+        except:
+            self.temperatureLeft = self.config.getTemperatureLeft()
+            self.temperatureRight = self.config.getTemperatureRight()
+            self.densityLeft = self.fluid.computeDensity_p_T(self.pressureLeft, self.temperatureLeft)
+            self.densityRight = self.fluid.computeDensity_p_T(self.pressureRight, self.temperatureRight)
+        
+        self.velocityLeft = self.config.getVelocityLeft()
+        self.velocityRight = self.config.getVelocityRight()
+        self.energyLeft = self.fluid.computeStaticEnergy_p_rho(self.pressureLeft, self.densityLeft)
+        self.energyRight = self.fluid.computeStaticEnergy_p_rho(self.pressureRight, self.densityRight)
+
         initialConditions = {'Density': np.array([self.densityLeft, self.densityRight]), 
                              'Velocity': np.array([self.velocityLeft, self.velocityRight]), 
                              'Pressure': np.array([self.pressureLeft, self.pressureRight]),
@@ -456,7 +454,7 @@ class Driver:
         print(f"Initial L/R energy values [J/kg]:            ({self.energyLeft:.6e}, {self.energyRight:.6e})")
         
 
-    def imposeInitialConditionsNozzle(self):
+    def imposeInitialConditionsNozzleLinear(self):
         """
         Method reserved for nozzle flow experiments. Following the advice of Cioffi et al. (2025) A Hyperbolic One-Dimensional Model for Two-Phase Flows in Converging-Diverging
         Nozzles, the flow field is initialized in linear fashion from inlet to outlet.
@@ -473,9 +471,14 @@ class Driver:
         # Set inlet conditions. 
         if self.boundaryType[0].lower()=='inlet':
             if self.config.getInletConditionsType().lower()=="total":
-                # total inlet conditions require static pressure for initialization
-                self.solutionPrimitive['Pressure'][1] = 0.99 * self.config.getInletConditions()[0]
+                # setInletBoundaryConditions requires static pressure for total boundary conditions
+                # this static pressure has not yet been applied in the way setInletBoundaryConditions needs it, 
+                # so we fill in the second element in the array manually. Setting it to 0.99 the inlet
+                # condition value to ensure the iteration performed inside setInletBoundaryConditions converges to a solution.
+                self.solutionPrimitive['Pressure'][1] = 1.00 * self.config.getInletConditions()[0]
             self.setInletBoundaryConditions('left')
+            # setInletBoundaryConditions("left") sets the inlet boundary conditions at the first element of the solutionPrimitive array
+            # this is the ghost node. In case there is confusion as to why self.solutionPrimitive['Pressure'][0] is suddenly nonzero.
             inletEntropy = self.fluid.computeEntropy_p_rho(self.solutionPrimitive['Pressure'][0], self.solutionPrimitive['Density'][0])
             tempEntropyField = np.full_like(self.solutionPrimitive['Pressure'], inletEntropy)
             if self.config.getInletConditionsType().lower()=="total":
@@ -485,9 +488,14 @@ class Driver:
 
         if self.boundaryType[1].lower()=='inlet':
             if self.config.getInletConditionsType().lower()=="total":
-                # total inlet conditions require static pressure for initialization
-                self.solutionPrimitive['Pressure'][-2] = 0.99 * self.config.getInletConditions()[0]
+                # setInletBoundaryConditions requires static pressure for total boundary conditions
+                # this static pressure has not yet been applied in the way setInletBoundaryConditions needs it,
+                # so we fill in the second to last element in the array manually. Setting it to 0.99 the inlet
+                # condition value to ensure the iteration performed inside setInletBoundaryConditions converges to a solution.
+                self.solutionPrimitive['Pressure'][-2] = 1.00 * self.config.getInletConditions()[0]
             self.setInletBoundaryConditions('right')
+            # setInletBoundaryConditions("right") sets the inlet boundary conditions at the last element of the solutionPrimitive array
+            # this is the ghost node. In case there is confusion as to why self.solutionPrimitive['Pressure'][-1] is suddenly nonzero.
             inletEntropy = self.fluid.computeEntropy_p_rho(self.solutionPrimitive['Pressure'][-1], self.solutionPrimitive['Density'][-1])
             tempEntropyField = np.full_like(self.solutionPrimitive['Pressure'], inletEntropy)
             if self.config.getInletConditionsType().lower()=="total":
@@ -503,14 +511,12 @@ class Driver:
 
         # if transparent boundary conditions, impose outlet boundary condition for initialization, then will be overwritten by the transparent BC method
         if self.boundaryType[0].lower()=='transparent':
-            pressure = self.config.getInletConditions()[0] / 10 # note that the pressure from inletconditions can be total or static.
+            pressure = self.config.getInletConditions()[0] / 10 # note that the pressure from inletConditions can be total or static.
             self.solutionPrimitive['Pressure'][0] = pressure
         if self.boundaryType[1].lower()=='transparent':
-            pressure = self.config.getInletConditions()[0] / 10 # note that the pressure from outletconditions can be total or static.
+            pressure = self.config.getInletConditions()[0] / 10 # note that the pressure from outletConditions can be total or static.
             self.solutionPrimitive['Pressure'][-1] = pressure
         
-
-
         self.solutionPrimitive["Pressure"] = np.interp(self.xNodesVirtual, [self.xNodesVirtual[0], self.xNodesVirtual[-1]], [self.solutionPrimitive['Pressure'][0], self.solutionPrimitive['Pressure'][-1]])
         self.solutionPrimitive["Density"] = self.fluid.computeDensity_p_s(self.solutionPrimitive["Pressure"], tempEntropyField)
 
@@ -518,7 +524,7 @@ class Driver:
 
         if self.config.getInletConditionsType().lower()=="static":
             # if inlet boundary condition type is static conditions, linear initialization of pressure, other quantities are evaluated from pressure and inlet entropy, velocity is initialized
-            # initialize velocity linearly from 0 to 200 m/s
+            # linearly from 10 to 200 m/s
             self.solutionPrimitive["Velocity"] = np.interp(self.xNodesVirtual, [self.xNodesVirtual[0], self.xNodesVirtual[-1]], [10, 200])
         if self.config.getInletConditionsType().lower()=="total":
             # if inlet boundary condition type is total conditions, linear interpolation of pressure, other quantities are evaluated from pressure and inlet entropy, velocity is initialized
