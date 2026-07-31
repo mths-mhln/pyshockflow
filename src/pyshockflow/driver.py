@@ -482,24 +482,24 @@ class Driver:
         inletIdx = None  # index (0 or -1) of whichever side turns out to be the inlet
 
         # Impose boundary conditions at each edge of the domain, tracking which edge is the inlet.
-        for idx, side, other in [(0, 'left', 1), (-1, 'right', -2)]:
-            btype = self.boundaryType[0 if idx == 0 else 1].lower()
+        for iHalo, side, iInternal in [(0, 'left', 1), (-1, 'right', -2)]:
+            btype = self.boundaryType[0 if iHalo == 0 else 1].lower()
 
             if btype == 'inlet':
                 if isTotalInlet:
                     # setInletBoundaryConditions needs a static pressure guess for its iteration to converge;
                     # seed the neighboring node with the (total) inlet pressure as a starting value.
-                    self.solutionPrimitive['Pressure'][other] = self.config.getInletConditions()[0]
+                    self.solutionPrimitive['Pressure'][iInternal] = self.config.getInletConditions()[0]
                 self.setInletBoundaryConditions(side)
-                inletIdx = idx
+                inletIdx = iHalo
 
             elif btype == 'outlet':
-                self.solutionPrimitive['Pressure'][idx] = self.config.getOutletConditions()
+                self.solutionPrimitive['Pressure'][iHalo] = self.config.getOutletConditions()
 
             elif btype == 'transparent':
                 # For transparent BCs, seed with a fraction of the inlet pressure just to get a smooth
                 # initial field; this gets overwritten later by the transparent BC method in driver.py.
-                self.solutionPrimitive['Pressure'][idx] = self.config.getInletConditions()[0] / 10
+                self.solutionPrimitive['Pressure'][iHalo] = self.config.getInletConditions()[0] / 10
 
         # Initialize static pressure linearly across the domain from the two edge values.
         self.solutionPrimitive["Pressure"] = np.interp(
@@ -514,6 +514,46 @@ class Driver:
         )
         entropyField = np.full_like(self.solutionPrimitive['Pressure'], inletEntropy)
         self.solutionPrimitive["Density"] = self.fluid.computeDensity_p_s(self.solutionPrimitive["Pressure"], entropyField)
+        # if corresponding density field contains NaN's, evaluate the density for the outlet pressure value and inlet entropy
+        # capture the stdout message, if it contains, anywhere, "below minimum", the outlet pressure is likely too low, 
+        # This is a likely case for transparent outlet where the division by 10 leads to too low outlet pressure. If 
+        # the boundary value is indeed of transparent kind, get the lowest pressure which does not lead to NaN density, 
+        # and re-initialize the presure distribution to that value, rather than to division by 10. But only for if BC is of
+        # the transparent kind. The user will be warned that this happened for debugging reasons. 
+        if np.isnan(self.solutionPrimitive["Density"]).any():
+            # find the lowest pressure that does not lead to NaN density for the given inlet entropy.
+            # The outlet pressure (pressureTest) is known-bad (NaN density); the inlet pressure is
+            # known-good, so bisect between them to converge on the threshold pressure.
+            pressureBad = self.solutionPrimitive['Pressure'][-1]
+            pressureGood = self.solutionPrimitive['Pressure'][inletIdx]
+
+            if np.isnan(self.fluid.computeDensity_p_s(pressureGood, inletEntropy)):
+                raise RuntimeError(
+                    "Cannot recover from NaN density field: inlet pressure also yields NaN density "
+                    "for the given inlet entropy."
+                )
+
+            for _ in range(50):  # bisection, ~50 iters is far more than enough for float precision
+                pressureMid = 0.5 * (pressureBad + pressureGood)
+                densityMid = self.fluid.computeDensity_p_s(pressureMid, inletEntropy)
+                if np.isnan(densityMid):
+                    pressureBad = pressureMid
+                else:
+                    pressureGood = pressureMid
+
+            pressureTest = pressureGood  # the lowest (converged) pressure that gives valid density
+
+            print(("Warning: The initialized density field contains NaN values."
+                    "Outlet BC is of transmissive kind, the outlet pressure imposed"
+                    "(necessary for velocity initialization) was likely too low. "
+                    f"Adjusting the outlet pressure to {pressureTest:.6e} Pa for initialization."))
+            self.solutionPrimitive['Pressure'][-1] = pressureTest
+            self.solutionPrimitive["Pressure"] = np.interp(
+                self.xNodesVirtual,
+                [self.xNodesVirtual[0], self.xNodesVirtual[-1]],
+                [self.solutionPrimitive['Pressure'][0], self.solutionPrimitive['Pressure'][-1]]
+            )
+            self.solutionPrimitive["Density"] = self.fluid.computeDensity_p_s(self.solutionPrimitive["Pressure"], entropyField)
         self.solutionPrimitive["Energy"] = self.fluid.computeStaticEnergy_p_s(self.solutionPrimitive["Pressure"], entropyField)
 
         # Initialize velocity.
@@ -1107,7 +1147,6 @@ class Driver:
         speedOfSound = np.zeros_like(velocity)
         for i in range(len(speedOfSound)):
             speedOfSound[i] = self.fluid.computeSoundSpeed_p_rho(primitive['Pressure'][i+1], primitive['Density'][i+1])
-        print("speedOfSound:", speedOfSound)
         dtMax = np.min(self.dx[1:-1] * self.cflMax / (np.abs(velocity)+speedOfSound))
         # print("dtMax:", dtMax)
         return dtMax
@@ -1138,8 +1177,8 @@ class Driver:
                          'X Coords': self.xNodesVirtual,
                          'Area Tube': self.areaTube,
                          'Primitive': self.solutionPrimitive, 
-                         'Fluid': self.fluid,
                          'Configuration': self.config}
+        print(outputResults)
         with open(fullPath, 'wb') as file:
             pickle.dump(outputResults, file)
     

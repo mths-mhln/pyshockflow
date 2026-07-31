@@ -238,9 +238,12 @@ def get_expansion_data(pickleFile: type[WindowsPath]) -> dict:
         output_dict["Density"] = solution['Primitive']["Density"][1:-1,-1]
         output_dict["Pressure"] = solution['Primitive']["Pressure"][1:-1,-1]
         output_dict["Velocity"] = solution['Primitive']["Velocity"][1:-1,-1]
-        output_dict["Mach"] = solution['Fluid'].computeMach_u_p_rho(output_dict["Velocity"], output_dict["Pressure"], output_dict["Density"])
-        output_dict["Entropy"] = solution['Fluid'].computeEntropy_p_rho(output_dict["Pressure"], output_dict["Density"])
-        output_dict["Temperature"] = solution['Fluid'].computeTemperature_p_rho(output_dict["Pressure"], output_dict["Density"])
+        # re-initialize fluid object from Driver __init__ method and Config object
+        config = solution['Configuration']
+        driver = Driver(config)
+        output_dict["Mach"] = driver.fluid.computeMach_u_p_rho(output_dict["Velocity"], output_dict["Pressure"], output_dict["Density"])
+        output_dict["Entropy"] = driver.fluid.computeEntropy_p_rho(output_dict["Pressure"], output_dict["Density"])
+        output_dict["Temperature"] = driver.fluid.computeTemperature_p_rho(output_dict["Pressure"], output_dict["Density"])
     else:
         # only partial finished sim. Solution file arrays are 1D
         output_dict["X Coords"] = solution['X Coords'][1:-1]
@@ -248,9 +251,12 @@ def get_expansion_data(pickleFile: type[WindowsPath]) -> dict:
         output_dict["Density"] = solution['Primitive']["Density"][1:-1]
         output_dict["Pressure"] = solution['Primitive']["Pressure"][1:-1]
         output_dict["Velocity"] = solution['Primitive']["Velocity"][1:-1]
-        output_dict["Mach"] = solution['Fluid'].computeMach_u_p_rho(output_dict["Velocity"], output_dict["Pressure"], output_dict["Density"])
-        output_dict["Entropy"] = solution['Fluid'].computeEntropy_p_rho(output_dict["Pressure"], output_dict["Density"])
-        output_dict["Temperature"] = solution['Fluid'].computeTemperature_p_rho(output_dict["Pressure"], output_dict["Density"])
+        # re-initialize fluid object from Driver __init__ method and Config object
+        config = solution['Configuration']
+        driver = Driver(config)
+        output_dict["Mach"] = driver.fluid.computeMach_u_p_rho(output_dict["Velocity"], output_dict["Pressure"], output_dict["Density"])
+        output_dict["Entropy"] = driver.fluid.computeEntropy_p_rho(output_dict["Pressure"], output_dict["Density"])
+        output_dict["Temperature"] = driver.fluid.computeTemperature_p_rho(output_dict["Pressure"], output_dict["Density"])
 
     return output_dict
 

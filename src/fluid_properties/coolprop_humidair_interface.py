@@ -286,7 +286,6 @@ class HumidAirCoolPropFluid(base_interface.Fluid):
 
 
         except:
-
             x_new = np.inf
 
         res = x_new - x

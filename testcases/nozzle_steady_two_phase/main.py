@@ -1,8 +1,11 @@
 from pyshockflow import Driver
 from pyshockflow import Config
+import numpy as np
 
-configFile = "inputs/config_files/lettieri/L5.ini"
-configFile = "inputs/config_files/petruccelli/P1.ini"
+
+# configFile = "inputs/config_files/lettieri/L5.ini"
+# configFile = "inputs/config_files/petruccelli/P1.ini"
+configFile = "inputs/config_files/CM-10.0/test_conf.ini"
 # configFile = "inputs/config_files/orchid/testcase.ini"
 # configFile = "inputs/config_files/orchid/input_recovery.ini"
 
@@ -10,9 +13,10 @@ configFile = "inputs/config_files/petruccelli/P1.ini"
 config = Config(configFile)
 # driver = Driver(config, restartFilePath="Results/berana/output_B1_NX_200/step_001700.pik")
 driver = Driver(config)
-# driver.solve()
+driver.solve()
 
 # configFile = 'input.ini'
 # config = Config(configFile)
 # driver = Driver(config = config, restartFilePath=restart_file)
 # driver.solve()
+

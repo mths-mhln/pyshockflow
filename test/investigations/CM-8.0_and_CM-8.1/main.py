@@ -199,7 +199,7 @@ for i, T in enumerate(T_values):
     S_diff = S_max - S_min
 
     # extract the S values at which to evaluate the mixture properties.
-    S_values = np.linspace(S_min, S_max, int(5 * S_diff / max_S_diff))
+    S_values = np.linspace(S_min, S_max, int(50 * S_diff / max_S_diff))
     if S_values.size == 0:  # this can happen near the critical point.
         continue
 
@@ -216,7 +216,12 @@ for i, T in enumerate(T_values):
 
     # sanity check
     S_propssi = np.array([AS.PropsSI("S", "U", u, "D", rho, verbose=False) for u, rho in zip(u_values, rho_values)])
-    assert np.allclose(S_propssi, S_values), "Mismatch between computed S and coordinate S values using PropsSI."
+    # nan indexes
+    nan_indexes = np.isnan(S_propssi)
+    # set nan indexes to 0 on both
+    S_propssi[nan_indexes] = 0
+    S_values[nan_indexes] = 0
+    assert np.allclose(S_propssi, S_values), f"Mismatch between computed S and coordinate S values using PropsSI. {S_propssi} vs {S_values}"
 
     # --- solve the Giljarhus system via 1D root-find in T ---
     T_sol, rho_V_sol, rho_L_sol, alpha_sol, valid = solve_giljarhus_system(

@@ -257,13 +257,11 @@ class FluidReal():
         """
         # compute entropy from total conditions
         entropyTotal = self.computeEntropy_p_T(totPressure, totTemperature)
-        # copmpute static temperature from total conditions and static pressure
-        temperature = self.computeTemperature_p_S(pressure, entropyTotal)
-        # compute density
-        density = self.computeDensity_p_T(pressure, temperature)
+        # copmpute static density from total entropy and static pressure
+        density = self.computeDensity_p_S(pressure, entropyTotal)
         # compute velocity from total and static enthalpy
         enthalpyTotal = self.computeEnthalpy_p_T(totPressure, totTemperature)
-        enthalpyStatic = self.computeEnthalpy_p_T(pressure, temperature)
+        enthalpyStatic = self.computeEnthalpy_p_rho(pressure, density)
         velocity = direction * np.sqrt(2 * (enthalpyTotal - enthalpyStatic))
         # compute static energy
         energy = self.computeStaticEnergy_p_rho(pressure, density)
@@ -313,17 +311,27 @@ class FluidReal():
         """
         # compute entropy from total conditions
         entropyTotal = self.computeEntropy_p_Q(totPressure, quality)
-        # copmpute static temperature from total conditions and static pressure
-        temperature = self.computeTemperature_p_S(pressure, entropyTotal)
-        # compute density
-        density = self.computeDensity_p_T(pressure, temperature)
+        # compute static density from total entropy and static pressure
+        density = self.computeDensity_p_S(pressure, entropyTotal)
         # compute velocity from total and static enthalpy
         enthalpyTotal = self.computeEnthalpy_p_Q(totPressure, quality)
-        enthalpyStatic = self.computeEnthalpy_p_T(pressure, temperature)
+        enthalpyStatic = self.computeEnthalpy_p_rho(pressure, density)
         velocity = direction * np.sqrt(2 * (enthalpyTotal - enthalpyStatic))
         # compute static energy
         energy = self.computeStaticEnergy_p_rho(pressure, density)
         return density, velocity, energy
+    
+    def computeDensity_p_S(self, p, s):
+        rho = FP.PropsSI('D', 'P', p, 'S', s, self.fluid)
+        return rho
+
+    def computeTemperature_p_Q(self, p, Q):
+        T = FP.PropsSI('T', 'P', p, 'Q', Q, self.fluid)
+        return T
+    
+    def computeEnthalpy_p_rho(self, p, rho):
+        h = FP.PropsSI('H', 'P', p, 'D', rho, self.fluid)
+        return h
     
     def computeEnthalpy_p_Q(self, p, Q):
         h = FP.PropsSI('H', 'P', p, 'Q', Q, self.fluid)

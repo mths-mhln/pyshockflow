@@ -11,7 +11,7 @@ from pyshockflow import Driver, Config
 
 
 # Extract outputpath from config file
-config = Config("inputs/config_files/lettieri/L1.ini")
+config = Config("inputs/config_files/CM-10.0/test_conf.ini")
 with pyshockflow.post_processing.HiddenPrints():
     driver_object = Driver(config)
 output_path = driver_object.resultsPath

@@ -267,7 +267,7 @@ class CoolPropAbstractState_v2():
         appropriate AbstractState method. For more information on the input specifications, see: https://coolprop.org/coolprop/wrappers/Python/html/index.html#input-specifications    
     """
 
-    def __init__(self, library, name):
+    def __init__(self, library, fluid_name):
         """
         Initializes the CoolPropAbstractState object with the specified library and fluid name. The library is typically "HEOS" for pure fluids, but can be adapted for mixtures and other libraries. 
         The name is the name of the fluid as recognized by CoolProp, e.g. "Water" or "R134a". 
@@ -282,25 +282,26 @@ class CoolPropAbstractState_v2():
         # extract properties necessary for initializing abstractstate
         if library == 'CoolProp':
             library = 'HEOS'
-        self.Name = name
+        self.FluidName = fluid_name
         self.Library = library
         self._abstract_state = None
         # legacy code. I do not imagine myself putting a fluid name with [1] at the end, but it is in there, so i assume it can be called... 
-        str_len = int(len(self.Name))
+        str_len = int(len(self.FluidName))
         if str_len > 3:
-            if self.Name[str_len - 3: str_len] == '[1]':
-                name = self.Name[0:str_len - 3]
+            if self.FluidName[str_len - 3: str_len] == '[1]':
+                fluid_name = self.FluidName[0:str_len - 3]
             else:
-                name = self.Name
+                fluid_name = self.FluidName
         else:
-            name = self.Name
+            fluid_name = self.FluidName
         # initalize abstractstate:
-        self._abstract_state = AbstractState(self.Library, name)
+        self._abstract_state = AbstractState(self.Library, fluid_name)
 
     @staticmethod
     def _update_wrapper(AS: AbstractState, input_spec: CP.PQ_INPUTS, x: float, y: float, verbose: bool = True) -> bool:
         """
-        Coolprop utility to allow nan return upon vectorized evaluation of AbstractState.
+        Coolprop utility to allow nan return upon vectorized evaluation of AbstractState. Note, input_spec
+        must not necessarily be CP.PQ_INPUTS, can be other pairs, I wanted to give an example for type hinting.
         """
         try:
             AS.update(input_spec, x, y)
@@ -315,12 +316,12 @@ class CoolPropAbstractState_v2():
         If AbstractState instance is already created for the fluid type and library, no need to create it over and over again.
         """
         if self._abstract_state is None:
-            str_len = int(len(self.Name))
-            if str_len > 3 and self.Name[str_len - 3: str_len] == '[1]':
-                name = self.Name[0:str_len - 3]
+            str_len = int(len(self.FluidName))
+            if str_len > 3 and self.FluidName[str_len - 3: str_len] == '[1]':
+                fluid_name = self.FluidName[0:str_len - 3]
             else:
-                name = self.Name
-            self._abstract_state = AbstractState(self.Library, name)
+                fluid_name = self.FluidName
+            self._abstract_state = AbstractState(self.Library, fluid_name)
         return self._abstract_state
 
     def _PropsSI_syntax_to_AbstractState_syntax(self, str: str) -> str:
@@ -392,7 +393,8 @@ class CoolPropAbstractState_v2():
         """
         # check if the input thermodynamic pair lies close to the critical point
         if CoolPropAbstractState_v2._critical_value(AS, x_str, x) and CoolPropAbstractState_v2._critical_value(AS, y_str, y):
-            # input pair is close or equal to critical point, compute state from critical point
+            # input pair is close or equal to critical point, compute state from critical point. Thdy states close to the critical
+            # point caused some issues during computation.
             Tcrit = AS.T_critical()
             Dcrit = AS.rhomass_critical()
             AS.update(CP.DmassT_INPUTS, Dcrit, Tcrit)
@@ -453,7 +455,6 @@ class CoolPropAbstractState_v2():
                 "Hmass": "hmass",
                 "A": "speed_sound",
                 "T": "T",
-                "Q": "Q",
                 "P": "p",
                 "Smass": "smass",
                 "Cpmass": "cpmass",
