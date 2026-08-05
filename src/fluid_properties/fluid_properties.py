@@ -44,6 +44,9 @@ def AbstractState(fluid_object, **kwargs):
         raise Exception('library not recognized')
     
 def AbstractState_v2(library, name, **kwargs):
+    """
+    Specifically developed for the CoolProp thermodynamic library.
+    """
     if library in CoolPropLibraries:
         fluid_object = CoolPropAbstractState_v2(library, name)
         return fluid_object

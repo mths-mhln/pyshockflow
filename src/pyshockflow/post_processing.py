@@ -12,11 +12,10 @@ from pathlib import Path, WindowsPath
 from rich.table import Table
 from rich.console import Console
 
+import pyshockflow
 from thermoplot.thermoplot import thermoplot_cached
 from pyshockflow.driver import Driver
 from pyshockflow.config import Config
-
-
 
 
 
@@ -94,60 +93,63 @@ def make_animations(picklePath: str, maxLength: int, FPS: int, DPI: int) -> None
 
 
 
-def nozzle_geometry_plot(Driver: type[Driver]) -> None:
+def nozzle_geometry_plot(configFilePath: str) -> None:
         """
         Plot the nozzle geometry and numerical grid.
 
         Arguments
         ---------
-        Driver : Driver
-            The Driver object capable of extracting the nozzle geometry and constructing the 1D mesh
+        configFilePath : str
+            The path to the configuration file
 
         Returns
         -------
         None. Saves the plot in the directory from which the file is executed.
         """
-        nozzleData = np.loadtxt(Driver.config.getNozzleFilePath(), skiprows=1, delimiter=',', dtype=float)
+        # instantiate driver object from config file (already most of the necessary functionality)
+        config = Config(configFilePath)
+        with pyshockflow.post_processing.HiddenPrints():
+            driver = Driver(config)
+
+        nozzleData = np.loadtxt(driver.config.getNozzleFilePath(), skiprows=1, delimiter=',', dtype=float)
         nozzleX = nozzleData[:,0]
         nozzleArea = nozzleData[:,1]
 
         # Linear interpolation with external filling set to area Reference (=Tube area)
-        interpolatedNozzleArea = np.interp(Driver.xNodesVirtual, nozzleX, nozzleArea, left=nozzleData[0,1], right=nozzleData[-1,1])
+        interpolatedNozzleArea = np.interp(driver.xNodesVirtual, nozzleX, nozzleArea, left=nozzleData[0,1], right=nozzleData[-1,1])
 
         # Scale plot axes according to the nozzle geometry
-        x_scale = Driver.xNodesVirtual[-1]
+        x_scale = driver.xNodesVirtual[-1]
         area_scale = 2*max(interpolatedNozzleArea)
         ratio = area_scale / x_scale
         
         # plot nozzle
         fig = plt.figure(figsize=(12, 12*ratio))
         ax = fig.add_subplot(1, 1, 1)
-        ax.plot(Driver.xNodesVirtual, interpolatedNozzleArea, label='Interpolated Nozzle Area', color='blue')
-        ax.plot(Driver.xNodesVirtual, -interpolatedNozzleArea, label='Interpolated Nozzle Area', color='blue')
-        ax.scatter(Driver.xNodesVirtual, np.zeros_like(Driver.xNodesVirtual), color='red', label='Virtual Mesh Nodes', s=0.5)
+        ax.plot(driver.xNodesVirtual, interpolatedNozzleArea, label='Interpolated Nozzle Area', color='blue')
+        ax.plot(driver.xNodesVirtual, -interpolatedNozzleArea, label='Interpolated Nozzle Area', color='blue')
+        ax.scatter(driver.xNodesVirtual, np.zeros_like(driver.xNodesVirtual), color='red', label='Virtual Mesh Nodes', s=0.5)
         ax.set_xlabel('x [m]', fontsize=12)
         ax.set_ylabel('Area [m^2]', fontsize=12)
         ax.set_title('Nozzle Geometry', fontsize=12)
         ax.tick_params(axis='both', which='major', labelsize=10)
         fig.show()
         fig.tight_layout()
-        # fig.savefig("nozzle_geometry.pdf", dpi=300, bbox_inches="tight", pad_inches=0)
+        fig.savefig("nozzle_geometry.pdf", dpi=300, bbox_inches="tight", pad_inches=0)
         plt.show()
 
         return None
 
 
 
-def results_plots(pickleList: list[type[WindowsPath]], outputVars: list[str], showNozzleGeometry: bool = False) -> type[plt.Figure]:
+def results_plots(pickleFilePathsList: list[type[WindowsPath]], outputVars: list[str], showNozzleGeometry: bool = False) -> type[plt.Figure]:
     """
     Plot the results of the simulation for a list of specified steps.
 
     Arguments
     ---------
-    pickleList : list of str
+    pickleFilePathsList : list of str
         The list of pickle files to use for plotting.
-    Driver : Driver
-        The Driver object capable of extracting the nozzle geometry and constructing the 1D mesh
     outputVars : list of str
         The list of output variables to plot. Supported variables: "X Coords", "Density", "Pressure", "Velocity", "Mach", "Entropy", "TotalPressure", "Temperature", "TotalTemperature"
     showNozzleGeometry : bool, optional
@@ -159,7 +161,7 @@ def results_plots(pickleList: list[type[WindowsPath]], outputVars: list[str], sh
     """
     # Load nozzle geometry from pickle file, any pickle file will do
     if showNozzleGeometry:
-        output_dict = get_expansion_data(pickleList[0])
+        output_dict = get_expansion_data(pickleFilePathsList[0])
         nozzleX = output_dict["X Coords"]
         nozzleArea = output_dict["Area Tube"]
 
@@ -170,11 +172,11 @@ def results_plots(pickleList: list[type[WindowsPath]], outputVars: list[str], sh
         # instantiate variable to keep track of maximum y value across all steps, to be able to scale the nozzle geometry accordingly.
         max_y = 0
 
-        if type(pickleList) is not list:
-            raise TypeError("pickleList must be a list of pickle file paths. If you are trying to view the results of a single step, convert the file path string to a list, e.g. [pickleFilePath]")
-        for pickleFile in pickleList:
+        if type(pickleFilePathsList) is not list:
+            raise TypeError("pickleFilePathsList must be a list of pickle file paths. If you are trying to view the results of a single step, convert the file path string to a list, e.g. [pickleFilePath]")
+        for pickleFilePath in pickleFilePathsList:
             # load expansion data
-            output_dict = get_expansion_data(pickleFile)
+            output_dict = get_expansion_data(pickleFilePath)
 
             # translation dict for automatic axis labeling based on variables user is interested in plotting
             translation_dict = {
@@ -194,7 +196,7 @@ def results_plots(pickleList: list[type[WindowsPath]], outputVars: list[str], sh
                 max_y = np.abs(output_dict[output_var]).max()
 
             # plot variable of interest and set y label to the variable name using the translation dict
-            step = pickleFile.stem.split("_")[-1].lstrip('0')
+            step = pickleFilePath.stem.split("_")[-1].lstrip('0')
             ax.plot(output_dict["X Coords"], output_dict[output_var], label=r'$iteration=%s$' %(step))
             ax.set_ylabel(translation_dict[output_var])
 
@@ -219,12 +221,12 @@ def results_plots(pickleList: list[type[WindowsPath]], outputVars: list[str], sh
 
 
 
-def get_expansion_data(pickleFile: type[WindowsPath]) -> dict:
+def get_expansion_data(pickleFilePath: type[WindowsPath]) -> dict:
     """
     Extract the expansion path data from the simulation results for a list of specified steps.
     """
     # Load solution data from pickle file
-    with open(str(pickleFile), 'rb') as file:
+    with open(str(pickleFilePath), 'rb') as file:
         solution = pickle.load(file)
 
     # instantiate output dictionary for future easy access to simulation output.
@@ -240,7 +242,8 @@ def get_expansion_data(pickleFile: type[WindowsPath]) -> dict:
         output_dict["Velocity"] = solution['Primitive']["Velocity"][1:-1,-1]
         # re-initialize fluid object from Driver __init__ method and Config object
         config = solution['Configuration']
-        driver = Driver(config)
+        with pyshockflow.post_processing.HiddenPrints():
+            driver = Driver(config)
         output_dict["Mach"] = driver.fluid.computeMach_u_p_rho(output_dict["Velocity"], output_dict["Pressure"], output_dict["Density"])
         output_dict["Entropy"] = driver.fluid.computeEntropy_p_rho(output_dict["Pressure"], output_dict["Density"])
         output_dict["Temperature"] = driver.fluid.computeTemperature_p_rho(output_dict["Pressure"], output_dict["Density"])
@@ -253,7 +256,8 @@ def get_expansion_data(pickleFile: type[WindowsPath]) -> dict:
         output_dict["Velocity"] = solution['Primitive']["Velocity"][1:-1]
         # re-initialize fluid object from Driver __init__ method and Config object
         config = solution['Configuration']
-        driver = Driver(config)
+        with pyshockflow.post_processing.HiddenPrints():
+            driver = Driver(config)
         output_dict["Mach"] = driver.fluid.computeMach_u_p_rho(output_dict["Velocity"], output_dict["Pressure"], output_dict["Density"])
         output_dict["Entropy"] = driver.fluid.computeEntropy_p_rho(output_dict["Pressure"], output_dict["Density"])
         output_dict["Temperature"] = driver.fluid.computeTemperature_p_rho(output_dict["Pressure"], output_dict["Density"])
@@ -262,9 +266,9 @@ def get_expansion_data(pickleFile: type[WindowsPath]) -> dict:
 
 
 
-def thermoplot_expansion_plot(thermoplot_config_file_path: str, pickleFile: type[WindowsPath], config: type[Config] = None) -> type[plt.Figure]:
+def thermoplot_expansion_plot(thermoplotConfigFilePath: str, pickleFilePath: type[WindowsPath], config: type[Config] = None) -> type[plt.Figure]:
     # get expansion data
-    output_dict = get_expansion_data(pickleFile)
+    output_dict = get_expansion_data(pickleFilePath)
 
     # adapt thermoplot limits to center around the expansion path
     thermoplot_overwrite_settings = {}
@@ -275,10 +279,10 @@ def thermoplot_expansion_plot(thermoplot_config_file_path: str, pickleFile: type
         thermoplot_overwrite_settings["fluid_name"] = config.getFluidName()
 
     # get plot background
-    fig = thermoplot_cached(thermoplot_config_file_path, thermoplot_overwrite_settings=thermoplot_overwrite_settings)
+    fig = thermoplot_cached(thermoplotConfigFilePath, thermoplot_overwrite_settings=thermoplot_overwrite_settings)
 
     # get expansion data
-    output_dict = get_expansion_data(pickleFile)
+    output_dict = get_expansion_data(pickleFilePath)
 
     # get plot axes from fig and plot expansion path on top of thermoplot
     ax = fig.get_axes()[0]
@@ -288,8 +292,8 @@ def thermoplot_expansion_plot(thermoplot_config_file_path: str, pickleFile: type
 
 
 
-def construct_ideal_expansion_path(pickleFile: type[WindowsPath]) -> np.ndarray:
-    with open(str(pickleFile), 'rb') as file:
+def construct_ideal_expansion_path(pickleFilePath: type[WindowsPath]) -> np.ndarray:
+    with open(str(pickleFilePath), 'rb') as file:
         solution = pickle.load(file)
     config = solution['Configuration']
     

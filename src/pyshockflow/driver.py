@@ -1,3 +1,5 @@
+import re
+
 import numpy as np
 import matplotlib.pyplot as plt
 import os
@@ -10,8 +12,7 @@ from pathlib import Path
 from pyshockflow import RiemannProblem
 from pyshockflow import AdvectionRoeBase, AdvectionRoeArabi, AdvectionRoeVinokur
 from pyshockflow import FluidIdeal, FluidReal
-from pyshockflow.output import Output
-from pyshockflow.math_utils import getPrimitivesFromConservatives, getConservativesFromPrimitives, computeAdvectionFluxFromConservatives
+from pyshockflow.math_utils import getPrimitivesFromConservatives, getConservativesFromPrimitives, computeAdvectionFluxFromConservatives, get_sign
 
 
 class Driver:
@@ -67,13 +68,6 @@ class Driver:
         self.nNodes = self.config.getNumberOfPoints()
         xNodes = self.generatePhysicalGeometry(self.length, self.nNodes)
         self.generateVirtualGeometry(xNodes)
-
-        # Prepare results path
-        self.resultsDirectory = Path("Results")
-        self.resultsDirectory.mkdir(parents=True, exist_ok=True)
-        self.workingDir = Path.cwd()
-        self.resultsDirectoryName = f"{self.config.getResultsDirectoryName()}_NX_{self.nNodes}"
-        self.resultsPath = self.resultsDirectory / self.resultsDirectoryName
         
         # Time related information
         self.cflMax = self.config.getCFLMax()
@@ -183,8 +177,15 @@ class Driver:
         -------
         None, but sets the resultsPath attribute of the Driver instance to a unique directory for storing results.
         """
+        # Prepare results path, if already exists, do not create new directory, which would
+        # overwrite the existing one.
+        self.workingDir = Path.cwd()
+        self.resultsDirectoryName = f"{self.config.getResultsDirectoryName()}_NX_{self.nNodes}"
+        self.resultsPath = Path("Results") / self.resultsDirectoryName
+        
         if self.restartFilePath is not None:
-            # do nothing, append new iterations to the current working directory
+            # do nothing, this will ensure new iterations 
+            # will be appended to the existing results directory
             pass
         elif self.config.getOverwriteResults():
             if os.path.exists(self.resultsPath) and os.path.isdir(self.resultsPath):
@@ -934,7 +935,7 @@ class Driver:
             pressure = inletConditions[0]
             enthalpy = inletConditions[1]
             # get flow velocity from the domain
-            velocity = self.solutionPrimitive['Velocity'][iInternal]
+            velocity = 2* self.solutionPrimitive['Velocity'][iInternal] - self.solutionPrimitive['Velocity'][iInternal + 1 * (get_sign(iInternal))] # linear extrapolation
             density, energy = self.fluid.computeInletQuantitiesStatic(pressure, enthalpy)
         else:
             raise ValueError('Unknown or no inlet conditions type specified in the configuration file')
@@ -1081,7 +1082,7 @@ class Driver:
         print(" "*34 + "END SOLVER")
         print("="*80)
         print(" "*25 + "FINAL ASSEMBLY OF THE RESULTS")
-        output = Output(self.resultsPath)
+        self.regroupSingleResults(self.resultsPath)
         print(" "*34 + "END ASSEMBLER")
         print("="*80)
     
@@ -1178,7 +1179,6 @@ class Driver:
                          'Area Tube': self.areaTube,
                          'Primitive': self.solutionPrimitive, 
                          'Configuration': self.config}
-        print(outputResults)
         with open(fullPath, 'wb') as file:
             pickle.dump(outputResults, file)
     
@@ -1421,7 +1421,61 @@ class Driver:
         print(f"If this is not correct, modify the REFERENCE_AREA setting in the geometry section of the input file to the correct value for the tube area, or modify the nozzle csv file to be consistent with the tube area.")
         
         return interpolatedNozzleArea
-    
+
+
+
+    def regroupSingleResults(self, filepath):
+        # regrouping is only necessary when the results folder contains
+        # files with filename RegEx: step*. 
+        # Check for this
+        files = [f for f in os.listdir(filepath) if os.path.isfile(os.path.join(filepath, f)) and 'pik' in f]
+        files = sorted(files)
+        if not any(re.match(r'step_\d+\.pik', f) for f in files):
+            print("No files with the expected naming convention found. No regrouping necessary.")
+            return
+
+        nTimes = len(files)
+        self.time = np.zeros(nTimes)
+        self.solution = {}
+        
+        print("Regrouping all the results in a single file...")
+        for iFile in range(len(files)):
+            print(f"Reading File {iFile+1} of {len(files)}")
+            with open(filepath / files[iFile], 'rb') as file:
+                result = pickle.load(file)
+                
+                if iFile == 0:
+                    nNodesVirtual = result['Primitive']['Pressure'].shape[0]
+                    self.xNodesVirtual = result['X Coords']
+                    self.areaTube = result['Area Tube']
+                    self.iterationCounter = result['Iteration Counter']
+                    self.fluid = result['Fluid']
+                    self.config = result['Configuration']
+                    
+                    self.timeVec = np.zeros(nTimes)
+                    self.solution['Density'] = np.zeros((nNodesVirtual, nTimes))
+                    self.solution['Velocity'] = np.zeros((nNodesVirtual, nTimes))
+                    self.solution['Pressure'] = np.zeros((nNodesVirtual, nTimes))
+                
+                self.timeVec[iFile] = result['Time']
+                self.solution['Density'][:, iFile] = result['Primitive']['Density']
+                self.solution['Velocity'][:, iFile] = result['Primitive']['Velocity']
+                self.solution['Pressure'][:, iFile] = result['Primitive']['Pressure']
+        
+        globalOutput = {'X Coords': self.xNodesVirtual, 
+                        'Area Tube': self.areaTube,
+                        'Time': self.timeVec, 
+                        'Primitive': self.solution, 
+                        'Fluid': self.fluid, 
+                        'Configuration': self.config}
+        
+        print("Replacing all individual files with a single pickle (this could take a while) ...")
+        shutil.rmtree(filepath)
+        os.makedirs(filepath, exist_ok=True)
+        with open(filepath / 'Results.pik', 'wb') as file:
+            pickle.dump(globalOutput, file)
+        print(f"Regrouped all the times in a single file: {filepath / 'Results.pik'}")
+
 
 
 

@@ -10,9 +10,6 @@ Plotting the nozzle physical and virtual geometry incl. area distribution in ord
 """
 
 
-configFile = 'inputs/input_files/orchid/input_recovery.ini'
-config = Config(configFile)
-with pyshockflow.post_processing.HiddenPrints():
-    driver = Driver(config)
-fig = nozzle_geometry_plot(driver)
+configFile = 'inputs/config_files/orchid/testcase.ini'
+fig = nozzle_geometry_plot(configFilePath=configFile)
 plt.show()

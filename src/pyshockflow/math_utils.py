@@ -82,3 +82,15 @@ def computeAdvectionFluxFromConservatives(u1, u2, u3, fluid):
         flux[1] = rho*u**2+p
         flux[2] = u*(rho*et+p)
         return flux
+
+
+def get_sign(x):
+    """
+    Returns the sign of a number.
+    """
+    if x > 0:
+        return 1
+    elif x < 0:
+        return -1
+    else:
+        return 0
