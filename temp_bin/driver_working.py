@@ -9,14 +9,16 @@ import numpy as np
 import matplotlib.pyplot as plt
 from pathlib import Path
 
+from pyshockflow.output import Output
+
 from pyshockflow import Config
 from pyshockflow import RiemannProblem
 from pyshockflow import AdvectionRoeBase, AdvectionRoeArabi, AdvectionRoeVinokur
 from pyshockflow import FluidIdeal, FluidReal
 
 from pyshockflow.math_utils import (
-    getConservativesFromFluidState,
-    getFluidStateFromConservatives,
+    getPrimitivesFromConservatives,
+    getConservativesFromPrimitives,
     computeAdvectionFluxFromConservatives
 )
 
@@ -81,53 +83,53 @@ class Driver:
         meshData           = self.generateMesh(config, deviceGeometryData)
         fluidModel         = self.instantiateFluidModel(config)
         fluidState         = self.initializeFluidStateArrays(config, deviceGeometryData, meshData, fluidModel)
-        fluidState         = self.setBoundaryConditions(config, meshData, fluidModel, fluidState)
+        fluidState         = self.setBoundaryConditions_old(config, meshData, fluidModel, fluidState)
 
-    #     fluidState = {'Density': np.array([1.03475064, 0.96719449, 0.96719449, 0.96719449, 0.96719449,
-    #    0.96719449, 0.96719449, 0.96719449, 0.96719449, 0.96719449,
-    #    0.96719449, 0.96719449, 0.96719449, 0.96719449, 0.96719449,
-    #    0.96719449, 0.96719449, 0.96719449, 0.96719449, 0.96719449,
-    #    0.96719449, 0.96719449, 0.96719449, 0.96719449, 0.96719449,
-    #    0.96719449, 0.96719449, 0.96719449, 0.96719449, 0.96719449,
-    #    0.96719449, 0.96719449, 0.96719449, 0.96719449, 0.96719449,
-    #    0.96719449, 0.96719449, 0.96719449, 0.96719449, 0.96719449,
-    #    0.96719449, 0.96719449, 0.96719449, 0.96719449, 0.96719449,
-    #    0.96719449, 0.96719449, 0.96719449, 0.96719449, 0.96719449,
-    #    0.96719449, 0.96719449]), 'Velocity': np.array([194.42482782, 100.        , 100.        , 100.        ,
-    #    100.        , 100.        , 100.        , 100.        ,
-    #    100.        , 100.        , 100.        , 100.        ,
-    #    100.        , 100.        , 100.        , 100.        ,
-    #    100.        , 100.        , 100.        , 100.        ,
-    #    100.        , 100.        , 100.        , 100.        ,
-    #    100.        , 100.        , 100.        , 100.        ,
-    #    100.        , 100.        , 100.        , 100.        ,
-    #    100.        , 100.        , 100.        , 100.        ,
-    #    100.        , 100.        , 100.        , 100.        ,
-    #    100.        , 100.        , 100.        , 100.        ,
-    #    100.        , 100.        , 100.        , 100.        ,
-    #    100.        , 100.        , 100.        , 100.        ]), 'Pressure': np.array([80000., 80000., 80000., 80000., 80000., 80000., 80000., 80000.,
-    #    80000., 80000., 80000., 80000., 80000., 80000., 80000., 80000.,
-    #    80000., 80000., 80000., 80000., 80000., 80000., 80000., 80000.,
-    #    80000., 80000., 80000., 80000., 80000., 80000., 80000., 80000.,
-    #    80000., 80000., 80000., 80000., 80000., 80000., 80000., 80000.,
-    #    80000., 80000., 80000., 80000., 80000., 80000., 80000., 80000.,
-    #    80000., 80000., 80000., 45000.]), 'Energy': np.array([193283.2817238 , 206783.64375   , 206783.64375   , 206783.64375   ,
-    #    206783.64375   , 206783.64375   , 206783.64375   , 206783.64375   ,
-    #    206783.64375   , 206783.64375   , 206783.64375   , 206783.64375   ,
-    #    206783.64375   , 206783.64375   , 206783.64375   , 206783.64375   ,
-    #    206783.64375   , 206783.64375   , 206783.64375   , 206783.64375   ,
-    #    206783.64375   , 206783.64375   , 206783.64375   , 206783.64375   ,
-    #    206783.64375   , 206783.64375   , 206783.64375   , 206783.64375   ,
-    #    206783.64375   , 206783.64375   , 206783.64375   , 206783.64375   ,
-    #    206783.64375   , 206783.64375   , 206783.64375   , 206783.64375   ,
-    #    206783.64375   , 206783.64375   , 206783.64375   , 206783.64375   ,
-    #    206783.64375   , 206783.64375   , 206783.64375   , 206783.64375   ,
-    #    206783.64375   , 206783.64375   , 206783.64375   , 206783.64375   ,
-    #    206783.64375   , 206783.64375   , 206783.64375   , 116315.79960938])}
+        fluidState = {'Density': np.array([1.03475064, 0.96719449, 0.96719449, 0.96719449, 0.96719449,
+       0.96719449, 0.96719449, 0.96719449, 0.96719449, 0.96719449,
+       0.96719449, 0.96719449, 0.96719449, 0.96719449, 0.96719449,
+       0.96719449, 0.96719449, 0.96719449, 0.96719449, 0.96719449,
+       0.96719449, 0.96719449, 0.96719449, 0.96719449, 0.96719449,
+       0.96719449, 0.96719449, 0.96719449, 0.96719449, 0.96719449,
+       0.96719449, 0.96719449, 0.96719449, 0.96719449, 0.96719449,
+       0.96719449, 0.96719449, 0.96719449, 0.96719449, 0.96719449,
+       0.96719449, 0.96719449, 0.96719449, 0.96719449, 0.96719449,
+       0.96719449, 0.96719449, 0.96719449, 0.96719449, 0.96719449,
+       0.96719449, 0.96719449]), 'Velocity': np.array([194.42482782, 100.        , 100.        , 100.        ,
+       100.        , 100.        , 100.        , 100.        ,
+       100.        , 100.        , 100.        , 100.        ,
+       100.        , 100.        , 100.        , 100.        ,
+       100.        , 100.        , 100.        , 100.        ,
+       100.        , 100.        , 100.        , 100.        ,
+       100.        , 100.        , 100.        , 100.        ,
+       100.        , 100.        , 100.        , 100.        ,
+       100.        , 100.        , 100.        , 100.        ,
+       100.        , 100.        , 100.        , 100.        ,
+       100.        , 100.        , 100.        , 100.        ,
+       100.        , 100.        , 100.        , 100.        ,
+       100.        , 100.        , 100.        , 100.        ]), 'Pressure': np.array([80000., 80000., 80000., 80000., 80000., 80000., 80000., 80000.,
+       80000., 80000., 80000., 80000., 80000., 80000., 80000., 80000.,
+       80000., 80000., 80000., 80000., 80000., 80000., 80000., 80000.,
+       80000., 80000., 80000., 80000., 80000., 80000., 80000., 80000.,
+       80000., 80000., 80000., 80000., 80000., 80000., 80000., 80000.,
+       80000., 80000., 80000., 80000., 80000., 80000., 80000., 80000.,
+       80000., 80000., 80000., 45000.]), 'Energy': np.array([193283.2817238 , 206783.64375   , 206783.64375   , 206783.64375   ,
+       206783.64375   , 206783.64375   , 206783.64375   , 206783.64375   ,
+       206783.64375   , 206783.64375   , 206783.64375   , 206783.64375   ,
+       206783.64375   , 206783.64375   , 206783.64375   , 206783.64375   ,
+       206783.64375   , 206783.64375   , 206783.64375   , 206783.64375   ,
+       206783.64375   , 206783.64375   , 206783.64375   , 206783.64375   ,
+       206783.64375   , 206783.64375   , 206783.64375   , 206783.64375   ,
+       206783.64375   , 206783.64375   , 206783.64375   , 206783.64375   ,
+       206783.64375   , 206783.64375   , 206783.64375   , 206783.64375   ,
+       206783.64375   , 206783.64375   , 206783.64375   , 206783.64375   ,
+       206783.64375   , 206783.64375   , 206783.64375   , 206783.64375   ,
+       206783.64375   , 206783.64375   , 206783.64375   , 206783.64375   ,
+       206783.64375   , 206783.64375   , 206783.64375   , 116315.79960938])}
 
-        # Conservative variables are derived from the fluidState variables; initialise them
+        # Conservative variables are derived from the primitives; initialise them
         # so that updateSolution() can operate on them from the very first step.
-        conservativeState  = self._conservativesFromFluidState(fluidState, fluidModel)
+        conservativeState  = self._conservativesFromPrimitives(fluidState, fluidModel)
 
         # Output paths — created fresh (never from a previous run).
         resultsPath = self._prepareOutputPaths(config, meshData, restartFilePath=None)
@@ -184,11 +186,8 @@ class Driver:
 
         # Fluid state comes from the restart file, not from initializeFluidStateArrays.
         fluidState         = fluidStateRestart
-        fluidState         = self.setBoundaryConditions(config, meshData, fluidModel, fluidState)
-
-        # Conservative variables are derived from the fluidState variables; initialise them
-        # according to the restart fluid state so that updateSolution() can operate on them.
-        conservativeState  = self._conservativesFromFluidState(fluidState, fluidModel)
+        fluidState         = self.setBoundaryConditions_old(config, meshData, fluidModel, fluidState)
+        conservativeState  = self._conservativesFromPrimitives(fluidState, fluidModel)
 
         # Append new iterations to the same directory as the restart file.
         resultsPath = Path(restartFilePath).parent
@@ -274,6 +273,7 @@ class Driver:
         nozzleData = np.loadtxt(deviceGeometryFilePath, skiprows=1, delimiter=",", dtype=float)
         deviceGeometryData["deviceX"]    = nozzleData[:, 0]
         deviceGeometryData["deviceArea"] = nozzleData[:, 1]
+        print("original device area", deviceGeometryData["deviceArea"])
 
         # According to the shock tube input data format requirements, the second data row
         # (disregarding the header) contains the interface location.
@@ -377,7 +377,7 @@ class Driver:
         isMeshRefined = config.meshRefinementBool()
 
         if not isMeshRefined:
-            xMeshNodes = np.linspace(deviceGeometryData["deviceX"][0], deviceGeometryData["deviceX"][-1], numMeshNodes)
+            xMeshNodes = np.linspace(0, length, numMeshNodes)
         else:
             refinementCoords = config.refinementBoundaries()
             print("Mesh is refined between the two boundaries [m]: ", refinementCoords)
@@ -578,7 +578,7 @@ class Driver:
         # ------------------------------------------------------------------
         def _imposeInitialConditionsShocktube(config, deviceGeometryData, meshData, fluidModel, fluidState):
             """
-            Initialize fluid state variables on either side of the interface for shocktube
+            Initialize primitive variables on either side of the interface for shocktube
             experiments.  Thermodynamic state is specified via (p, rho) if density is
             provided in the config, otherwise via (p, T).  The interface is imposed
             through a vectorised np.where on the mesh node positions.
@@ -833,7 +833,7 @@ class Driver:
         
         def _imposeInitialConditionsNozzleUniform(config, meshData, fluidModel, fluidState):
             """
-            Initialize fluid state variables uniformly across the nozzle domain from
+            Initialize primitive variables uniformly across the nozzle domain from
             user-specified values in the configuration file.  Supports two specification
             modes:
             - (pressure, density, velocity)
@@ -914,7 +914,7 @@ class Driver:
     #  Boundary conditions
     # =========================================================================
 
-    def setBoundaryConditions(self, config, meshData, fluidModel, fluidState):
+    def setBoundaryConditions_old(self, config, meshData, fluidModel, fluidState):
         """
         Evaluate and impose boundary conditions on the halo nodes of the fluid state
         arrays.  Implementation follows the ghost-node method described in Toro,
@@ -939,7 +939,7 @@ class Driver:
         fluidModel : FluidIdeal or FluidReal
             An instance of the fluid model class, used for thermodynamic lookups.
         fluidState : dict
-            The current fluid state (fluid state variables).  Modified in-place and
+            The current fluid state (primitive variables).  Modified in-place and
             returned so the calling code can keep a clean data-flow style.
 
         Returns
@@ -998,6 +998,9 @@ class Driver:
 
         return fluidState
 
+    
+    
+
 
     # =========================================================================
     #  Restart I/O
@@ -1019,7 +1022,7 @@ class Driver:
         timeElapsed : float
             Physical time elapsed at the saved step.
         fluidStateRestart : dict
-            Fluid state variable arrays at the saved step.
+            Primitive variable arrays at the saved step.
         configRestart : Config
             Configuration object stored alongside the results.
         iterationIndex : int
@@ -1091,27 +1094,26 @@ class Driver:
 
 
     # =========================================================================
-    # conservative <-> fluid state conversion
+    # conservative ↔ primitive conversion
     # =========================================================================
 
     @staticmethod
-    def _conservativesFromFluidState(fluidState, fluidModel):
+    def _conservativesFromPrimitives(fluidState, fluidModel):
         """
-        Compute conservative variables from the fluid state and return them as a
-        dictionary with keys 'u1', 'u2', 'u3'. Wrapper function to make pre-processing
-        code more compact.
+        Compute conservative variables from the primitive state and return them as a
+        dictionary with keys 'u1', 'u2', 'u3'.
 
         Arguments
         ---------
         fluidState : dict
-            Current fluid state variable arrays.
+            Current primitive variable arrays.
         fluidModel : FluidIdeal or FluidReal
 
         Returns
         -------
         conservativeState : dict
         """
-        u1, u2, u3 = getConservativesFromFluidState(
+        u1, u2, u3 = getConservativesFromPrimitives(
             fluidState["Density"],
             fluidState["Velocity"],
             fluidState["Pressure"],
@@ -1121,11 +1123,10 @@ class Driver:
 
 
     @staticmethod
-    def _fluidStateFromConservatives(conservativeState, fluidModel):
+    def _primitivesFromConservatives(conservativeState, fluidModel):
         """
-        Compute fluid state variables from the conservative state and return them as a
-        dictionary with keys 'Density', 'Velocity', 'Pressure', 'Energy'. Wrapper function
-        to make pre-processing code more compact.
+        Compute primitive variables from the conservative state and return them as a
+        dictionary with keys 'Density', 'Velocity', 'Pressure', 'Energy'.
 
         Arguments
         ---------
@@ -1136,7 +1137,7 @@ class Driver:
         -------
         updates : dict of np.1darrays (interior nodes only)
         """
-        rho, u, p, e = getFluidStateFromConservatives(
+        rho, u, p, e = getPrimitivesFromConservatives(
             conservativeState["u1"],
             conservativeState["u2"],
             conservativeState["u3"],
@@ -1145,325 +1146,734 @@ class Driver:
         return {"Density": rho, "Velocity": u, "Pressure": p, "Energy": e}
 
 
-    # =========================================================================
-    #  Solver
-    # =========================================================================
-    def solve(self):
+
+
+
+    def setBoundaryConditions(self):
         """
-        Advance the simulation in time using an explicit forward-Euler scheme.
+        Set the boundary conditions to the halo nodes based on the type specified in the configuration file. The method calls the specific method for each type of boundary condition, 
+        which updates the primitive variables in the halo nodes accordingly. BC specification according to the ghost node method (E. Toro Riemann Solvers and Numerical Methods for Fluid Dynamics
+        Third Edition, section 6.3.3) In case of shock tube experiments, this code overwrites the left and right initialization. In case of nozzle flow, TODO: finish
 
-        The numerical flux at each cell interface is computed using the scheme
-        specified in the configuration file ('godunov', 'roe', 'roe_arabi', or
-        'roe_vinokur').  Optional MUSCL reconstruction with a flux limiter can be
-        activated to achieve second-order spatial accuracy.
-
-        The loop runs until the physical time reaches timeMax, or until the solution
-        has converged (all fluid state variables change by less than 1e-5 over 20
-        consecutive iterations), in which case the timestep is advanced to timeMax
-        in one shot to finalise the run.
+        Arguments
+        ---------
+        None
 
         Returns
         -------
-        None, but writes result files to self.resultsPath at intervals specified
-        by writeInterval in the configuration file.
+        None, but updates the solutionPrimitive attribute of the Driver class to update the value of the halo nodes based on the type specified in the configuration file.
+        
         """
-        # Unpack all instance attributes up front.
-        config              = self.config
-        meshData            = self.meshData
-        fluidModel          = self.fluidModel
-        fluidState          = self.fluidState
-        conservativeState   = self.conservativeState
-        time                = self.time
-        iterationIndex      = self.iterationIndex
-        resultsPath         = self.resultsPath
-        deviceGeometryData  = self.deviceGeometryData
-
-        # Read solver settings from config.
-        entropyFixActive      = config.entropyFixActiveBool()
-        if entropyFixActive:
-            entropyFixCoefficient = config.entropyFixCoefficient()
+        if self.boundaryType[0].lower()=='reflective':
+            self.setReflectiveBoundaryConditions('left')
+        elif self.boundaryType[0].lower()=='transparent':
+            self.setTransparentBoundaryConditions('left')
+        elif self.boundaryType[0].lower()=='periodic':
+            self.setPeriodicBoundaryConditions('left')
+        elif self.boundaryType[0].lower()=='inlet':
+            self.setInletBoundaryConditions('left')
+        elif self.boundaryType[0].lower()=='outlet':
+            self.setOutletBoundaryConditions('left')
         else:
-            entropyFixCoefficient = None
-        advectionScheme       = config.numericalScheme()
-        isMusclActive         = config.MUSCLReconstructionBool()
-        writeInterval         = config.writeInterval()
-        printResiduals        = config.printInfoResidualsBool()
-        timeMax               = config.maxTime()
-        cflMax                = config.CFLMax()
-        expansionDeviceType   = config.expansionDeviceType()
-        fluidModelType        = config.fluidModel()
-        fluidLibrary          = config.fluidLibrary() if fluidModelType.lower() == "real" else None
-        if isMusclActive:
-            limiter = config.MUSCLReconstrFluxLimiter()
+            raise ValueError("Unknown boundary condition type on the left")
+        
+        if self.boundaryType[1].lower()=='reflective':
+            self.setReflectiveBoundaryConditions('right')
+        elif self.boundaryType[1].lower()=='transparent':
+            self.setTransparentBoundaryConditions('right')
+        elif self.boundaryType[1].lower()=='periodic':
+            self.setPeriodicBoundaryConditions('right')
+        elif self.boundaryType[1].lower()=='outlet':
+            self.setOutletBoundaryConditions('right')
+        elif self.boundaryType[1].lower()=='inlet':
+            self.setInletBoundaryConditions('right')
         else:
-            limiter = None
+            raise ValueError("Unknown boundary condition type on the right")
+        
+        # update also the conservative variable arrays based on what has been done on the primitive
+        self.solutionConservative['u1'], self.solutionConservative['u2'], self.solutionConservative['u3'] = (getConservativesFromPrimitives(
+            self.solutionPrimitive['Density'], self.solutionPrimitive['Velocity'], self.solutionPrimitive['Pressure'], self.fluid))
 
-        # meshData["xMeshNodes"] = np.array([
-        #     -0.06059596,  0.,          0.06059596,  0.12119192,  0.18178788,  0.24238384,
-        #     0.3029798,   0.36357576,  0.42417172,  0.48476768,  0.54536364,  0.6059596,
-        #     0.66655556,  0.72715152,  0.78774747,  0.84834343,  0.90893939,  0.96953535,
-        #     1.03013131,  1.09072727,  1.15132323,  1.21191919,  1.27251515,  1.33311111,
-        #     1.39370707,  1.45430303,  1.51489899,  1.57549495,  1.63609091,  1.69668687,
-        #     1.75728283,  1.81787879,  1.87847475,  1.93907071,  1.99966667,  2.06026263,
-        #     2.12085859,  2.18145455,  2.24205051,  2.30264646,  2.36324242,  2.42383838,
-        #     2.48443434,  2.5450303,   2.60562626,  2.66622222,  2.72681818,  2.78741414,
-        #     2.8480101,   2.90860606,  2.96920202,  3.02979798,  3.09039394,  3.1509899,
-        #     3.21158586,  3.27218182,  3.33277778,  3.39337374,  3.4539697,   3.51456566,
-        #     3.57516162,  3.63575758,  3.69635354,  3.75694949,  3.81754545,  3.87814141,
-        #     3.93873737,  3.99933333,  4.05992929,  4.12052525,  4.18112121,  4.24171717,
-        #     4.30231313,  4.36290909,  4.42350505,  4.48410101,  4.54469697,  4.60529293,
-        #     4.66588889,  4.72648485,  4.78708081,  4.84767677,  4.90827273,  4.96886869,
-        #     5.02946465,  5.09006061,  5.15065657,  5.21125253,  5.27184848,  5.33244444,
-        #     5.3930404,   5.45363636,  5.51423232,  5.57482828,  5.63542424,  5.6960202,
-        #     5.75661616,  5.81721212,  5.87780808,  5.93840404,  5.999,        6.05959596
-        # ])
 
-        # meshData["meshNodeSpacing"] = np.full(102, 0.06059596)
 
-        # meshData["deviceAreaAtMeshNodes"] = np.array([
-        #     0.07068583, 0.07068583, 0.07068583, 0.07068583, 0.07068583, 0.07068583,
-        #     0.07068583, 0.07068583, 0.07068583, 0.07068583, 0.07068583, 0.07068583,
-        #     0.07068583, 0.07068583, 0.07068583, 0.07068583, 0.07068583, 0.07068583,
-        #     0.07068583, 0.07068583, 0.07068583, 0.07068583, 0.07068583, 0.07068583,
-        #     0.07068583, 0.07068583, 0.07068583, 0.07068583, 0.07068583, 0.07068583,
-        #     0.07068583, 0.07068583, 0.07068583, 0.07068583, 0.07068583, 0.07068583,
-        #     0.07068583, 0.07068583, 0.07068583, 0.07068583, 0.07068583, 0.07068583,
-        #     0.07068583, 0.07068583, 0.07068583, 0.07068583, 0.07068583, 0.07068583,
-        #     0.07068583, 0.07068583, 0.07068583, 0.07068583, 0.07068583, 0.07068583,
-        #     0.07068583, 0.07068583, 0.07068583, 0.07068583, 0.07068583, 0.07068583,
-        #     0.07068583, 0.07068583, 0.07068583, 0.07068583, 0.07068583, 0.07068583,
-        #     0.07068583, 0.07068583, 0.07068583, 0.07068583, 0.07068583, 0.07068583,
-        #     0.07068583, 0.07068583, 0.07068583, 0.07068583, 0.07068583, 0.07068583,
-        #     0.07068583, 0.07068583, 0.07068583, 0.07068583, 0.07068583, 0.07068583,
-        #     0.06466948, 0.05375371, 0.04479898, 0.03780529, 0.03277264, 0.02970105,
-        #     0.0285905,  0.02944096, 0.03225247, 0.03702503, 0.04375863, 0.05245328,
-        #     0.06310898, 0.07572572, 0.09030325, 0.10684203, 0.1253419,  0.14580279
-        # ])
+    def setReflectiveBoundaryConditions(self, location):
+        """
+        Set halo node values to yield reflective boundary conditions (E. Toro Riemann Solvers and Numerical Methods for Fluid Dynamics Third Edition, section 6.3.3)
 
-        # meshData["dAreaDx"] = np.array([
-        #     0.00000000e+00,  0.00000000e+00,  0.00000000e+00,  0.00000000e+00,
-        #     0.00000000e+00,  0.00000000e+00,  0.00000000e+00,  0.00000000e+00,
-        #     0.00000000e+00, -1.11022302e-16,  1.11022302e-16,  0.00000000e+00,
-        #     -1.11022302e-16,  0.00000000e+00,  1.11022302e-16,  0.00000000e+00,
-        #     -1.11022302e-16,  0.00000000e+00,  0.00000000e+00,  0.00000000e+00,
-        #     0.00000000e+00,  0.00000000e+00,  0.00000000e+00,  0.00000000e+00,
-        #     0.00000000e+00,  0.00000000e+00,  0.00000000e+00,  0.00000000e+00,
-        #     0.00000000e+00,  0.00000000e+00,  0.00000000e+00,  0.00000000e+00,
-        #     0.00000000e+00,  0.00000000e+00,  0.00000000e+00,  0.00000000e+00,
-        #     0.00000000e+00,  0.00000000e+00,  0.00000000e+00,  0.00000000e+00,
-        #     0.00000000e+00,  0.00000000e+00,  0.00000000e+00,  0.00000000e+00,
-        #     0.00000000e+00,  0.00000000e+00,  0.00000000e+00,  0.00000000e+00,
-        #     0.00000000e+00,  0.00000000e+00,  0.00000000e+00,  0.00000000e+00,
-        #     0.00000000e+00,  0.00000000e+00,  0.00000000e+00,  0.00000000e+00,
-        #     0.00000000e+00,  0.00000000e+00,  0.00000000e+00,  0.00000000e+00,
-        #     0.00000000e+00,  0.00000000e+00,  0.00000000e+00,  0.00000000e+00,
-        #     0.00000000e+00,  0.00000000e+00,  0.00000000e+00,  0.00000000e+00,
-        #     0.00000000e+00,  0.00000000e+00,  0.00000000e+00,  0.00000000e+00,
-        #     0.00000000e+00,  0.00000000e+00,  0.00000000e+00,  0.00000000e+00,
-        #     0.00000000e+00,  0.00000000e+00,  0.00000000e+00,  0.00000000e+00,
-        #     0.00000000e+00,  0.00000000e+00,  0.00000000e+00, -4.96431281e-02,
-        #     -1.39713313e-01, -1.63959013e-01, -1.31596396e-01, -9.92337964e-02,
-        #     -6.68711256e-02, -3.45084134e-02, -2.14603296e-03,  3.02162941e-02,
-        #     6.25789647e-02,  9.49416238e-02,  1.27304271e-01,  1.59666966e-01,
-        #     1.92029660e-01,  2.24390141e-01,  2.56752329e-01,  2.89117068e-01,
-        #     3.21479876e-01,  3.37660981e-01
-        # ])
+        Arguments
+        ---------
+        location : str
+            The location of the boundary condition, either 'left' or 'right'.
 
-        # plot nozzle geometry
-        print("Plotting nozzle geometry...")
-        print(expansionDeviceType)
-        if expansionDeviceType == 'nozzle':
-            print("Plotting nozzle geometry...")
-            # nozzle x coordinates
-            nozzleX = deviceGeometryData['deviceX']
-            # nozzle area coordinates
-            nozzleArea = deviceGeometryData['deviceArea']
-            from matplotlib import pyplot as plt
-            plt.figure()
-            plt.plot(nozzleX, nozzleArea)
-            plt.xlabel('x [m]')
-            plt.ylabel('Area [m^2]')
-            plt.title('Nozzle geometry')
-            plt.grid()
-            plt.show()
+        Returns
+        -------
+        None, but updates the solutionPrimitive attribute of the Driver class to set the reflective boundary conditions to the halo nodes based on the location specified in the argument.
+        """
+        if location=='left':
+            self.solutionPrimitive['Density'][0] = self.solutionPrimitive['Density'][1]
+            self.solutionPrimitive['Velocity'][0] = -self.solutionPrimitive['Velocity'][1]
+            self.solutionPrimitive['Pressure'][0] = self.solutionPrimitive['Pressure'][1]
+            self.solutionPrimitive['Energy'][0] = self.solutionPrimitive['Energy'][1]
+        elif location=='right':
+            self.solutionPrimitive['Density'][-1] = self.solutionPrimitive['Density'][-2]
+            self.solutionPrimitive['Velocity'][-1] = -self.solutionPrimitive['Velocity'][-2]
+            self.solutionPrimitive['Pressure'][-1] = self.solutionPrimitive['Pressure'][-2]
+            self.solutionPrimitive['Energy'][-1] = self.solutionPrimitive['Energy'][-2]
+        else:
+            raise ValueError('Unknown location specified')
+            
+    
 
+    def setTransparentBoundaryConditions(self, location):
+        """
+        Set halo node values to yield transparent boundary conditions (E. Toro Riemann Solvers and Numerical Methods for Fluid Dynamics Third Edition, section 6.3.3)
+
+        Arguments
+        ---------
+        location : str
+            The location of the boundary condition, either 'left' or 'right'.
+
+        Returns
+        -------
+        None, but updates the solutionPrimitive attribute of the Driver class to set the transparent boundary conditions to the halo nodes based on the location specified in the argument.
+        """
+        if location=='left':
+            self.solutionPrimitive['Density'][0] = self.solutionPrimitive['Density'][1]
+            self.solutionPrimitive['Velocity'][0] = self.solutionPrimitive['Velocity'][1]
+            self.solutionPrimitive['Pressure'][0] = self.solutionPrimitive['Pressure'][1]
+            self.solutionPrimitive['Energy'][0] = self.solutionPrimitive['Energy'][1]
+        elif location=='right':
+            self.solutionPrimitive['Density'][-1] = self.solutionPrimitive['Density'][-2]
+            self.solutionPrimitive['Velocity'][-1] = self.solutionPrimitive['Velocity'][-2]
+            self.solutionPrimitive['Pressure'][-1] = self.solutionPrimitive['Pressure'][-2]
+            self.solutionPrimitive['Energy'][-1] = self.solutionPrimitive['Energy'][-2]
+        else:
+            raise ValueError('Unknown location specified')
+        
+        
+        
+    def setPeriodicBoundaryConditions(self, location):
+        """
+        Set halo node values to yield periodic boundary conditions. ("Formulation and Implementation of Inflow/Outflow Boundary Conditions to Simulate Propulsive Effects", or
+        "Inflow/Outflow Boundary Conditions with Application to FUN3D")
+
+        Arguments
+        ---------
+        location : str
+            The location of the boundary condition, either 'left' or 'right'.
+            
+        Returns
+        -------
+        None, but updates the solutionPrimitive attribute of the Driver class to set the periodic boundary conditions to the halo nodes based on the location specified in the argument.
+        """
+        if location=='left':
+            self.solutionPrimitive['Density'][0] = self.solutionPrimitive['Density'][-2]
+            self.solutionPrimitive['Velocity'][0] = self.solutionPrimitive['Velocity'][-2]
+            self.solutionPrimitive['Pressure'][0] = self.solutionPrimitive['Pressure'][-2]
+            self.solutionPrimitive['Energy'][0] = self.solutionPrimitive['Energy'][-2]
+        elif location=='right':
+            self.solutionPrimitive['Density'][-1] = self.solutionPrimitive['Density'][1]
+            self.solutionPrimitive['Velocity'][-1] = self.solutionPrimitive['Velocity'][1]
+            self.solutionPrimitive['Pressure'][-1] = self.solutionPrimitive['Pressure'][1]
+            self.solutionPrimitive['Energy'][-1] = self.solutionPrimitive['Energy'][1]
+        else:
+            raise ValueError('Unknown location specified')
+    
+    
+
+    def setInletBoundaryConditions(self, location):
+        """
+        Set inlet boundary conditions. (see "Formulation and Implementation of Inflow/Outflow Boundary Conditions to Simulate Propulsive Effects", or
+        "Inflow/Outflow Boundary Conditions with Application to FUN3D")
+
+        Arguments
+        ---------
+        location : str
+            The location of the boundary condition, either 'left' or 'right'.
+
+        Returns
+        -------
+        None, but updates the solutionPrimitive attribute of the Driver class to set the inlet boundary conditions to the halo nodes based on the location specified in the argument.
+        """
+        # handle left and right extremities with the same code
+        if location=='right':
+            iHalo = -1
+            iInternal = -2
+        elif location=='left':
+            iHalo = 0
+            iInternal = 1
+        else:
+            raise ValueError('Unknown location specified')
+        
+        inletConditions = self.config.inletConditionsValues()    
+        if self.config.inletConditionsType().lower()=="total":
+            totalPressure = inletConditions[0]
+            totalTemperature = inletConditions[1]
+            direction = inletConditions[2]
+            # static pressure is the only info taken from the domain 
+            pressure = self.solutionPrimitive['Pressure'][iInternal]
+            if pressure>=totalPressure: # avoid the problems that can cause
+                pressure = 0.99*totalPressure 
+            density, velocity, energy = self.fluid.computeInletQuantitiesTotal_pt_Tt(pressure, totalPressure, totalTemperature, direction)
+        elif self.config.inletConditionsType().lower()=="static":
+            if self.fluidModel=='ideal':
+                raise ValueError('Static inlet conditions are only supported for the real fluid model')
+            pressure = inletConditions[0]
+            enthalpy = inletConditions[1]
+            # get flow velocity from the domain
+            velocity = self.solutionPrimitive['Velocity'][iInternal]
+            density, energy = self.fluid.computeInletQuantitiesStatic(pressure, enthalpy)
+        else:
+            raise ValueError('Unknown or no inlet conditions type specified in the configuration file')
+        self.solutionPrimitive['Density'][iHalo] = density
+        self.solutionPrimitive['Velocity'][iHalo] = velocity
+        self.solutionPrimitive['Pressure'][iHalo] = pressure
+        self.solutionPrimitive['Energy'][iHalo] = energy
+    
+    
+
+    def setOutletBoundaryConditions(self, location):
+        """
+        Set outlet boundary conditions. (see "Formulation and Implementation of Inflow/Outflow Boundary Conditions to Simulate Propulsive Effects", or
+        "Inflow/Outflow Boundary Conditions with Application to FUN3D")
+
+        Arguments
+        ---------
+        location : str
+            The location of the boundary condition, either 'left' or 'right'.
+
+        Returns
+        -------
+        None, but updates the solutionPrimitive attribute of the Driver class to set the outlet boundary conditions to the halo nodes based on the location specified in the argument.
+        """
+        # handle left and right extremities with the same code
+        if location=='right':
+            iHalo = -1
+            iInternal = -2
+        elif location=='left':
+            iHalo = 0
+            iInternal = 1
+        else:
+            raise ValueError('Unknown location specified')
+        
+        machOutlet = self.fluid.computeMach_u_p_rho(self.solutionPrimitive['Velocity'][iInternal], self.solutionPrimitive['Pressure'][iInternal], self.solutionPrimitive['Density'][iInternal])        
+        if machOutlet<1:
+            pressure = self.config.outletConditions() # the pressure is the information taken from outside
+            velocity = self.solutionPrimitive['Velocity'][iInternal]
+            density = self.solutionPrimitive['Density'][iInternal]
+            energy = self.fluid.computeInternalEnergy_p_rho(pressure, density)        
+            self.solutionPrimitive['Density'][iHalo] = density
+            self.solutionPrimitive['Velocity'][iHalo] = velocity
+            self.solutionPrimitive['Pressure'][iHalo] = pressure
+            self.solutionPrimitive['Energy'][iHalo] = energy
+        else:            
+            self.setTransparentBoundaryConditions(location) # the boundary is equivalent to a transparent condition
+            
+
+
+
+
+
+
+
+    # =========================================================================
+    #  Solver
+    # =========================================================================
+
+    def solve(self):
+        """
+        Solve the equations explicitly in time (forward Euler) using a certain advectionScheme (`Godunov`, `Roe`, `WAF`). high_order
+        specifies if applying or not high order reconstruction with limiters. At the moment only type one is working -> simply
+        impose high_order=True
+        """
+        self.entropyFixActive = self.config.entropyFixActiveBool()
+        self.entropyFixCoefficient = 0.2
+        advectionScheme = self.config.numericalScheme()
+        isMusclActive = self.config.MUSCLReconstructionBool()
+        writeInterval = self.config.writeInterval()
+        printInfoResidualsBool = self.config.printInfoResidualsBool()
+
+        self.config      
+        self.meshData        
+        self.deviceGeometryData 
+        self.fluidModel      
+        self.fluidState      
+        self.conservativeState 
+        self.resultsPath     
+        self.time           
+        self.iterationIndex  
+
+        # define all self. attributes that will be used in the solver
+        self.restartFilePath = None
+        self.config = self.config
+        self.topology = self.config.expansionDeviceType()
+        self.fluidName = self.config.fluidName()
+        self.fluidModel = self.config.fluidModel()
+        self.gmma = self.config.fluidGamma()
+        self.Rgas = self.config.gasRConstant()
+        self.fluid = self.instantiateFluidModel(self.config)
+        # self.pressureLeft = self.config.initialPressureLeft()
+        # self.pressureRight = self.config.initialPressureRight()
+        # self.temperatureLeft = self.config.initialTemperatureLeft()
+        # self.temperatureRight = self.config.initialTemperatureRight()
+        # self.densityLeft = self.config.initialDensityLeft()
+        # self.densityRight = self.config.initialDensityRight()
+        # self.velocityLeft = self.config.initialVelocityLeft()
+        # self.velocityRight = self.config.initialVelocityRight()
+        # self.energyLeft = self.fluid.computeInternalEnergy_p_rho(self.pressureLeft, self.densityLeft)
+        # self.energyRight = self.fluid.computeInternalEnergy_p_rho(self.pressureRight, self.densityRight)
+        self.length = self.deviceGeometryData['deviceLength']
+        self.nNodes = self.meshData['numMeshNodes'] - 2
+        self.xNodes = self.meshData['xMeshNodes'][1:-1]
+        self.nNodesHalo = self.meshData['numMeshNodes']
+        self.xNodesVirtual = self.meshData['xMeshNodes']
+        self.dx = self.meshData['meshNodeSpacing']
+        self.areaTube = self.meshData['deviceAreaAtMeshNodes']
+        self.dAreaTube_dx = self.meshData['dAreaDx']
+        self.cflMax = self.config.CFLMax()
+        self.timeMax = self.config.maxTime()
+        self.boundaryType = self.config.boundaryConditions()
+        self.solutionNames = ['Density', 'Velocity', 'Pressure', 'Energy']
+        self.solutionPrimitive = self.fluidState
+        self.solutionConsNames = ['u1', 'u2', 'u3']
+        self.solutionConservative = self.conservativeState
+
+
+        for attr, value in vars(self).items():
+            print(f"{attr}: {value}")
+
+
+
+
+        
         print()
-        print("=" * 80)
-        print(" " * 33 + "START SOLVER")
-        print("Numerical flux method: %s"  % advectionScheme)
-        print("MUSCL reconstruction:  %s"  % isMusclActive)
-        print("Entropy fix active:    %s"  % entropyFixActive)
-        if fluidModelType.lower() == "real":
-            print("Real Gas model, library: %s" % fluidLibrary)
+        print("="*80)
+        print(" "*33 + "START SOLVER")
+        print("Numerical flux method: %s" %(advectionScheme))
+        print("MUSCL reconstruction: %s" %isMusclActive)
+        print("Entropy fix active: %s" %self.entropyFixActive)
+        if self.config.fluidModel()=='real':
+            print("Real Gas model, library: %s" %self.config.fluidLibrary())
         else:
             print("Ideal Gas model")
-        if entropyFixActive:
-            print("Entropy fix coefficient: %s" % entropyFixCoefficient)
-        print("=" * 80)
+        if self.entropyFixActive:
+            print("Entropy fix coefficient: %s" %self.entropyFixCoefficient)
+        print("="*80)
         print()
 
-        # Save the initial state (iteration 0, t = 0) for a clean start; a restart
-        # already has its initial file so we skip this.
-        if time == 0.0:
-            saveResults(0, 0.0, meshData, fluidState, config, resultsPath)
+        # short aliases (shallow copy, will change throughout the iteration loop)
+        primitiveOld = copy.deepcopy(self.solutionPrimitive)
+        
+        # # prepare output paths based on config specification
+        # self._prepareOutputPaths(config, meshData, restartFilePath=None)
 
-        # Keep a copy of the previous step's fluid state variables for the convergence check.
-        fluidStateOld   = copy.deepcopy(fluidState)
-        convergenceHist = []
-        convergedSimulation = False
+        # write the initial time to a results file (used both for post-processing and for restart)
+        if self.restartFilePath is None:
+            self.saveResults(it=0, time=0)
+        
+        if self.restartFilePath is not None:
+            pass
+        else:
+            self.time = 0
+            self.iterationIndex = 0
 
-        # -----------------------------------------
-        # Iterative solution of governing equations
-        # -----------------------------------------
-        while time < timeMax:
-            iterationIndex += 1
+        # start convergence history
+        convergence_hist = []        
+        
+        # main loop
+        while self.time < self.timeMax:
+            # perform iteration update
+            self.iterationIndex += 1
 
-            # Compute the CFL-limited timestep and clip it so we land exactly on timeMax.
-            dt      = computeTimeStep(fluidState, meshData, fluidModel, cflMax)
-            dt      = min(dt, timeMax - time)
-            newTime = time + dt
-
-            # Compute residuals (finite-volume right-hand side).
-            residuals = computeResiduals(
-                fluidState, meshData, fluidModel, dt,
-                advectionScheme, isMusclActive, limiter,
-                entropyFixActive, entropyFixCoefficient,
-                expansionDeviceType,
-            )
-
-            # Update conservative variables with the residuals, then recover fluid state variables.
-            conservativeState, fluidState = updateSolution(
-                conservativeState, fluidState, residuals, fluidModel
-            )
-
-            # Print progress.
-            if printResiduals:
-                _printInfoResiduals(iterationIndex, newTime, timeMax, residuals)
+            dt = self.computeTimeStep(self.solutionPrimitive)
+            if self.time + dt > self.timeMax:
+                dt = self.timeMax - self.time
+            newTime = self.time + dt
+            residuals = self.computeResiduals(self.solutionPrimitive, dt)
+            self.updateSolution(residuals)
+            
+            if printInfoResidualsBool:
+                self.printInfoResiduals(self.iterationIndex, newTime, residuals)        
             else:
-                print(
-                    f"Iteration: {iterationIndex}, "
-                    f"Progress in Time {(newTime / timeMax * 100):.3f} %"
-                )
+                print(f"Iteration: {self.iterationIndex}, Progress in Time {((newTime)/self.timeMax * 100):.3f} %")
+            
+            if self.iterationIndex%writeInterval==0:
+                self.saveResults(self.iterationIndex, newTime)
 
-            # Periodic file output.
-            if iterationIndex % writeInterval == 0:
-                saveResults(
-                    iterationIndex, newTime, meshData, fluidState, config, resultsPath
-                )
+            self.checkSimulationStatus(dt)
+            self.setBoundaryConditions()
 
-            # Check for NaNs / Infs and abort with a diagnostic if found.
-            checkSimulationStatus(fluidState, meshData, fluidModel, dt)
-
-            # Re-impose boundary conditions on the halo nodes.
-            fluidState = self.setBoundaryConditions(config, meshData, fluidModel, fluidState)
-            # Keep conservative state consistent with the updated fluid state variables at the halos.
-            conservativeState = self._conservativesFromFluidState(fluidState, fluidModel)
-
-            # ------------------------------------------------------------------
-            # Convergence check: if all fluid state variables have changed by less
-            # than convergenceTolerance (relative) for 20 consecutive iterations,
-            # jump straight to timeMax to finalise the run.
-            # ------------------------------------------------------------------
+            # convergence of primitive variables may carry differing time scales. Will simply check for convergence of all
+            convergenceList = []
             convergenceTolerance = 1e-5
-            converged = all(
-                np.max(
-                    np.abs(fluidState[var] - fluidStateOld[var])
-                    / (np.max(np.abs(fluidStateOld[var])) + 1e-300)
-                ) < convergenceTolerance
-                for var in ("Density", "Velocity", "Pressure", "Energy")
-            )
-            convergenceHist = convergenceHist + [True] if converged else []
+            for primitveVariable in self.solutionNames:
+                # normalize the diff to get each variable on the same scale
+                diff = np.abs(self.solutionPrimitive[primitveVariable] - primitiveOld[primitveVariable]) / np.max(np.abs(primitiveOld[primitveVariable]))
+                if np.max(diff) < convergenceTolerance:
+                    convergenceList.append(True)
+                else:
+                    convergenceList.append(False)
+            if all(convergenceList):
+                convergence_hist.append(self.iterationIndex)
+            else: 
+                convergence_hist = []
+            if len(convergence_hist) >= 20:
+                dt = self.timeMax - self.time
 
-            if len(convergenceHist) >= 20:
-                # Force the loop to end at timeMax on the next iteration.
-                dt = timeMax - time
-                convergedSimulation = True
-
-            # Advance physical time.
-            time          = newTime
-            fluidStateOld = copy.deepcopy(fluidState)
-
-        # if nozzle simulation ended without converging due to time limit exceeding, inform the user
-        # about this with a fair warning, suggesting to increase the time limit.
-        if not convergedSimulation and expansionDeviceType == "nozzle":
-            print("=" * 80)
-            print("Warning: The simulation ended due to reaching the maximum time limit without convergence.")
-            print("Consider increasing the maximum simulation time in the configuration file.")
-            print("=" * 80)
-
-        # Save the final state regardless of whether writeInterval aligns with it.
-        saveResults(
-            iterationIndex, time, meshData, fluidState, config, resultsPath
-        )
-
-        # Update Driver attributes so the object reflects the final simulation state.
-        self.fluidState        = fluidState
-        self.conservativeState = conservativeState
-        self.time              = time
-        self.iterationIndex    = iterationIndex
-
-        print(" " * 34 + "END SOLVER")
-        print("=" * 80)
-        print(" " * 25 + "FINAL ASSEMBLY OF THE RESULTS")
-        self.regroupSingleResults(resultsPath)
-        print(" " * 34 + "END ASSEMBLER")
-        print("=" * 80)
-
-
-# =============================================================================
-#  Additional helper functions
-# =============================================================================
-
-
-    def regroupSingleResults(self, filepath):
-        # regrouping is only necessary when the results folder contains
-        # files with filename RegEx: step*. 
-        # Check for this
-        files = [f for f in os.listdir(filepath) if os.path.isfile(os.path.join(filepath, f)) and 'pik' in f]
-        files = sorted(files)
-        if not any(re.match(r'step_\d+\.pik', f) for f in files):
-            print("No files with the expected naming convention found. No regrouping necessary.")
-            return
-
-        nTimes = len(files)
-        solution = {}
+            # perform time update
+            self.time += dt  
+            primitiveOld = copy.deepcopy(self.solutionPrimitive)
         
-        print("Regrouping all the results in a single file...")
-        for iFile in range(len(files)):
-            print(f"Reading File {iFile+1} of {len(files)}")
-            with open(filepath / files[iFile], 'rb') as file:
-                result = pickle.load(file)
-                
-                if iFile == 0:
-                    nNodesVirtual = result['fluidState']['Pressure'].shape[0]
-                    xNodesVirtual = result['xMeshNodes']
-                    deviceAreaAtMeshNodes = result['deviceAreaAtMeshNodes']
-                    config = result['config']
-                    
-                    timeVec = np.zeros(nTimes)
-                    solution['Density'] = np.zeros((nNodesVirtual, nTimes))
-                    solution['Velocity'] = np.zeros((nNodesVirtual, nTimes))
-                    solution['Pressure'] = np.zeros((nNodesVirtual, nTimes))
-                
-                timeVec[iFile] = result['time']
-                solution['Density'][:, iFile] = result['fluidState']['Density']
-                solution['Velocity'][:, iFile] = result['fluidState']['Velocity']
-                solution['Pressure'][:, iFile] = result['fluidState']['Pressure']
-        
-        globalOutput = {'xMeshNodes': xNodesVirtual, 
-                        'deviceAreaAtMeshNodes': deviceAreaAtMeshNodes,
-                        'Time': timeVec, 
-                        'fluidState': solution, 
-                        'config': config}
-        
-        print("Replacing all individual files with a single pickle (this could take a while) ...")
-        shutil.rmtree(filepath)
-        os.makedirs(filepath, exist_ok=True)
-        with open(filepath / 'Results.pik', 'wb') as file:
-            pickle.dump(globalOutput, file)
-        print(f"Regrouped all the times in a single file: {filepath / 'Results.pik'}")
+        self.saveResults(self.iterationIndex, newTime)
+            
+        print(" "*34 + "END SOLVER")
+        print("="*80)
+        print(" "*25 + "FINAL ASSEMBLY OF THE RESULTS")
+        output = Output(self.resultsPath)
+        print(" "*34 + "END ASSEMBLER")
+        print("="*80)
 
+    
+    
+    def computeResiduals(self, primitives, dt):
+        availableLimiters = ['van albada', 'van leer', 'min-mod', 'superbee', 'none']
         
+        limiter = "van albada"
+        if limiter not in availableLimiters:
+            raise ValueError(f'Limiter not recognized! Available ones are: {availableLimiters}')
+        
+        advectionScheme = self.config.numericalScheme()
+        MUSCL = self.config.MUSCLReconstructionBool()
+        
+        # compute advection fluxes on every internal interface
+        flux = np.zeros((self.nNodes+1, 3))
+        for iFace in range(flux.shape[0]):
+            flux[iFace, :] = self.computeFluxVector(iFace, iFace+1, primitives, dt, advectionScheme, MUSCL, limiter)
+
+        # compute the source terms
+        if self.topology.lower()=='nozzle':
+            source = self.computeSourceTerms(primitives)
+        else:
+            source = np.zeros((self.nNodesHalo,3))
+        
+        # assemble the full residual vector on every physical node
+        residuals = np.zeros((self.nNodes,3))
+        for iDim in range(3):
+            residuals[:,iDim] = dt/self.dx[1:-1] * ((flux[0:-1, iDim] - flux[1:, iDim]) + source[1:-1, iDim]*self.dx[1:-1])
+
+        return residuals
+
+
+
+    def updateSolution(self, residuals):
+        self.solutionConservative['u1'][1:-1] += residuals[:,0]
+        self.solutionConservative['u2'][1:-1] += residuals[:,1]
+        self.solutionConservative['u3'][1:-1] += residuals[:,2]
+        self.updatePrimitivesFromConservatives()
+    
+    def updatePrimitivesFromConservatives(self):
+        self.solutionPrimitive['Density'][1:-1], self.solutionPrimitive['Velocity'][1:-1], self.solutionPrimitive['Pressure'][1:-1], self.solutionPrimitive['Energy'][1:-1] = \
+                getPrimitivesFromConservatives(self.solutionConservative['u1'][1:-1], self.solutionConservative['u2'][1:-1], self.solutionConservative['u3'][1:-1], self.fluid)
+        
+
+
+    def computeTimeStep(self, primitive):
+        """
+        Compute the maximum possible timestep given the pre-specified CFL number in the configuration file, and the spatial distribution of the physical + halo nodes, also specified in the configuration file. 
+        The maximum CFL follows from numerical stability analysis of numerical governing equations (after applications of the chosen temporal and spatial discretization schemes)
+
+        Arguments
+        ---------
+        primitive : dict of 2D np arrays, (space, time)
+            The dictionary of primitive variables, containing the spatial distribution of density, velocity, pressure and energy at the current time step.
+
+        Returns
+        -------
+        dtMax : float
+            The maximum possible time step that can be taken at the current time step, given the spatial distribution of the primitive variables and the pre-specified CFL number in the configuration file.
+        """
+        velocity = primitive['Velocity'][1:-1]
+        speedOfSound = np.zeros_like(velocity)
+        for i in range(len(speedOfSound)):
+            speedOfSound[i] = self.fluid.computeSoundSpeed_p_rho(primitive['Pressure'][i+1], primitive['Density'][i+1])
+        print("speedOfSound:", speedOfSound)
+        dtMax = np.min(self.dx[1:-1] * self.cflMax / (np.abs(velocity)+speedOfSound))
+        # print("dtMax:", dtMax)
+        return dtMax
+    
+    
+    def saveResults(self, it, time):  
+        """
+        Save the results of the simulation at the current time step to a file in the results directory. The file is named according to the iteration index, and contains the time, iteration counter, 
+        x coordinates of the nodes, area variation along the tube, primitive variables, fluid properties and configuration settings. The results are saved in a pickle file format.
+        The results file is both used for post-processing and for restart. This is why seemingly unecessary information for restart (such as the area variation along the tube) is also present in the restart file. 
+
+        Arguments
+        ---------
+        it : int
+            The iteration index of the current time step.
+        time : float
+            The time elapsed at the current time step.
+
+        Returns
+        -------
+        None, but saves the results of the simulation at the current time step to a file in the results directory, with the filename based on the iteration index.
+        """  
+        
+        iterationName = 'step_%06i.pik' %(it)
+        fullPath = self.resultsPath / iterationName
+        outputResults = {'Time': time, 
+                         'Iteration Counter': it, 
+                         'X Coords': self.xNodesVirtual,
+                         'Area Tube': self.areaTube,
+                         'Primitive': self.solutionPrimitive,
+                         'Configuration': self.config}
+        with open(fullPath, 'wb') as file:
+            pickle.dump(outputResults, file)
+    
+    
+    def printInfoResiduals(self, iteration_idx, time, residuals):
+        res = np.zeros(3)
+        for iEq in range(3):
+            res[iEq] = np.linalg.norm(residuals[:,iEq])/len(residuals[:,iEq])
+            if res[iEq]!=0:
+                res[iEq] = np.log10(res[iEq])
+        timeProgress = time/self.timeMax * 100
+        print('Iteration %i    Progress in Time %.3f%%    Residuals: %.6f, %.6f, %.6f' %(iteration_idx, timeProgress, res[0], res[1], res[2]))
+    
+    
+    def computeSourceTerms(self, primitive):
+        """compute source terms related to area variations along the tube due to a nozzle. Source terms taken from 'On the numerical simulation
+        of non-classical quasi-1D steady nozzle flows: Capturing sonic shocks' by Vimercati and Guardone.
+
+        Args:
+            it (int): time step index
+
+        Returns:
+            np.ndarray: source terms arrays (nPoints, 3)
+        """
+        totalEnergy = primitive['Energy'][:] + 0.5*primitive['Velocity']**2
+        source = np.zeros((self.nNodesHalo,3))
+        print("your desired print statement", primitive["Density"].shape, primitive["Velocity"].shape, self.dAreaTube_dx.shape, self.areaTube.shape)
+        source[:,0] = - primitive['Density'] * primitive['Velocity']*self.dAreaTube_dx/self.areaTube
+        source[:,1] = - (primitive['Density'] * primitive['Velocity']**2)*self.dAreaTube_dx/self.areaTube
+        source[:,2] = - primitive['Velocity'] *(primitive['Density']*totalEnergy + primitive['Pressure'])*self.dAreaTube_dx/self.areaTube
+        return source
+    
+    
+    def checkSimulationStatus(self, dt):
+        """
+        Check if nans or infs are detected and in that case stop the simulation and provide explanation
+        """
+        if np.any(np.isnan(self.solutionPrimitive['Density'])) or np.any(np.isinf(self.solutionPrimitive['Density'])) or \
+            np.any(np.isnan(self.solutionPrimitive['Pressure'])) or np.any(np.isinf(self.solutionPrimitive['Pressure'])):
+            print()
+            print()
+            print("######################  SIMULATION DIVERGED ############################")
+            print('NaNs detected in density. Simulation stopped.')
+            cfl = self.computeMaxCFL(dt) # use the previous time step to compute where the solution had CFL related problems
+            print("Maximum CFL number found: %.3f" %(np.max(cfl)))
+            print("At location x: %.3f [m]" %(self.xNodesVirtual[np.argmax(cfl)]))
+            print("Visualize the plot to understand critical locations, and decrease CFL_MAX input setting.")
+            print("###############################  EXIT ##################################")
+            print()
+            
+            plt.figure()
+            plt.plot(self.xNodes, cfl)
+            plt.xlabel('x [m]')
+            plt.ylabel('CFL [-]')
+            plt.grid(alpha=.3)
+            plt.show()
+            sys.exit()
+    
+    
+    def computeMaxCFL(self, dt):
+        pressure = self.solutionPrimitive['Pressure'][1:-1]
+        density = self.solutionPrimitive['Density'][1:-1]
+        velocity = self.solutionPrimitive['Velocity'][1:-1]
+        dx = self.dx[1:-1]
+        soundSpeed = np.zeros_like(pressure)
+        for i in range(len(soundSpeed)):
+            soundSpeed = self.fluid.computeSoundSpeed_p_rho(pressure[i], density[i])
+        cfl = (np.abs(velocity)+soundSpeed)*dt/dx
+        return cfl
+        
+
+    def computeFluxVector(self, il, ir, primitive, dt, advectionScheme, MUSCL, limiter):
+        """
+        compute the flux vector at the interface between grid points `il` and `ir`, using a certain `advectionScheme`.
+        """
+        
+        # flow reconstruction if high_order=True
+        if (MUSCL and il>2 and ir<self.nNodesHalo-3):
+            rhoL, uL, pL, rhoR, uR, pR = self.computeMusclReconstruction(il, ir, limiter)
+        else:
+            rhoL = primitive['Density'][il]
+            rhoR = primitive['Density'][ir]
+            uL = primitive['Velocity'][il]
+            uR = primitive['Velocity'][ir]
+            pL = primitive['Pressure'][il]
+            pR = primitive['Pressure'][ir]            
+        
+        # flux calculation
+        if advectionScheme.lower()=='godunov':
+            if self.fluidModel!='ideal':
+                raise ValueError('Godunov scheme is available only for ideal gas model')
+            else:
+                # Godunov flux calculation
+                nx, nt = 51, 51 
+                x = np.linspace(-self.dx[il]/2, self.dx[ir]/2, nx)
+                t = np.linspace(0, dt, nt)
+                riem = RiemannProblem(x, t)
+                riem.initializeState([rhoL, rhoR, uL, uR, pL, pR])
+                riem.initializeSolutionArrays()
+                riem.computeStarRegion()
+                riem.solve(space_domain='interface', time_domain='global') # compute Riemann solution only at x=0, but on all time instants
+                rho, u, p = riem.getSolutionInTime()
+                u1, u2, u3 = getConservativesFromPrimitives(rho, u, p, self.fluid)
+                u1AVG, u2AVG, u3AVG = np.sum(u1)/len(u1), np.sum(u2)/len(u2), np.sum(u3)/len(u3)
+                flux = computeAdvectionFluxFromConservatives(u1AVG, u2AVG, u3AVG, self.fluid) 
+        elif advectionScheme.lower()=='roe':
+            if self.fluidModel=='real':
+                raise ValueError('Basic Roe scheme is not available for real gas model. Select Roe_Arabi or Roe_Vinokur, depending on the Roe Avg procedure that you want.')
+            else:
+                roe = AdvectionRoeBase(rhoL, rhoR, uL, uR, pL, pR, self.fluid)
+                flux = roe.computeFlux(entropyFixActive=self.entropyFixActive, fixCoefficient=self.entropyFixCoefficient)
+        elif advectionScheme.lower()=='roe_arabi':
+            if self.fluidModel=='ideal':
+                raise ValueError('Roe_Arabi scheme is not available for ideal gas model. Select Standard Roe scheme.')
+            else:
+                roe = AdvectionRoeArabi(rhoL, rhoR, uL, uR, pL, pR, self.fluid)
+                flux = roe.computeFlux(entropyFixActive=self.entropyFixActive, fixCoefficient=self.entropyFixCoefficient)
+        elif advectionScheme.lower()=='roe_vinokur':
+                roe = AdvectionRoeVinokur(rhoL, rhoR, uL, uR, pL, pR, self.fluid)
+                roe.computeAveragedVariables()
+                flux = roe.computeFlux(entropyFixActive=self.entropyFixActive, fixCoefficient=self.entropyFixCoefficient)
+        else:
+            raise ValueError('Unknown flux method')
+        
+        return flux
+    
+    def computeMusclReconstruction(self, il, ir, limiter):
+        """
+        MUSCL reconstruction coupled with a certain limiter
+        """
+        # states left, left minus 1, right, right plus one
+        U_lm = np.array([self.solutionPrimitive['Density'][il-1], self.solutionPrimitive['Velocity'][il-1], self.solutionPrimitive['Pressure'][il-1]])
+        U_l = np.array([self.solutionPrimitive['Density'][il], self.solutionPrimitive['Velocity'][il], self.solutionPrimitive['Pressure'][il]])
+        U_r = np.array([self.solutionPrimitive['Density'][ir], self.solutionPrimitive['Velocity'][ir], self.solutionPrimitive['Pressure'][ir]])
+        U_rp = np.array([self.solutionPrimitive['Density'][ir+1], self.solutionPrimitive['Velocity'][ir+1], self.solutionPrimitive['Pressure'][ir+1]])
+        
+        dx_left_leftm = self.xNodes[il]-self.xNodes[il-1] # dx is always the same for now
+        dx_right_left = self.xNodes[ir]-self.xNodes[il]
+        dx_rightp_right = self.xNodes[ir+1]-self.xNodes[ir]
+        
+        # compute the smoothness indicators
+        smoothnessLeft = self.computeSmoothnessIndicators(U_lm, U_l, U_r, dx_left_leftm, dx_right_left)
+        smoothnessRight = self.computeSmoothnessIndicators(U_l, U_r, U_rp, dx_right_left, dx_rightp_right)
+        
+        # compute left and right flux limiters
+        psi_left = self.computeFluxLimiter(smoothnessLeft, limiter)
+        psi_right = self.computeFluxLimiter(smoothnessRight, limiter)
+        
+        # reconstruct left and right states
+        U_l_rec = U_l+0.5*psi_left*(U_r-U_l)
+        U_r_rec = U_r-0.5*psi_right*(U_rp-U_r)
+
+        return U_l_rec[0], U_l_rec[1], U_l_rec[2], U_r_rec[0], U_r_rec[1], U_r_rec[2]
+
+
+    def computeSmoothnessIndicators(self, U_left, U_central, U_right, dx_left, dx_right):
+        """
+        compute the array of smoothness indicators for the following flux limiter evaluation
+        """
+        rVector = ((U_central-U_left)/dx_left) / ((U_right-U_central)/dx_right + 1e-6)
+        return rVector
+    
+    
+    # def saveSolution(self):
+    #     """
+    #     Never used in Driver logic
+    #     Save the full object as a pickle for later use
+    #     """
+    #     outputDirectoryName = self.config.getOutputDirectoryName()
+    #     os.makedirs(outputDirectoryName, exist_ok=True)
+    #     file_name = self.config.getOutputFileName()
+    #     full_path = outputDirectoryName+'/'+file_name+'_NX_%i_TMAX_%.6f.pik' %(self.nNodes, self.timeMax)
+    #     with open(full_path, 'wb') as file:
+    #         pickle.dump(self, file)
+    #     print('Pickle object with full solution saved to ' + full_path + ' !')
+
+
+    def saveNodeSolutionToCSV(self, iNode, timeInstants, folder_name, file_name):
+        """
+        Save the array of fluid flow quantities (P,T,s,Mach,Gamma) from the solution to a CSV file.
+        """
+        filePath = folder_name + '/' + file_name + '.dat'
+
+        pressure = self.solutionPrimitive['Pressure'][iNode, :]  # Extract the pressure data (1D array)
+        density = self.solutionPrimitive['Density'][iNode, :]  # Extract the density data (1D array)
+        temperature = self.fluid.computeTemperature_p_rho(pressure, density)
+        entropy = self.fluid.computeEntropy_p_rho(pressure, density)
+        fundDerGasDynamics = self.fluid.computeFunDerGamma_p_rho(pressure, density)
+        compressibilityFactor = self.fluid.computeComprFactorZ_p_rho(pressure, density)
+
+        with open(filePath, 'w', newline='', encoding='utf-8') as file:
+            writer = csv.writer(file)
+            for value in range(len(timeInstants)):
+                writer.writerow([timeInstants[value], pressure[value], temperature[value], density[value],
+                                 entropy[value], fundDerGasDynamics[value], compressibilityFactor[value]])
+
+        print(f"Fluid flow quantities (P,T,D,s,Gamma,Z) saved to {filePath}!")
+
+
+    def computeFluxLimiter(self, r_vec, limiter):
+        """
+        compute the flux limiter functions.
+        """
+        psi = np.zeros(3)
+        for i in range(len(r_vec)):
+            r = r_vec[i]
+
+            if limiter.lower() == 'van albada':
+                psi[i] = (r**2+r)/(1+r**2)
+
+            elif limiter.lower() == 'van leer':
+                psi[i] = (r+np.abs(r))/(1+np.abs(r))
+
+            elif limiter.lower() == 'min-mod':
+                psi[i] = np.maximum(0, np.minimum(1, r))
+
+            elif limiter.lower() == 'superbee':
+                psi[i] = np.max(np.array([0, np.minimum(2 * r, 1), np.minimum(r, 2)]))
+
+            elif limiter.lower() == 'none':
+                psi[i] = 1 
+            else:
+                raise ValueError('Limiter not recognized!')
+            
+        return psi
+    
+
+    def readNozzleFile(self, xTube, filepath):
+        nozzleData = np.loadtxt(filepath, skiprows=1, delimiter=',', dtype=float)
+        nozzleX = nozzleData[:,0]
+        nozzleArea = nozzleData[:,1]
+        
+        # Linear interpolation with external filling set to area Reference (=Tube area)
+        interpolatedNozzleArea = np.interp(xTube, nozzleX, nozzleArea, left=nozzleData[0,1], right=nozzleData[-1,1])
+    
+        print(f"The reference tube area is: {nozzleData[0,1]:.6f} [m2].")
+        print(f"The nozzle throat area is {interpolatedNozzleArea.min():.6f} [m2].")
+        print(f"The nozzle maximum area is {interpolatedNozzleArea.max():.6f} [m2].")
+        print(f"The area ratio between nozzle throat and exit section is {interpolatedNozzleArea.min()/interpolatedNozzleArea[-1]:.6f}.")
+        print(f"The area ratio between nozzle throat and tube is {interpolatedNozzleArea.min()/nozzleData[0,1]:.6f}.")
+        print(f"If this is not correct, modify the REFERENCE_AREA setting in the geometry section of the input file to the correct value for the tube area, or modify the nozzle csv file to be consistent with the tube area.")
+        
+        return interpolatedNozzleArea
+
+
+
 
 
 # -----------------------------------------------------------------------------
@@ -1699,639 +2109,3 @@ def _applyOutletBC(location, iHalo, iInternal, config, fluidModel, fluidState):
         fluidState = _applyTransparentBC(location, fluidState)
 
     return fluidState
-
-
-# -----------------------------------------------------------------------------
-#  Time stepping
-# -----------------------------------------------------------------------------
-
-def computeTimeStep(fluidState, meshData, fluidModel, cflMax):
-    """
-    Compute the maximum CFL-limited timestep over all interior nodes.
-
-    The local stable timestep for a node i is dx_i / (|u_i| + a_i), where a_i
-    is the local speed of sound.  The global timestep is the minimum over all
-    interior nodes scaled by the user-specified CFL number.
-
-    Arguments
-    ---------
-    fluidState : dict
-        Current fluid state variable arrays (including halo nodes).
-    meshData : dict
-        Mesh data dictionary.
-    fluidModel : FluidIdeal or FluidReal
-    cflMax : float
-        Maximum allowable CFL number.
-
-    Returns
-    -------
-    dtMax : float
-        The largest timestep that keeps every node below cflMax.
-    """
-    # Slice to interior nodes only (exclude the two halo nodes).
-    velocity  = fluidState["Velocity"][1:-1]
-    pressure  = fluidState["Pressure"][1:-1]
-    density   = fluidState["Density"][1:-1]
-    dx        = meshData["meshNodeSpacing"][1:-1]
-
-    # Vectorised sound speed evaluation.
-    soundSpeed = np.array([
-        fluidModel.computeSoundSpeed_p_rho(pressure[i], density[i])
-        for i in range(len(velocity))
-    ])
-
-    dtMax = np.min(dx * cflMax / (np.abs(velocity) + soundSpeed))
-    return dtMax
-
-
-# -----------------------------------------------------------------------------
-#  Residual computation
-# -----------------------------------------------------------------------------
-
-def computeResiduals(fluidState, meshData, fluidModel, dt,
-                     advectionScheme, isMusclActive, limiter,
-                     entropyFixActive, entropyFixCoefficient,
-                     expansionDeviceType):
-    """
-    Compute the finite-volume residual vector for all interior nodes.
-
-    The residual for node i is:
-
-        R_i = (dt / dx_i) * [(F_{i-1/2} - F_{i+1/2}) + S_i * dx_i]
-
-    where F_{i±1/2} are the advection fluxes at the left and right cell
-    interfaces and S_i is the quasi-1D area-variation source term (zero for
-    constant-area geometries).
-
-    Arguments
-    ---------
-    fluidState : dict
-        Current fluid state variable arrays (including halo nodes).
-    meshData : dict
-        Mesh data dictionary.
-    fluidModel : FluidIdeal or FluidReal
-    dt : float
-        Current timestep.
-    advectionScheme : str
-        One of 'godunov', 'roe', 'roe_arabi', 'roe_vinokur'.
-    isMusclActive : bool
-        Whether MUSCL second-order reconstruction is enabled.
-    limiter : str
-        Name of the flux limiter (e.g. 'van leer', 'min-mod', 'superbee').
-    entropyFixActive : bool
-    entropyFixCoefficient : float
-    expansionDeviceType : str
-        'nozzle' or 'shocktube'.
-
-    Returns
-    -------
-    residuals : np.ndarray, shape (nPhysicalNodes, 3)
-        The residual increment for each interior node and each conservation
-        equation (mass, momentum, energy).
-    """
-    numMeshNodes  = meshData["numMeshNodes"]
-    nPhysicalNodes = numMeshNodes - 2  # exclude the two halo nodes
-    dx            = meshData["meshNodeSpacing"]
-    xMeshNodes    = meshData["xMeshNodes"]
-
-    # Compute advection fluxes on every internal interface (between node i and i+1
-    # for i in [0, nPhysicalNodes], using halo nodes for the boundary interfaces).
-    nFaces = nPhysicalNodes + 1
-    flux   = np.zeros((nFaces, 3))
-    for iFace in range(nFaces):
-        iLeft  = iFace          # index into the full (halo-included) array
-        iRight = iFace + 1
-        flux[iFace, :] = computeFluxVector(
-            iLeft, iRight, fluidState, meshData, fluidModel, dt,
-            advectionScheme, isMusclActive, limiter,
-            entropyFixActive, entropyFixCoefficient,
-        )
-
-    # Compute quasi-1D source terms for nozzle geometries; zero for constant area.
-    if expansionDeviceType == "nozzle":
-        source = computeSourceTerms(fluidState, meshData)
-    else:
-        source = np.zeros((numMeshNodes, 3))
-
-    # Assemble the residual for each interior node.
-    residuals = np.zeros((nPhysicalNodes, 3))
-    for iDim in range(3):
-        # flux[0:-1, iDim] is the flux at the left face of each interior node;
-        # flux[1:,   iDim] is the flux at its right face.
-        residuals[:, iDim] = (
-            dt / dx[1:-1]
-            * ((flux[:-1, iDim] - flux[1:, iDim]) + source[1:-1, iDim] * dx[1:-1])
-        )
-
-    return residuals
-
-
-def computeFluxVector(iLeft, iRight, fluidState, meshData, fluidModel, dt,
-                      advectionScheme, isMusclActive, limiter,
-                      entropyFixActive, entropyFixCoefficient):
-    """
-    Compute the numerical flux vector at the interface between mesh nodes iLeft
-    and iRight.
-
-    If MUSCL reconstruction is active and the stencil is fully interior (at
-    least one layer of real nodes on each side beyond the immediate neighbours),
-    a higher-order reconstructed state is used.  Otherwise, the flux is computed
-    from the piecewise-constant (first-order) left and right states.
-
-    Arguments
-    ---------
-    iLeft, iRight : int
-        Indices (into the full halo-included arrays) of the nodes on either side
-        of the face.
-    fluidState : dict
-        Current fluid state variable arrays.
-    meshData : dict
-        Mesh data dictionary.
-    fluidModel : FluidIdeal or FluidReal
-    dt : float
-        Current timestep (only needed by the Godunov scheme).
-    advectionScheme : str
-    isMusclActive : bool
-    limiter : str
-    entropyFixActive : bool
-    entropyFixCoefficient : float
-
-    Returns
-    -------
-    flux : np.ndarray, shape (3,)
-        Numerical flux [F_mass, F_momentum, F_energy] at this face.
-    """
-    numMeshNodes = meshData["numMeshNodes"]
-
-    # MUSCL reconstruction requires a two-cell stencil on each side of the face
-    # (nodes iLeft-1 and iRight+1 must be valid array indices).
-    musclApplicable = (
-        isMusclActive
-        and iLeft  >= 2
-        and iRight <= numMeshNodes - 3
-    )
-
-    if musclApplicable:
-        availableLimiters = ["van albada", "van leer", "min-mod", "superbee", "none"]
-        if limiter not in availableLimiters:
-            raise ValueError(
-                f"Limiter '{limiter}' not recognized! Available ones are: {availableLimiters}"
-            )
-        rhoL, uL, pL, rhoR, uR, pR = computeMusclReconstruction(
-            iLeft, iRight, fluidState, meshData, limiter
-        )
-    else:
-        rhoL = fluidState["Density"][iLeft]
-        rhoR = fluidState["Density"][iRight]
-        uL   = fluidState["Velocity"][iLeft]
-        uR   = fluidState["Velocity"][iRight]
-        pL   = fluidState["Pressure"][iLeft]
-        pR   = fluidState["Pressure"][iRight]
-
-    # Dispatch to the chosen flux scheme.
-    if advectionScheme.lower() == "godunov":
-        if not isinstance(fluidModel, FluidIdeal):
-            raise ValueError("Godunov scheme is available only for the ideal gas model.")
-        dx_left  = meshData["meshNodeSpacing"][iLeft]
-        dx_right = meshData["meshNodeSpacing"][iRight]
-        nx, nt = 51, 51
-        x = np.linspace(-dx_left / 2, dx_right / 2, nx)
-        t = np.linspace(0, dt, nt)
-        riem = RiemannProblem(x, t)
-        riem.initializeState([rhoL, rhoR, uL, uR, pL, pR])
-        riem.initializeSolutionArrays()
-        riem.computeStarRegion()
-        riem.solve(space_domain="interface", time_domain="global")
-        rho, u, p = riem.getSolutionInTime()
-        u1, u2, u3 = getConservativesFromFluidState(rho, u, p, fluidModel)
-        u1AVG = np.mean(u1)
-        u2AVG = np.mean(u2)
-        u3AVG = np.mean(u3)
-        flux = computeAdvectionFluxFromConservatives(u1AVG, u2AVG, u3AVG, fluidModel)
-
-    elif advectionScheme.lower() == "roe":
-        if isinstance(fluidModel, FluidReal):
-            raise ValueError(
-                "Basic Roe scheme is not available for the real gas model. "
-                "Select 'roe_arabi' or 'roe_vinokur' instead."
-            )
-        roe  = AdvectionRoeBase(rhoL, rhoR, uL, uR, pL, pR, fluidModel)
-        flux = roe.computeFlux(
-            entropyFixActive=entropyFixActive, fixCoefficient=entropyFixCoefficient
-        )
-
-    elif advectionScheme.lower() == "roe_arabi":
-        if isinstance(fluidModel, FluidIdeal):
-            raise ValueError(
-                "Roe_Arabi scheme is not available for the ideal gas model. "
-                "Use the standard 'roe' scheme instead."
-            )
-        roe  = AdvectionRoeArabi(rhoL, rhoR, uL, uR, pL, pR, fluidModel)
-        flux = roe.computeFlux(
-            entropyFixActive=entropyFixActive, fixCoefficient=entropyFixCoefficient
-        )
-
-    elif advectionScheme.lower() == "roe_vinokur":
-        roe = AdvectionRoeVinokur(rhoL, rhoR, uL, uR, pL, pR, fluidModel)
-        roe.computeAveragedVariables()
-        flux = roe.computeFlux(
-            entropyFixActive=entropyFixActive, fixCoefficient=entropyFixCoefficient
-        )
-
-    else:
-        raise ValueError(f"Unknown flux method '{advectionScheme}'.")
-
-    return flux
-
-
-def computeMusclReconstruction(iLeft, iRight, fluidState, meshData, limiter):
-    """
-    Perform MUSCL (Monotone Upstream-centred Schemes for Conservation Laws)
-    reconstruction at the face between nodes iLeft and iRight.
-
-    The reconstructed left and right interface states are:
-
-        U_L* = U_L + 0.5 * psi_L * (U_R - U_L)
-        U_R* = U_R - 0.5 * psi_R * (U_RP - U_R)
-
-    where psi is the flux limiter evaluated from the smoothness indicator r,
-    which measures the ratio of upstream to downstream gradients.
-
-    Arguments
-    ---------
-    iLeft, iRight : int
-        Node indices on either side of the face (into the full halo-included arrays).
-    fluidState : dict
-        Current fluid state variable arrays.
-    meshData : dict
-        Mesh data dictionary.
-    limiter : str
-        Name of the flux limiter.
-
-    Returns
-    -------
-    rhoL, uL, pL, rhoR, uR, pR : float
-        Reconstructed fluid states at the left and right sides of the face.
-    """
-    xMeshNodes = meshData["xMeshNodes"]
-
-    # Four-point stencil: [iLeft-1, iLeft, iRight, iRight+1].
-    U_lm = np.array([
-        fluidState["Density"][iLeft - 1],
-        fluidState["Velocity"][iLeft - 1],
-        fluidState["Pressure"][iLeft - 1],
-    ])
-    U_l = np.array([
-        fluidState["Density"][iLeft],
-        fluidState["Velocity"][iLeft],
-        fluidState["Pressure"][iLeft],
-    ])
-    U_r = np.array([
-        fluidState["Density"][iRight],
-        fluidState["Velocity"][iRight],
-        fluidState["Pressure"][iRight],
-    ])
-    U_rp = np.array([
-        fluidState["Density"][iRight + 1],
-        fluidState["Velocity"][iRight + 1],
-        fluidState["Pressure"][iRight + 1],
-    ])
-
-    # Cell spacings for the smoothness indicator computation.
-    dx_lm_l  = xMeshNodes[iLeft]      - xMeshNodes[iLeft  - 1]
-    dx_l_r   = xMeshNodes[iRight]     - xMeshNodes[iLeft]
-    dx_r_rp  = xMeshNodes[iRight + 1] - xMeshNodes[iRight]
-
-    # Smoothness indicators (ratio of consecutive gradients).
-    r_left  = computeSmoothnessIndicators(U_lm, U_l,  U_r,  dx_lm_l, dx_l_r)
-    r_right = computeSmoothnessIndicators(U_l,  U_r,  U_rp, dx_l_r,  dx_r_rp)
-
-    # Flux limiters evaluated from the smoothness indicators.
-    psi_left  = computeFluxLimiter(r_left,  limiter)
-    psi_right = computeFluxLimiter(r_right, limiter)
-
-    # Reconstruct left and right interface states.
-    U_l_rec = U_l + 0.5 * psi_left  * (U_r  - U_l)
-    U_r_rec = U_r - 0.5 * psi_right * (U_rp - U_r)
-
-    return U_l_rec[0], U_l_rec[1], U_l_rec[2], U_r_rec[0], U_r_rec[1], U_r_rec[2]
-
-
-def computeSmoothnessIndicators(U_left, U_central, U_right, dx_left, dx_right):
-    """
-    Compute the smoothness indicator vector r for use in a flux limiter.
-
-    r_i = (dU_i / dx_left) / (dU_i / dx_right + epsilon)
-
-    where epsilon is a small regularisation constant to avoid division by zero
-    when the solution is locally flat.
-
-    Arguments
-    ---------
-    U_left, U_central, U_right : np.ndarray, shape (3,)
-        Fluid state variable vectors at the three stencil nodes.
-    dx_left, dx_right : float
-        Grid spacings on the left and right sides of the central node.
-
-    Returns
-    -------
-    r : np.ndarray, shape (3,)
-        Smoothness indicator for each fluid state variable.
-    """
-    r = ((U_central - U_left) / dx_left) / ((U_right - U_central) / dx_right + 1e-6)
-    return r
-
-
-def computeFluxLimiter(r_vec, limiter):
-    """
-    Evaluate the flux limiter function psi(r) for each component of r_vec.
-
-    The limiter is applied component-wise to the smoothness indicator vector
-    and returns the corresponding limiter value in [0, 2].
-
-    Arguments
-    ---------
-    r_vec : np.ndarray, shape (3,)
-        Smoothness indicator vector (one entry per fluid state variable).
-    limiter : str
-        Name of the limiter.  One of:
-        - 'van albada' : smooth, differentiable
-        - 'van leer'   : TVD, continuous
-        - 'min-mod'    : most diffusive TVD limiter
-        - 'superbee'   : least diffusive TVD limiter
-        - 'none'       : no limiting (equivalent to psi = 1 everywhere)
-
-    Returns
-    -------
-    psi : np.ndarray, shape (3,)
-        Limiter values.
-    """
-    psi = np.zeros(3)
-    for i, r in enumerate(r_vec):
-        if limiter.lower() == "van albada":
-            psi[i] = (r**2 + r) / (1 + r**2)
-        elif limiter.lower() == "van leer":
-            psi[i] = (r + np.abs(r)) / (1 + np.abs(r))
-        elif limiter.lower() == "min-mod":
-            psi[i] = np.maximum(0, np.minimum(1, r))
-        elif limiter.lower() == "superbee":
-            psi[i] = np.max([0, np.minimum(2 * r, 1), np.minimum(r, 2)])
-        elif limiter.lower() == "none":
-            psi[i] = 1
-        else:
-            raise ValueError(f"Limiter '{limiter}' not recognized!")
-    return psi
-
-
-# -----------------------------------------------------------------------------
-#  Solution update
-# -----------------------------------------------------------------------------
-
-def updateSolution(conservativeState, fluidState, residuals, fluidModel):
-    """
-    Apply the residual increment to the conservative variables for all interior
-    nodes, then recover the fluid state variables from the updated conservatives.
-
-    Only the interior nodes (indices 1:-1) are updated; halo nodes are left
-    unchanged here and will be overwritten by setBoundaryConditions().
-
-    Arguments
-    ---------
-    conservativeState : dict
-        Conservative variable arrays {'u1', 'u2', 'u3'} (modified in-place).
-    fluidState : dict
-        Fluid state variable arrays (modified in-place and returned).
-    residuals : np.ndarray, shape (nPhysicalNodes, 3)
-        Residual increment from computeResiduals().
-    fluidModel : FluidIdeal or FluidReal
-
-    Returns
-    -------
-    conservativeState : dict
-    fluidState : dict
-    """
-    conservativeState["u1"][1:-1] += residuals[:, 0]
-    conservativeState["u2"][1:-1] += residuals[:, 1]
-    conservativeState["u3"][1:-1] += residuals[:, 2]
-
-    # Recover fluid state variables from the updated conservatives (interior only).
-    # function does not make use of the _fluidStateFromConservatives method for
-    # simplicity's sake, as that would require some extra dictionary unpacking
-    # steps. It uses the same getFluidStateFromConservatives math_utils function.
-    rho, u, p, e = getFluidStateFromConservatives(
-        conservativeState["u1"][1:-1],
-        conservativeState["u2"][1:-1],
-        conservativeState["u3"][1:-1],
-        fluidModel,
-    )
-    fluidState["Density"][1:-1]  = rho
-    fluidState["Velocity"][1:-1] = u
-    fluidState["Pressure"][1:-1] = p
-    fluidState["Energy"][1:-1]   = e
-
-    return conservativeState, fluidState
-
-
-
-
-# -----------------------------------------------------------------------------
-#  Source terms
-# -----------------------------------------------------------------------------
-
-def computeSourceTerms(fluidState, meshData):
-    """
-    Compute quasi-1D source terms due to cross-sectional area variation along
-    the nozzle.  The formulation is taken from Vimercati & Guardone, "On the
-    numerical simulation of non-classical quasi-1D steady nozzle flows:
-    Capturing sonic shocks".
-
-    The source vector S at each node is:
-
-        S_1 = -rho * u * (1/A) * dA/dx
-        S_2 = -rho * u^2 * (1/A) * dA/dx
-        S_3 = -u * (rho * E_tot + p) * (1/A) * dA/dx
-
-    where E_tot = e + u^2/2 is the specific total energy.
-
-    Arguments
-    ---------
-    fluidState : dict
-        Current fluid state variable arrays (including halo nodes).
-    meshData : dict
-        Mesh data dictionary, providing deviceAreaAtMeshNodes and dAreaDx.
-
-    Returns
-    -------
-    source : np.ndarray, shape (numMeshNodes, 3)
-        Source term vectors at all mesh nodes (including halo nodes; the
-        halo contributions are never added to the residual).
-    """
-    rho   = fluidState["Density"]
-    u     = fluidState["Velocity"]
-    p     = fluidState["Pressure"]
-    e     = fluidState["Energy"]
-    area  = meshData["deviceAreaAtMeshNodes"]
-    dAdx  = meshData["dAreaDx"]
-
-    totalEnergy = e + 0.5 * u**2   # specific total energy
-
-    # Pre-compute the common geometric factor (avoids repeating the division).
-    geomFactor = dAdx / area
-
-    numMeshNodes = meshData["numMeshNodes"]
-    source = np.zeros((numMeshNodes, 3))
-    source[:, 0] = -rho * u                      * geomFactor
-    source[:, 1] = -rho * u**2                   * geomFactor
-    source[:, 2] = -u   * (rho * totalEnergy + p) * geomFactor
-
-    return source
-
-
-# -----------------------------------------------------------------------------
-#  Diagnostics and output
-# -----------------------------------------------------------------------------
-
-def checkSimulationStatus(fluidState, meshData, fluidModel, dt):
-    """
-    Check for NaN or Inf values in the density and pressure fields and abort
-    the simulation with a diagnostic message if any are found.
-
-    The maximum local CFL number is printed to help identify the region where
-    the solution has diverged, and a plot of the CFL distribution is displayed.
-
-    Arguments
-    ---------
-    fluidState : dict
-    meshData : dict
-    fluidModel : FluidIdeal or FluidReal
-    dt : float
-        The timestep that was just used (needed for the CFL diagnostic).
-
-    Returns
-    -------
-    None.  Calls sys.exit() if the simulation has diverged.
-    """
-    densityBad  = np.any(np.isnan(fluidState["Density"]))  or np.any(np.isinf(fluidState["Density"]))
-    pressureBad = np.any(np.isnan(fluidState["Pressure"])) or np.any(np.isinf(fluidState["Pressure"]))
-
-    if not (densityBad or pressureBad):
-        return
-
-    print()
-    print("######################  SIMULATION DIVERGED ############################")
-    print("NaNs or Infs detected in density or pressure. Simulation stopped.")
-
-    # Compute the local CFL distribution using the state from the last valid step.
-    cfl = _computeCFLField(fluidState, meshData, fluidModel, dt)
-    print("Maximum CFL number found: %.3f"  % np.max(cfl))
-    print("At location x: %.3f [m]"         % meshData["xMeshNodes"][1:-1][np.argmax(cfl)])
-    print(
-        "Visualize the plot to understand critical locations, "
-        "and decrease CFL_MAX in the configuration file."
-    )
-    print("###############################  EXIT ##################################")
-    print()
-
-    plt.figure()
-    plt.plot(meshData["xMeshNodes"][1:-1], cfl)
-    plt.xlabel("x [m]")
-    plt.ylabel("CFL [-]")
-    plt.grid(alpha=0.3)
-    plt.show()
-
-    sys.exit()
-
-
-def _computeCFLField(fluidState, meshData, fluidModel, dt):
-    """
-    Compute the local CFL number at every interior node.
-
-    Arguments
-    ---------
-    fluidState : dict
-    meshData : dict
-    fluidModel : FluidIdeal or FluidReal
-    dt : float
-
-    Returns
-    -------
-    cfl : np.ndarray
-        CFL number at each interior node.
-    """
-    pressure = fluidState["Pressure"][1:-1]
-    density  = fluidState["Density"][1:-1]
-    velocity = fluidState["Velocity"][1:-1]
-    dx       = meshData["meshNodeSpacing"][1:-1]
-
-    soundSpeed = np.array([
-        fluidModel.computeSoundSpeed_p_rho(pressure[i], density[i])
-        for i in range(len(velocity))
-    ])
-
-    cfl = (np.abs(velocity) + soundSpeed) * dt / dx
-    return cfl
-
-
-def _printInfoResiduals(iterationIndex, time, timeMax, residuals):
-    """
-    Print the L2 norm (in log10) of each equation's residual together with the
-    current simulation progress.
-
-    Arguments
-    ---------
-    iterationIndex : int
-    time : float
-        Physical time at the end of this iteration.
-    timeMax : float
-    residuals : np.ndarray, shape (nPhysicalNodes, 3)
-    """
-    nNodes = residuals.shape[0]
-    res    = np.zeros(3)
-    for iEq in range(3):
-        normVal = np.linalg.norm(residuals[:, iEq]) / nNodes
-        res[iEq] = np.log10(normVal) if normVal > 0 else -np.inf
-
-    timeProgress = time / timeMax * 100
-    print(
-        "Iteration %i    Progress in Time %.3f%%    "
-        "Residuals: %.6f, %.6f, %.6f"
-        % (iterationIndex, timeProgress, res[0], res[1], res[2])
-    )
-
-
-def saveResults(iterationIndex, time, meshData, fluidState, config, resultsPath):
-    """
-    Serialize the current simulation state to a pickle file in resultsPath.
-
-    The file contains enough information both for post-processing and for
-    restarting the simulation from this point.  The filename encodes the
-    iteration index so that multiple snapshots can coexist in the same directory.
-
-    Arguments
-    ---------
-    iterationIndex : int
-    time : float
-        Physical time elapsed at this step.
-    meshData : dict
-    fluidState : dict
-    config : Config
-    resultsPath : Path
-
-    Returns
-    -------
-    None.
-    """
-    filename = "step_%06i.pik" % iterationIndex
-    fullPath = resultsPath / filename
-
-    outputResults = {
-        "time":                    time,
-        "iterationIdx":            iterationIndex,
-        "xMeshNodes":              meshData["xMeshNodes"],
-        "deviceAreaAtMeshNodes":   meshData["deviceAreaAtMeshNodes"],
-        "fluidState":              fluidState,
-        "config":                  config,
-    }
-
-    with open(fullPath, "wb") as fh:
-        pickle.dump(outputResults, fh)

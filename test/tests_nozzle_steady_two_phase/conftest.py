@@ -70,5 +70,5 @@ def mock_fluid():
     fluid = MagicMock()
     fluid.computeTemperature_p_rho.return_value = 300.0
     fluid.computeDensity_p_T.return_value = 1.2
-    fluid.computeStaticEnergy_p_rho.return_value = 2.15e5
+    fluid.computeInternalEnergy_p_rho.return_value = 2.15e5
     return fluid

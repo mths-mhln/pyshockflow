@@ -14,7 +14,7 @@ from rich.console import Console
 
 import pyshockflow
 from thermoplot.thermoplot import thermoplot_cached
-from pyshockflow.driver import Driver
+from pyshockflow.driver_ import Driver
 from pyshockflow.config import Config
 
 
@@ -49,7 +49,7 @@ def make_animations(picklePath: str, maxLength: int, FPS: int, DPI: int) -> None
     rho = solution['Primitive']['Density']
     u = solution['Primitive']['Velocity']
     p = solution['Primitive']['Pressure']
-    e = solution['Fluid'].computeStaticEnergy_p_rho(p, rho)
+    e = solution['Fluid'].computeInternalEnergy_p_rho(p, rho)
     nPoints, nTimes = rho.shape
     iterations = np.linspace(0, nTimes-1, num=maxLength, dtype=int)
 
@@ -93,9 +93,9 @@ def make_animations(picklePath: str, maxLength: int, FPS: int, DPI: int) -> None
 
 
 
-def nozzle_geometry_plot(configFilePath: str) -> None:
+def expansion_device_geometry_plot(configFilePath: str) -> None:
         """
-        Plot the nozzle geometry and numerical grid.
+        Plot the expansion device geometry and numerical grid.
 
         Arguments
         ---------
@@ -107,11 +107,10 @@ def nozzle_geometry_plot(configFilePath: str) -> None:
         None. Saves the plot in the directory from which the file is executed.
         """
         # instantiate driver object from config file (already most of the necessary functionality)
-        config = Config(configFilePath)
         with pyshockflow.post_processing.HiddenPrints():
-            driver = Driver(config)
+            driver = Driver(configFilePath = configFilePath)
 
-        nozzleData = np.loadtxt(driver.config.getNozzleFilePath(), skiprows=1, delimiter=',', dtype=float)
+        nozzleData = np.loadtxt(driver.config.deviceGeometryFilePath(), skiprows=1, delimiter=',', dtype=float)
         nozzleX = nozzleData[:,0]
         nozzleArea = nozzleData[:,1]
 

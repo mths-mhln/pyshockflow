@@ -80,156 +80,165 @@ class Config:
 
     # [GEOMETRY]
     # ==========
-    def getLength(self) -> float:
-        return self._get_float("GEOMETRY", "LENGTH", positive=True)
+    def expansionDeviceType(self) -> str:
+        return self._get_str("GEOMETRY", "EXPANSION_DEVICE_TYPE")
 
-    def getInterfaceLocation(self) -> float:
-        return self._get_float("GEOMETRY", "INTERFACE_LOCATION")
-
-    def getTopology(self) -> str:
-        return self._get_str("GEOMETRY", "TOPOLOGY", default="default")
-
-    def getNozzleFilePath(self) -> str:
-        return self._get_raw("GEOMETRY", "NOZZLE_FILEPATH")
-
-    def getAreaReference(self) -> float:
-        return self._get_float("GEOMETRY", "REFERENCE_AREA", positive=True, default = 1.0)
+    def deviceGeometryFilePath(self) -> str:
+        return self._get_raw("GEOMETRY", "DEVICE_GEOMETRY_FILE_PATH")
 
 
-    # [SIMULATION]
-    # ============
+    # [MESH]
+    # ======
+    def numberOfMeshNodes(self) -> int:
+        return self._get_int("MESH", "NUM_MESH_NODES")
 
-    # mesh
-    def getNumberOfPoints(self) -> int:
-        return self._get_int("SIMULATION", "NUMBER_POINTS")
+    def meshRefinementBool(self) -> bool:
+        return self._get_bool("MESH", "MESH_REFINEMENT_BOOL")
 
-    def isMeshRefined(self) -> bool:
-        return self._get_bool("SIMULATION", "MESH_REFINEMENT", default=False)
-
-    def getRefinementBoundaries(self) -> tuple[float, float]:
-        start = self._get_float("SIMULATION", "X_START_REFINEMENT")
-        end = self._get_float("SIMULATION", "X_END_REFINEMENT")
+    def refinementBoundaries(self) -> tuple[float, float]:
+        start = self._get_float("MESH", "X_START_REFINEMENT")
+        end = self._get_float("MESH", "X_END_REFINEMENT")
         return start, end
 
-    def getNumberPointsRefinement(self) -> int:
-        return self._get_int("SIMULATION", "NUMBER_POINTS_REFINEMENT")
-
-    def adaptMeshRefinementExtremities(self) -> bool:
-        return self._get_bool("SIMULATION", "ADAPT_MESH_REFINEMENT", default=False)
+    def numberOfRefMeshNodes(self) -> int:
+        return self._get_int("MESH", "NUM_REFINEMENT_MESH_NODES")
 
 
-    # time
-    def getTimeMax(self) -> float:
-        return self._get_float("SIMULATION", "TIME_MAX", positive=True)
 
-    def getCFLMax(self) -> float:
-        return self._get_float("SIMULATION", "CFL_MAX", positive=True)
-
-    def getTimeStepMethod(self) -> str:
-        return self._get_str("SIMULATION", "TIME_STEP_METHOD", default="constant")
+    # [TIME]
+    # ======
+    def maxTime(self) -> float:
+        return self._get_float("TIME", "MAX_TIME", positive=True)
 
 
-    # initial state
-    def getDensityLeft(self) -> float:
-        return self._get_float("SIMULATION", "DENSITY_LEFT", positive=True)
 
-    def getDensityRight(self) -> float:
-        return self._get_float("SIMULATION", "DENSITY_RIGHT", positive=True)
+    # [INITIAL CONDITIONS]
+    # ====================
+    # for shocktube simulations
+    # -------------------------
+    def initialDensityLeft(self) -> float:
+        return self._get_float("INITIAL CONDITIONS", "DENSITY_LEFT", positive=True)
 
-    def getTemperatureLeft(self) -> float:
-        return self._get_float("SIMULATION", "TEMPERATURE_LEFT", positive=True)
+    def initialDensityRight(self) -> float:
+        return self._get_float("INITIAL CONDITIONS", "DENSITY_RIGHT", positive=True)
 
-    def getTemperatureRight(self) -> float:
-        return self._get_float("SIMULATION", "TEMPERATURE_RIGHT", positive=True)
+    def initialTemperatureLeft(self) -> float:
+        return self._get_float("INITIAL CONDITIONS", "TEMPERATURE_LEFT", positive=True)
 
-    def getVelocityLeft(self) -> float:
-        return self._get_float("SIMULATION", "VELOCITY_LEFT")
+    def initialTemperatureRight(self) -> float:
+        return self._get_float("INITIAL CONDITIONS", "TEMPERATURE_RIGHT", positive=True)
 
-    def getVelocityRight(self) -> float:
-        return self._get_float("SIMULATION", "VELOCITY_RIGHT")
+    def initialVelocityLeft(self) -> float:
+        return self._get_float("INITIAL CONDITIONS", "VELOCITY_LEFT")
 
-    def getPressureLeft(self) -> float:
-        return self._get_float("SIMULATION", "PRESSURE_LEFT", positive=True)
+    def initialVelocityRight(self) -> float:
+        return self._get_float("INITIAL CONDITIONS", "VELOCITY_RIGHT")
 
-    def getPressureRight(self) -> float:
-        return self._get_float("SIMULATION", "PRESSURE_RIGHT", positive=True)
+    def initialPressureLeft(self) -> float:
+        return self._get_float("INITIAL CONDITIONS", "PRESSURE_LEFT", positive=True)
 
-
-    # numerical scheme
-    def getNumericalScheme(self) -> str:
-        return self._get_str("SIMULATION", "NUMERICAL_SCHEME")
-
-    def isEntropyFixActive(self) -> bool:
-        return self._get_bool("SIMULATION", "ENTROPY_FIX_ACTIVE", default=True)
-
-    def getEntropyFixCoefficient(self) -> float:
-        return self._get_float("SIMULATION", "ENTROPY_FIX_COEFFICIENT", positive=True, default=0.2)
-
-    def isMusclActive(self) -> bool:
-        return self._get_bool("SIMULATION", "MUSCL_RECONSTRUCTION", default=False)
-
-    def getFluxLimiter(self) -> str:
-        return self._get_str("SIMULATION", "FLUX_LIMITER", default="van albada")
+    def initialPressureRight(self) -> float:
+        return self._get_float("INITIAL CONDITIONS", "PRESSURE_RIGHT", positive=True)
 
 
-    # boundary conditions
-    def getBoundaryConditions(self) -> tuple[str, str]:
-        left = self._get_str("SIMULATION", "BOUNDARY_CONDITION_LEFT")
-        right = self._get_str("SIMULATION", "BOUNDARY_CONDITION_RIGHT")
+    # for nozzle simulations w/ at least one BC different than (inlet, outlet, transparent)
+    # -------------------------------------------------------------------------------------
+    def initialPressure(self) -> float:
+        return self._get_float("INITIAL CONDITIONS", "PRESSURE", positive=True)
+
+    def initialVelocity(self) -> float:
+        return self._get_float("INITIAL CONDITIONS", "VELOCITY")
+
+    def initialTemperature(self) -> float:
+        return self._get_float("INITIAL CONDITIONS", "TEMPERATURE", positive=True)
+
+    def initialDensity(self) -> float:
+        return self._get_float("INITIAL CONDITIONS", "DENSITY", positive=True)
+    
+
+
+
+    # [NUMERICS]
+    # ==========
+    def CFLMax(self) -> float:
+        return self._get_float("NUMERICS", "CFL_MAX", positive=True)
+
+    def numericalScheme(self) -> str:
+        return self._get_str("NUMERICS", "INTERCELL_FLUX_SCHEME")
+
+    def entropyFixActiveBool(self) -> bool:
+        return self._get_bool("NUMERICS", "ENTROPY_FIX_ACTIVE_BOOL")
+
+    def entropyFixCoefficient(self) -> float:
+        return self._get_float("NUMERICS", "ENTROPY_FIX_COEFFICIENT", positive=True)
+
+    def MUSCLReconstructionBool(self) -> bool:
+        return self._get_bool("NUMERICS", "MUSCL_RECONSTRUCTION_BOOL")
+
+    def MUSCLReconstrFluxLimiter(self) -> str:
+        return self._get_str("NUMERICS", "MUSCL_RECONSTR_FLUX_LIMITER")
+
+
+
+    # [BOUNDARY CONDITIONS]
+    # =====================
+    def boundaryConditions(self) -> tuple[str, str]:
+        left = self._get_str("BOUNDARY CONDITIONS", "BOUNDARY_CONDITION_LEFT")
+        right = self._get_str("BOUNDARY CONDITIONS", "BOUNDARY_CONDITION_RIGHT")
         return left, right
 
-    def getInletConditionsType(self) -> Literal["total", "static"]:
-        value = self._get_str("SIMULATION", "INLET_CONDITIONS_TYPE", default="total")
+    def inletConditionsType(self) -> Literal["total", "static"]:
+        value = self._get_str("BOUNDARY CONDITIONS", "INLET_CONDITIONS_TYPE")
         if value not in ("total", "static"):
             raise ConfigError(
-                f"{self.config_file} [SIMULATION]: 'INLET_CONDITIONS_TYPE' "
+                f"{self.config_file} [BOUNDARY CONDITIONS]: 'INLET_CONDITIONS_TYPE' "
                 f"must be 'total' or 'static', got '{value}'"
             )
         return value  # type: ignore[return-value]
 
-    def getInletConditions(self) -> list[float]:
-        raw = self._get_raw("SIMULATION", "INLET_CONDITIONS")
+    def inletConditionsValues(self) -> list[float]:
+        raw = self._get_raw("BOUNDARY CONDITIONS", "INLET_CONDITIONS_VALUES")
         try:
             values = [float(v.strip()) for v in raw.split(",")]
         except ValueError:
             raise ConfigError(
-                f"{self.config_file} [SIMULATION]: 'INLET_CONDITIONS' must be "
+                f"{self.config_file} [BOUNDARY CONDITIONS]: 'INLET_CONDITIONS_VALUES' must be "
                 f"comma-separated numbers, got '{raw}'"
             )
-        expected = 3 if self.getInletConditionsType() == "total" else 2
+        expected = 3 if self.inletConditionsType() == "total" else 2
         if len(values) != expected:
             raise ConfigError(
-                f"{self.config_file} [SIMULATION]: 'INLET_CONDITIONS' expects "
-                f"{expected} values for '{self.getInletConditionsType()}' conditions, "
+                f"{self.config_file} [BOUNDARY CONDITIONS]: 'INLET_CONDITIONS_VALUES' expects "
+                f"{expected} values for '{self.inletConditionsType()}' conditions, "
                 f"got {len(values)}"
             )
         return values
 
-    def getOutletConditions(self) -> float:
-        return self._get_float("SIMULATION", "OUTLET_CONDITIONS")
+    def outletConditions(self) -> float:
+        return self._get_float("BOUNDARY CONDITIONS", "OUTLET_CONDITIONS")
 
 
 
     # [FLUID]
     # =======
-    def getFluidName(self) -> str:
+    def fluidName(self) -> str:
         return self._get_raw("FLUID", "FLUID_NAME")
 
-    def getFluidModel(self) -> str:
+    def fluidModel(self) -> str:
         return self._get_str("FLUID", "FLUID_MODEL")
 
-    def getFluidGamma(self) -> float:
+    def fluidGamma(self) -> float:
         return self._get_float("FLUID", "FLUID_GAMMA", positive=True)
 
-    def getGasRConstant(self) -> float:
+    def gasRConstant(self) -> float:
         return self._get_float("FLUID", "GAS_R_CONSTANT", positive=True)
 
-    def getFluidLibrary(self) -> str:
+    def fluidLibrary(self) -> str:
         return self._get_raw("FLUID", "FLUID_LIBRARY")
 
-    def getPropertyExtractionMethod(self) -> str:
+    def propertyExtractionMethod(self) -> str:
         valid = {"fluid", "abstractstate", "abstractstate_v2"}
-        value = self._get_str("FLUID", "PROPERTY_EXTRACTION_METHOD", default="fluid")
+        value = self._get_str("FLUID", "PROPERTY_EXTRACTION_METHOD")
         if value not in valid:
             raise ConfigError(
                 f"{self.config_file} [FLUID]: 'PROPERTY_EXTRACTION_METHOD' "
@@ -241,14 +250,14 @@ class Config:
 
     # [OUTPUT]
     # ========
-    def getResultsDirectoryName(self) -> str:
+    def resultsDirectoryName(self) -> str:
         return self._get_raw("OUTPUT", "RESULTS_DIRECTORY_NAME")
 
-    def getWriteInterval(self) -> int:
-        return self._get_int("OUTPUT", "WRITE_INTERVAL", default=250)
+    def writeInterval(self) -> int:
+        return self._get_int("OUTPUT", "WRITE_INTERVAL")
 
-    def getPrintInfoResidualsBool(self) -> bool:
-        return self._get_bool("OUTPUT", "PRINT_INFO_RESIDUALS", default=False)
+    def printInfoResidualsBool(self) -> bool:
+        return self._get_bool("OUTPUT", "PRINT_INFO_RESIDUALS_BOOL")
 
-    def getOverwriteResults(self) -> bool:
-        return self._get_bool("OUTPUT", "OVERWRITE_RESULTS", default=False)
+    def overwriteResults(self) -> bool:
+        return self._get_bool("OUTPUT", "OVERWRITE_RESULTS")

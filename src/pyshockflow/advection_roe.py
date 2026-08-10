@@ -22,8 +22,8 @@ class AdvectionRoeBase:
         self.fluid = fluid
         if isinstance(fluid, FluidIdeal):
             self.gmma = fluid.gmma
-        self.eL = fluid.computeStaticEnergy_p_rho(pL, rhoL)
-        self.eR = fluid.computeStaticEnergy_p_rho(pR, rhoR)
+        self.eL = fluid.computeInternalEnergy_p_rho(pL, rhoL)
+        self.eR = fluid.computeInternalEnergy_p_rho(pR, rhoR)
         self.htL = self.computeTotalEnthalpy(rhoL, uL, pL, self.eL)
         self.htR = self.computeTotalEnthalpy(rhoR, uR, pR, self.eR)
         self.u1L, self.u2L, self.u3L = getConservativesFromPrimitives(rhoL, uL, pL, self.fluid)
@@ -228,10 +228,10 @@ class AdvectionRoeVinokur(AdvectionRoeBase):
         
         # compute mean initial guess state
         p_mean = 0.5*(self.pL+self.pR)
-        eL = self.fluid.computeStaticEnergy_p_rho(self.pL, self.rhoL)
+        eL = self.fluid.computeInternalEnergy_p_rho(self.pL, self.rhoL)
         rho_mean = 0.5*(self.rhoL+self.rhoR)
         rhoeL = self.rhoL*eL
-        eR = self.fluid.computeStaticEnergy_p_rho(self.pR, self.rhoR)
+        eR = self.fluid.computeInternalEnergy_p_rho(self.pR, self.rhoR)
         rhoeR = self.rhoR*eR
         rhoe_mean = 0.5*(rhoeL+rhoeR)
         e_mean = rhoe_mean/rho_mean

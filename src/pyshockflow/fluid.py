@@ -18,8 +18,11 @@ class FluidIdeal():
         self.gmma = gmma
         self.Rgas = Rgas
     
-    def computeStaticEnergy_p_rho(self, p, rho):
+    def computeInternalEnergy_p_rho(self, p, rho):
         return (p / (self.gmma - 1) / rho)
+
+    def computeTotalInternalEnergy_Tt(self, Tt):
+        return self.Rgas*Tt/(self.gmma-1)
     
     def computePressure_rho_e(self, rho, e):
         return (self.gmma-1)*rho*e
@@ -36,6 +39,9 @@ class FluidIdeal():
 
     def computeDensity_p_T(self, p, T):
         return p/self.Rgas/T
+
+    def computeDensityIsentropic_p1_p2_rho1(self, p1, p2, rho1):
+        return rho1*(p2/p1)**(1/self.gmma)
 
     def computeEntropy_p_rho(self, p, rho):
         return p/(rho**self.gmma)
@@ -68,14 +74,26 @@ class FluidIdeal():
     def computePressure_Pt_M(self, Pt, M):
         return Pt/((1+(self.gmma-1)/2*M**2)**(self.gmma/(self.gmma-1)))
     
-    def computeInletQuantitiesTotal(self, pressure, totPressure, totTemperature, direction):
+    def computeInletQuantitiesTotal_pt_Tt(self, pressure, totPressure, totTemperature, direction):
         mach = self.computeMach_pt_p(totPressure, pressure)
         temperature = self.computeTemperature_Tt_M(totTemperature, mach)
         density = self.computeDensity_p_T(pressure, temperature)
         soundSpeed = self.computeSoundSpeed_p_rho(pressure, density)
         velocity = mach*soundSpeed*direction
-        energy = self.computeStaticEnergy_p_rho(pressure, density)
+        energy = self.computeInternalEnergy_p_rho(pressure, density)
         return density, velocity, energy
+
+    def computeInletQuantitiesTotal_pt_Q(self, pressure, totPressure, quality, direction):
+        raise NotImplementedError("Two-phase flow is not supported for ideal fluids.")
+
+    def computeInletQuantitiesStatic_p_T(self, pressure, temperature):
+        density = self.computeDensity_p_T(pressure, temperature)
+        energy = self.computeInternalEnergy_p_rho(pressure, density)
+        return density, energy
+
+    def computeInletQuantitiesStatic_p_Q(self, pressure, quality):
+        raise NotImplementedError("Two-phase flow is not supported for ideal fluids.")
+
     
     def compute_gammapv_p_rho(self, p, rho):
         if isinstance(p, np.ndarray):
@@ -104,7 +122,7 @@ class FluidReal():
         if property_extraction_method.lower() == 'abstractstate_v2':
             self.fluid = FP.AbstractState_v2(fluid_library, fluid_name)
 
-    def computeStaticEnergy_p_rho(self, p, rho):
+    def computeInternalEnergy_p_rho(self, p, rho):
         e = FP.PropsSI('U', 'P', p, 'D', rho, self.fluid)
         return e
     
@@ -264,7 +282,7 @@ class FluidReal():
         enthalpyStatic = self.computeEnthalpy_p_rho(pressure, density)
         velocity = direction * np.sqrt(2 * (enthalpyTotal - enthalpyStatic))
         # compute static energy
-        energy = self.computeStaticEnergy_p_rho(pressure, density)
+        energy = self.computeInternalEnergy_p_rho(pressure, density)
         return density, velocity, energy
 
         # # old method
@@ -294,7 +312,7 @@ class FluidReal():
         # mach = self.computeMach_pt_p_gammapv(totPressure, pressure, gamma_pv)
         # soundSpeed = self.computeSoundSpeed_p_rho(pressure, density)
         # velocity = direction * mach * soundSpeed
-        # energy = self.computeStaticEnergy_p_rho(pressure, density)
+        # energy = self.computeInternalEnergy_p_rho(pressure, density)
         # return density, velocity, energy
 
     def computeInletQuantitiesTotal_pt_Q(self, pressure, totPressure, quality, direction):
@@ -318,7 +336,7 @@ class FluidReal():
         enthalpyStatic = self.computeEnthalpy_p_rho(pressure, density)
         velocity = direction * np.sqrt(2 * (enthalpyTotal - enthalpyStatic))
         # compute static energy
-        energy = self.computeStaticEnergy_p_rho(pressure, density)
+        energy = self.computeInternalEnergy_p_rho(pressure, density)
         return density, velocity, energy
     
     def computeDensity_p_S(self, p, s):
@@ -337,7 +355,7 @@ class FluidReal():
         h = FP.PropsSI('H', 'P', p, 'Q', Q, self.fluid)
         return h
 
-    def computeStaticEnergy_p_s(self, p, s):
+    def computeInternalEnergy_p_s(self, p, s):
         e = FP.PropsSI('U', 'P', p, 'S', s, self.fluid)
         return e
     
@@ -349,10 +367,19 @@ class FluidReal():
         s = FP.PropsSI('S', 'P', p, 'Q', Q, self.fluid)
         return s
 
-    def computeInletQuantitiesStatic(self, pressure, enthalpy):
-        density = self.computeDensity_p_h(pressure, enthalpy)
-        energy = self.computeStaticEnergy_p_rho(pressure, density)
+    def computeInletQuantitiesStatic_p_T(self, pressure, temperature):
+        density = self.computeDensity_p_T(pressure, temperature)
+        energy = self.computeInternalEnergy_p_T(pressure, temperature)
         return density, energy
+
+    def computeInletQuantitiesStatic_p_Q(self, pressure, quality):
+        density = self.computeDensity_p_Q(pressure, quality)
+        energy = self.computeInternalEnergy_p_Q(pressure, quality)
+        return density, energy
+
+    def computeInternalEnergy_p_T(self, p, T):
+        e = FP.PropsSI('U', 'P', p, 'T', T, self.fluid)
+        return e
     
     def computeDensity_p_h(self, p, h):
         return FP.PropsSI('D', 'P', p, 'H', h, self.fluid)

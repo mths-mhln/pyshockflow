@@ -2,9 +2,9 @@ import numpy as np
 from pyshockflow import FluidIdeal
 
 
-def getPrimitivesFromConservatives(u1, u2, u3, fluid):
+def getFluidStateFromConservatives(u1, u2, u3, fluid):
         """
-        compute primitive variables from conservative
+        compute fluid state variables from conservative
 
         Parameters
         -----------
@@ -35,9 +35,9 @@ def getPrimitivesFromConservatives(u1, u2, u3, fluid):
         return rho, u, p, e
 
 
-def getConservativesFromPrimitives(rho, u, p, fluid):
+def getConservativesFromFluidState(rho, u, p, fluid):
         """
-        compute conservative variables from primitives
+        compute conservative variables from fluid state
 
         Parameters
         -----------
@@ -62,7 +62,7 @@ def getConservativesFromPrimitives(rho, u, p, fluid):
         """
         u1 = rho
         u2 = rho*u
-        e = fluid.computeStaticEnergy_p_rho(p, rho)
+        e = fluid.computeInternalEnergy_p_rho(p, rho)
         u3 = rho*(0.5*u**2+e)
         return u1, u2, u3
 
@@ -75,7 +75,7 @@ def computeAdvectionFluxFromConservatives(u1, u2, u3, fluid):
         --------
         `flux`: flux vector
         """
-        rho, u, p, e = getPrimitivesFromConservatives(u1, u2, u3, fluid)
+        rho, u, p, e = getFluidStateFromConservatives(u1, u2, u3, fluid)
         et = e+0.5*u**2
         flux = np.zeros(3)
         flux[0] = rho*u

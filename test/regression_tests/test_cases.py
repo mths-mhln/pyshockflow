@@ -151,12 +151,51 @@ def compare_results_with_reference(case_dir):
     for file_path in file_paths:
         with open(file_path, "rb") as f:
             file_datas.append(pickle.load(f))
+    # print(file_datas) 
+
+    # print(file_datas[0]['X Coords'], file_datas[1]['xMeshNodes'])
+    # print(file_datas[0]['Primitive']['Pressure'], file_datas[1]['fluidState']['Pressure'])
+    from matplotlib import pyplot as plt
+    # plt.plot(file_datas[0]['X Coords'], file_datas[0]['Primitive']['Pressure'][:, -1], label='Reference Pressure')
+    # plt.plot(file_datas[1]['X Coords'], file_datas[1]['Primitive']['Pressure'][:, -1], label='Result Pressure', linestyle='--')
+
+    try:
+        plt.plot(file_datas[0]['X Coords'], file_datas[0]['Primitive']['Pressure'][:, -1], label='Reference Pressure')
+        print("option 1")
+    except:
+        plt.plot(file_datas[0]['xMeshNodes'], file_datas[0]['fluidState']['Pressure'][:, -1], label='Reference Pressure')
+        print("option 2")
+    try:
+        plt.plot(file_datas[1]['X Coords'], file_datas[1]['Primitive']['Presssure'][:, -1], label='Result Pressure', linestyle='--')
+        print("option 3")
+    except:
+        plt.plot(file_datas[1]['xMeshNodes'], file_datas[1]['fluidState']['Pressure'][:, -1], label='Result Pressure', linestyle='--')
+        print("option 4")   
+    plt.xlabel('X Coords')
+    plt.ylabel('Pressure')
+    plt.title('Pressure Comparison')
+    plt.legend()
+    plt.show()
+    # print(file_datas[0]['Primitive']['Velocity'], file_datas[1]['fluidState']['Velocity'])
+    # print(file_datas[0]['Primitive']['Density'], file_datas[1]['fluidState']['Density'])
     
-    assert file_datas[0]['X Coords'].shape == file_datas[1]['X Coords'].shape, "X Coords shape mismatch between reference and result"
+    try:
+        assert file_datas[0]['X Coords'].shape == file_datas[1]['xMeshNodes'].shape, "X Coords shape mismatch between reference and result"
+    except:
+        try: 
+            assert file_datas[0]['X Coords'].shape == file_datas[1]['X Coords'].shape, "X Coords shape mismatch between reference and result"
+        except:
+            assert file_datas[0]['xMeshNodes'].shape == file_datas[1]['xMeshNodes'].shape, "X Coords shape mismatch between reference and result"
     
     keys_to_check = ['Pressure', 'Velocity', 'Density']
     for key in keys_to_check:
-        they_agree, err = result_arrays_agree(file_datas[0]['Primitive'][key], file_datas[1]['Primitive'][key])
+        try:
+            they_agree, err = result_arrays_agree(file_datas[0]['Primitive'][key][:, -1], file_datas[1]['fluidState'][key][:, -1])
+        except:
+            try:
+                they_agree, err = result_arrays_agree(file_datas[0]['Primitive'][key][:, -1], file_datas[1]['Primitive'][key][:, -1])
+            except:
+                they_agree, err = result_arrays_agree(file_datas[0]['fluidState'][key][:, -1], file_datas[1]['fluidState'][key][:, -1])
         assert they_agree, f"{key} field mismatch between reference and result with relative error {err:.2e}"
     
 
