@@ -25,11 +25,18 @@ class Config:
     # ------------------------------------
     # input type verification helpers
     # ------------------------------------
-    def _get_raw(self, section: str, key: str) -> str:
+    def _get_raw(self, section: str, key: str, default: str | None = None, inputOptions: list[str] | None = None) -> str:
         """Allows for special characters, necessary for e.g. fluid name R1234ze(E) """
         try:
-            return self._parser.get(section, key)
+            value = self._parser.get(section, key)
+            if inputOptions is not None and value not in inputOptions:
+                raise ConfigError(
+                    f"{self.config_file} [{section}]: '{key}' must be one of {inputOptions}, got '{value}'"
+                )
+            return value
         except (configparser.NoSectionError, configparser.NoOptionError) as e:
+            if default is not None:
+                return default
             raise ConfigError(
                 f"{self.config_file} [{section}]: missing key '{key}'"
             ) from e
@@ -67,7 +74,6 @@ class Config:
         except ConfigError:
             if default is not None:
                 return default
-            raise
         if raw in ("yes", "true"):
             return True
         if raw in ("no", "false"):
@@ -76,17 +82,17 @@ class Config:
             f"{self.config_file} [{section}]: '{key}' must be yes/no or true/false, got '{raw}'"
         )
 
-    def _get_str(self, section: str, key: str, default: str, inputOptions: list[str] | None = None) -> str:
+    def _get_str(self, section: str, key: str, default: str | None = None, inputOptions: list[str] | None = None) -> str:
         try:
             value =  self._get_raw(section, key).lower()
             if inputOptions is not None and value not in inputOptions:
                 raise ConfigError(
                     f"{self.config_file} [{section}]: '{key}' must be one of {inputOptions}, got '{value}'"
                 )
+            return value
         except ConfigError:
             if default is not None:
                 return default
-            raise
 
 
     # ------------------------------------------------------------
@@ -132,7 +138,21 @@ class Config:
                 for key in keys:
                     if not self._parser.has_option(section, key):
                         raise ConfigError(f"{self.config_file} [{section}]: missing necessary setting in config file: '{key}'")
-                    
+
+        def check_prohibited_keys(prohibited_sections: dict[str, list[str]], reason: str) -> None:
+            """
+            Check that none of the prohibited keys (specified in prohibited_sections) are
+            present in the config file. prohibited_sections has the same shape as
+            required_sections: {"section": ["key1", "key2", ...]}.
+            `reason` is appended to the error message to explain why the key is forbidden.
+            """
+            for section, keys in prohibited_sections.items():
+                for key in keys:
+                    if self._parser.has_option(section, key):
+                        raise ConfigError(
+                            f"{self.config_file} [{section}]: '{key}' must not be specified "
+                            f"when {reason}."
+                        )   
 
         # specify required sections and keys for nozzle and shocktube simulations
         # =======================================================================
@@ -184,58 +204,45 @@ class Config:
         # for common conditional requirements are stored in dictionaries according to the 
         # following format:
         # [
-        #   [
-        #     ["section", "key", "value"],
-        #     [{"section": ["key1", "key2", ...]}]
-        #   ],
-        #   [
-        #     ["section", "key", "value"],
-        #     [{"section": ["key1", "key2", ...]}]
-        #   ]
+        #     ("section", "key", "value", {"section": ["key1", "key2", ...]}),
+        #     ("section", "key", "value", {"section": ["key1", "key2", ...]}),
+        #     ...
         # ]
         #
-        # For the first list, section is the section in which the conditional key resides. 
+        # The first section is the section in which the conditional key resides. 
         # The conditional key is a required key, and the key, section and value are hence 
         # always specified. 
         # 
-        # For the second list, the section is the section in which the conditionally required 
+        # For the dictionary, the section is the section in which the conditionally required 
         # keys should reside to comply with the imposed format outlined in the input guidelines.
         # the key is the necessary key that should be present in the config file if the value 
         # of the required key in the first list in the input file carries a value = "value".
 
         condRequiredCommon = [
-            [
-                ["MESH", "MESH_REFINEMENT_BOOL", True], 
-                [{"MESH": ["X_START_REFINEMENT", "X_END_REFINEMENT", "NUM_REFINEMENT_MESH_NODES"]}]
-            ],
-            [
-                ["NUMERICS", "INTERCELL_FLUX_SCHEME", ["roe", "roe_arabi", "roe_vinokur"]], 
-                [{"NUMERICS": ["ENTROPY_FIX_ACTIVE_BOOL", "ENTROPY_FIX_COEFFICIENT", "MUSCL_RECONSTRUCTION_BOOL", "MUSCL_RECONSTR_FLUX_LIMITER"]}]
-            ],
-            [
-                ["BOUNDARY CONDITIONS", "BOUNDARY_CONDITION_LEFT", "inlet"], 
-                [{"BOUNDARY CONDITIONS": ["INLET_CONDITIONS_TYPE", "INLET_CONDITIONS_VALUES"]}]
-            ],
-            [
-                ["BOUNDARY CONDITIONS", "BOUNDARY_CONDITION_LEFT", "outlet"], 
-                [{"BOUNDARY CONDITIONS": ["OUTLET_CONDITIONS"]}]
-            ],
-            [
-                ["BOUNDARY CONDITIONS", "BOUNDARY_CONDITION_RIGHT", "inlet"], 
-                [{"BOUNDARY CONDITIONS": ["INLET_CONDITIONS_TYPE", "INLET_CONDITIONS_VALUES"]}]
-            ],
-            [
-                ["BOUNDARY CONDITIONS", "BOUNDARY_CONDITION_RIGHT", "outlet"], 
-                [{"BOUNDARY CONDITIONS": ["OUTLET_CONDITIONS"]}]
-            ],
-            [
-                ["FLUID", "FLUID_MODEL", "ideal"],
-                [{"FLUID": ["FLUID_GAMMA", "GAS_R_CONSTANT"]}]
-            ],
-            [
-                ["FLUID", "FLUID_MODEL", "real"],
-                [{"FLUID": ["FLUID_LIBRARY"]}]
-            ]
+            ("MESH", "MESH_REFINEMENT_BOOL", [True],
+                {"MESH": ["X_START_REFINEMENT", "X_END_REFINEMENT", "NUM_REFINEMENT_MESH_NODES"]}),
+
+            ("NUMERICS", "INTERCELL_FLUX_SCHEME", ["roe", "roe_arabi", "roe_vinokur"],
+                {"NUMERICS": ["ENTROPY_FIX_ACTIVE_BOOL", "ENTROPY_FIX_COEFFICIENT",
+                            "MUSCL_RECONSTRUCTION_BOOL", "MUSCL_RECONSTR_FLUX_LIMITER"]}),
+
+            ("BOUNDARY CONDITIONS", "BOUNDARY_CONDITION_LEFT", ["inlet"],
+                {"BOUNDARY CONDITIONS": ["INLET_CONDITIONS_TYPE", "INLET_CONDITIONS_VALUES"]}),
+
+            ("BOUNDARY CONDITIONS", "BOUNDARY_CONDITION_LEFT", ["outlet"],
+                {"BOUNDARY CONDITIONS": ["OUTLET_CONDITIONS"]}),
+
+            ("BOUNDARY CONDITIONS", "BOUNDARY_CONDITION_RIGHT", ["inlet"],
+                {"BOUNDARY CONDITIONS": ["INLET_CONDITIONS_TYPE", "INLET_CONDITIONS_VALUES"]}),
+
+            ("BOUNDARY CONDITIONS", "BOUNDARY_CONDITION_RIGHT", ["outlet"],
+                {"BOUNDARY CONDITIONS": ["OUTLET_CONDITIONS"]}),
+
+            ("FLUID", "FLUID_MODEL", ["ideal"],
+                {"FLUID": ["FLUID_GAMMA", "GAS_R_CONSTANT"]}),
+
+            ("FLUID", "FLUID_MODEL", ["real"],
+                {"FLUID": ["FLUID_LIBRARY"]}),
         ]
         for section, key, trigger_values, required in condRequiredCommon:
             if self._get_raw(section, key) in trigger_values:
@@ -257,9 +264,19 @@ class Config:
                 ("outlet", "transparent"), ("transparent", "outlet"),
             ]
             if (bc_left, bc_right) not in allowed_pairs:
-                check_required_sections(
-                    {"INITIAL CONDITIONS": ["PRESSURE", "VELOCITY", "TEMPERATURE", "DENSITY"]}
-                )
+                has_density     = self._parser.has_option("INITIAL CONDITIONS", "DENSITY")
+                has_temperature = self._parser.has_option("INITIAL CONDITIONS", "TEMPERATURE")
+
+                if has_density and has_temperature:
+                    raise ConfigError(
+                        f"{self.config_file} [INITIAL CONDITIONS]: DENSITY and TEMPERATURE "
+                        f"may not both be specified; provide one or the other."
+                    )
+                if not has_density and not has_temperature:
+                    raise ConfigError(
+                        f"{self.config_file} [INITIAL CONDITIONS]: either DENSITY or TEMPERATURE "
+                        f"must be specified."
+                    )
 
         elif expansion_device_type == "shocktube":
             # Exactly one of {DENSITY, TEMPERATURE} (left and right) must be specified alongside
@@ -279,6 +296,49 @@ class Config:
                     f"{self.config_file} [INITIAL CONDITIONS]: either DENSITY_LEFT/DENSITY_RIGHT "
                     f"or TEMPERATURE_LEFT/TEMPERATURE_RIGHT must be specified."
                 )
+
+        # check common conditionally prohibited inputs
+        # ============================================
+        # Mirror of condRequiredCommon. Format:
+        # [
+        #     ("section", "key", [trigger_values], {"section": ["key1", ...]}, "reason string"),
+        #     ...
+        # ]
+        # A key in the config file is prohibited when the trigger key carries one of the listed values.
+        condProhibitedCommon = [
+            ("MESH", "MESH_REFINEMENT_BOOL", [False],
+                {"MESH": ["X_START_REFINEMENT", "X_END_REFINEMENT", "NUM_REFINEMENT_MESH_NODES"]},
+                "MESH_REFINEMENT_BOOL is False"),
+
+            ("NUMERICS", "INTERCELL_FLUX_SCHEME", ["hll", "hllc"],   # or whatever your non-Roe schemes are
+                {"NUMERICS": ["ENTROPY_FIX_ACTIVE_BOOL", "ENTROPY_FIX_COEFFICIENT",
+                            "MUSCL_RECONSTRUCTION_BOOL", "MUSCL_RECONSTR_FLUX_LIMITER"]},
+                "INTERCELL_FLUX_SCHEME is not a Roe-family scheme"),
+
+            ("FLUID", "FLUID_MODEL", ["ideal"],
+                {"FLUID": ["FLUID_LIBRARY"]},
+                "FLUID_MODEL is 'ideal'"),
+
+            ("FLUID", "FLUID_MODEL", ["real"],
+                {"FLUID": ["FLUID_GAMMA", "GAS_R_CONSTANT"]},
+                "FLUID_MODEL is 'real'"),
+        ]
+        for section, key, trigger_values, prohibited, reason in condProhibitedCommon:
+            if self._get_raw(section, key) in trigger_values:
+                check_prohibited_keys(prohibited, reason)
+
+        # boundary conditions require special handling
+        # boundary condition cross-prohibitions (too entangled for the list format)
+        bc_left  = self._get_raw("BOUNDARY CONDITIONS", "BOUNDARY_CONDITION_LEFT")
+        bc_right = self._get_raw("BOUNDARY CONDITIONS", "BOUNDARY_CONDITION_RIGHT")
+
+        _inlet_keys  = {"BOUNDARY CONDITIONS": ["INLET_CONDITIONS_TYPE", "INLET_CONDITIONS_VALUES"]}
+        _outlet_keys = {"BOUNDARY CONDITIONS": ["OUTLET_CONDITIONS"]}
+
+        if bc_left != "inlet" and bc_right != "inlet":
+            check_prohibited_keys(_inlet_keys,  "Neither BOUNDARY_CONDITION_LEFT nor BOUNDARY_CONDITION_RIGHT is 'inlet'")
+        elif bc_left != "outlet" and bc_right != "outlet":
+            check_prohibited_keys(_outlet_keys,  "Neither BOUNDARY_CONDITION_LEFT nor BOUNDARY_CONDITION_RIGHT is 'outlet'")
 
         return None
 

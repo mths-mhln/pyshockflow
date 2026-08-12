@@ -26,8 +26,8 @@ class AdvectionRoeBase:
         self.eR = fluid.computeInternalEnergy_p_rho(pR, rhoR)
         self.htL = self.computeTotalEnthalpy(rhoL, uL, pL, self.eL)
         self.htR = self.computeTotalEnthalpy(rhoR, uR, pR, self.eR)
-        self.u1L, self.u2L, self.u3L = getConservativesFromPrimitives(rhoL, uL, pL, self.fluid)
-        self.u1R, self.u2R, self.u3R = getConservativesFromPrimitives(rhoR, uR, pR, self.fluid)
+        self.u1L, self.u2L, self.u3L = getConservativesFromFluidState(rhoL, uL, pL, self.fluid)
+        self.u1R, self.u2R, self.u3R = getConservativesFromFluidState(rhoR, uR, pR, self.fluid)
         self.aL = self.fluid.computeSoundSpeed_p_rho(self.pL, self.rhoL)
         self.aR = self.fluid.computeSoundSpeed_p_rho(self.pR, self.rhoR)
 
