@@ -14,7 +14,7 @@ from rich.console import Console
 
 import pyshockflow
 from thermoplot.thermoplot import thermoplot_cached
-from pyshockflow.driver_ import Driver
+from pyshockflow.driver import Driver
 from pyshockflow.config import Config
 
 

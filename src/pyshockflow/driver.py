@@ -80,7 +80,7 @@ class Driver:
         meshData           = self.generateMesh(config, deviceGeometryData)
         fluidModel         = self.instantiateFluidModel(config)
         fluidState         = self.initializeFluidStateArrays(config, deviceGeometryData, meshData, fluidModel)
-        fluidState         = self.setBoundaryConditions(config, meshData, fluidModel, fluidState)
+        fluidState         = self.setBoundaryConditions(config, fluidModel, fluidState)
 
         # Conservative variables are derived from the fluidState variables; initialise them
         # so that updateSolution() can operate on them from the very first step.
@@ -138,7 +138,7 @@ class Driver:
 
         # Fluid state comes from the restart file, not from initializeFluidStateArrays.
         fluidState         = fluidStateRestart
-        fluidState         = self.setBoundaryConditions(config, meshData, fluidModel, fluidState)
+        fluidState         = self.setBoundaryConditions(config, fluidModel, fluidState)
 
         # Conservative variables are derived from the fluidState variables; initialise them
         # according to the restart fluid state so that updateSolution() can operate on them.
@@ -785,7 +785,7 @@ class Driver:
             return fluidState
 
         
-        def _imposeInitialConditionsNozzleUniform(config, meshData, fluidModel, fluidState):
+        def _imposeInitialConditionsNozzleUniform(config, fluidModel, fluidState):
             """
             Initialize fluid state variables uniformly across the nozzle domain from
             user-specified values in the configuration file.  Supports two specification
@@ -797,7 +797,6 @@ class Driver:
             Arguments
             ---------
             config : Config
-            meshData : dict
             fluidModel : FluidIdeal or FluidReal
             fluidState : dict  (modified in-place and returned)
 
@@ -835,7 +834,6 @@ class Driver:
         # Dispatch to the correct initialization helper.
         # ------------------------------------------------------------------
         deviceType = config.expansionDeviceType()
-        fluidModelName = config.fluidModel().lower()
         bcs = [bc.lower() for bc in config.boundaryConditions()]
 
         if deviceType == "shocktube":
@@ -858,7 +856,7 @@ class Driver:
                 # For any other BC combination (e.g. reflective/periodic/transparent-
                 # transparent), fall back to a user-specified uniform initial condition.
                 fluidState = _imposeInitialConditionsNozzleUniform(
-                    config, meshData, fluidModel, fluidState
+                    config, fluidModel, fluidState
                 )
 
         return fluidState
@@ -868,7 +866,7 @@ class Driver:
     #  Boundary conditions
     # =========================================================================
 
-    def setBoundaryConditions(self, config, meshData, fluidModel, fluidState):
+    def setBoundaryConditions(self, config, fluidModel, fluidState):
         """
         Evaluate and impose boundary conditions on the halo nodes of the fluid state
         arrays.  Implementation follows the ghost-node method described in Toro,
@@ -888,8 +886,6 @@ class Driver:
         ---------
         config : Config
             The configuration object containing the boundary condition types and values.
-        meshData : dict
-            Mesh data dictionary produced by generateMesh().
         fluidModel : FluidIdeal or FluidReal
             An instance of the fluid model class, used for thermodynamic lookups.
         fluidState : dict
@@ -1219,7 +1215,7 @@ class Driver:
             checkSimulationStatus(fluidState, meshData, fluidModel, dt)
 
             # Re-impose boundary conditions on the halo nodes.
-            fluidState = self.setBoundaryConditions(config, meshData, fluidModel, fluidState)
+            fluidState = self.setBoundaryConditions(config, fluidModel, fluidState)
             # Keep conservative state consistent with the updated fluid state variables at the halos.
             conservativeState = self._conservativesFromFluidState(fluidState, fluidModel)
 
@@ -1655,7 +1651,6 @@ def computeResiduals(fluidState, meshData, fluidModel, dt,
     numMeshNodes  = meshData["numMeshNodes"]
     nPhysicalNodes = numMeshNodes - 2  # exclude the two halo nodes
     dx            = meshData["meshNodeSpacing"]
-    xMeshNodes    = meshData["xMeshNodes"]
 
     # Compute advection fluxes on every internal interface (between node i and i+1
     # for i in [0, nPhysicalNodes], using halo nodes for the boundary interfaces).
