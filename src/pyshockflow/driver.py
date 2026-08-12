@@ -100,9 +100,6 @@ class Driver:
         self.time              = 0.0
         self.iterationIndex    = 0
 
-        for attr, value in vars(self).items():
-            print(f"{attr}: {value}")
-
 
     def prepareRestart(self, configFilePath, restartFilePath):
         """
@@ -1133,7 +1130,6 @@ class Driver:
         time                = self.time
         iterationIndex      = self.iterationIndex
         resultsPath         = self.resultsPath
-        deviceGeometryData  = self.deviceGeometryData
 
         # Read solver settings from config.
         entropyFixActive      = config.entropyFixActiveBool()
@@ -1154,24 +1150,6 @@ class Driver:
             limiter = config.MUSCLReconstrFluxLimiter()
         else:
             limiter = None
-
-        # plot nozzle geometry
-        print("Plotting nozzle geometry...")
-        print(expansionDeviceType)
-        if expansionDeviceType == 'nozzle':
-            print("Plotting nozzle geometry...")
-            # nozzle x coordinates
-            nozzleX = deviceGeometryData['deviceX']
-            # nozzle area coordinates
-            nozzleArea = deviceGeometryData['deviceArea']
-            from matplotlib import pyplot as plt
-            plt.figure()
-            plt.plot(nozzleX, nozzleArea)
-            plt.xlabel('x [m]')
-            plt.ylabel('Area [m^2]')
-            plt.title('Nozzle geometry')
-            plt.grid()
-            plt.show()
 
         print()
         print("=" * 80)
@@ -1259,10 +1237,9 @@ class Driver:
                 for var in ("Density", "Velocity", "Pressure", "Energy")
             )
             convergenceHist = convergenceHist + [True] if converged else []
-
             if len(convergenceHist) >= 20:
                 # Force the loop to end at timeMax on the next iteration.
-                dt = timeMax - time
+                newTime = timeMax
                 convergedSimulation = True
 
             # Advance physical time.
