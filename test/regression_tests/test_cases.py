@@ -151,34 +151,10 @@ def compare_results_with_reference(case_dir):
     for file_path in file_paths:
         with open(file_path, "rb") as f:
             file_datas.append(pickle.load(f))
-    # print(file_datas) 
 
-    # print(file_datas[0]['X Coords'], file_datas[1]['xMeshNodes'])
-    # print(file_datas[0]['Primitive']['Pressure'], file_datas[1]['fluidState']['Pressure'])
-    from matplotlib import pyplot as plt
-    # plt.plot(file_datas[0]['X Coords'], file_datas[0]['Primitive']['Pressure'][:, -1], label='Reference Pressure')
-    # plt.plot(file_datas[1]['X Coords'], file_datas[1]['Primitive']['Pressure'][:, -1], label='Result Pressure', linestyle='--')
-
-    try:
-        plt.plot(file_datas[0]['X Coords'], file_datas[0]['Primitive']['Pressure'][:, -1], label='Reference Pressure')
-        print("option 1")
-    except:
-        plt.plot(file_datas[0]['xMeshNodes'], file_datas[0]['fluidState']['Pressure'][:, -1], label='Reference Pressure')
-        print("option 2")
-    try:
-        plt.plot(file_datas[1]['X Coords'], file_datas[1]['Primitive']['Presssure'][:, -1], label='Result Pressure', linestyle='--')
-        print("option 3")
-    except:
-        plt.plot(file_datas[1]['xMeshNodes'], file_datas[1]['fluidState']['Pressure'][:, -1], label='Result Pressure', linestyle='--')
-        print("option 4")   
-    plt.xlabel('X Coords')
-    plt.ylabel('Pressure')
-    plt.title('Pressure Comparison')
-    plt.legend()
-    plt.show()
-    # print(file_datas[0]['Primitive']['Velocity'], file_datas[1]['fluidState']['Velocity'])
-    # print(file_datas[0]['Primitive']['Density'], file_datas[1]['fluidState']['Density'])
-    
+    # compare generated results with reference files. Naming convention used to be different
+    # so I temporarily went around it, you can easily standerdize this to the new data format
+    # by running the test case separately, copying the results pkl and copying it as the reference pkl. 
     try:
         assert file_datas[0]['X Coords'].shape == file_datas[1]['xMeshNodes'].shape, "X Coords shape mismatch between reference and result"
     except:

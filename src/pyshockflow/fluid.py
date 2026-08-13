@@ -14,9 +14,10 @@ class FluidIdeal():
     """
     Ideal Fluid Class, where thermodynamic properties and transformation are computed with ideal gas laws
     """
-    def __init__(self, gmma, Rgas):
+    def __init__(self, gmma, Rgas, mu = None):
         self.gmma = gmma
         self.Rgas = Rgas
+        self.mu = mu
     
     def computeInternalEnergy_p_rho(self, p, rho):
         return (p / (self.gmma - 1) / rho)
@@ -112,14 +113,14 @@ class FluidReal():
     """
     Real Fluid Class, where thermodynamic properties and transformations are taken from coolprop
     """
-    def __init__(self, fluid_name, fluid_library, property_extraction_method, print_error=True):
+    def __init__(self, fluid_name, fluid_library, fluid_property_extraction_method, print_error=True):
         self.fluid_name = fluid_name
         self.fluid_library = fluid_library
-        if property_extraction_method.lower() == 'fluid':
+        if fluid_property_extraction_method.lower() == 'fluid':
             self.fluid = FP.fluid(fluid_library, fluid_name,  print_error=print_error)
-        if property_extraction_method.lower() == 'abstractstate':
+        if fluid_property_extraction_method.lower() == 'abstractstate':
             self.fluid = FP.AbstractState(fluid_library, fluid_name)
-        if property_extraction_method.lower() == 'abstractstate_v2':
+        if fluid_property_extraction_method.lower() == 'abstractstate_v2':
             self.fluid = FP.AbstractState_v2(fluid_library, fluid_name)
 
     def computeInternalEnergy_p_rho(self, p, rho):
@@ -165,16 +166,16 @@ class FluidReal():
         def _computeSoundSpeed_p_rho_two_phase(p: float, rho: float) -> float:
             # two-phase (HEM model from Cioffi et al.)
             T = FP.PropsSI("T", "P", p, "D", rho, fluid)
-            x_V = FP.PropsSI("Q", "P", p, "D", rho, fluid)
-            x_L = 1 - x_V
+            y_V = FP.PropsSI("Q", "P", p, "D", rho, fluid)
+            y_L = 1 - y_V
             soundSpeed_L = FP.PropsSI("A", "P", p, "Q", 0, fluid)
             soundSpeed_V = FP.PropsSI("A", "P", p, "Q", 1, fluid)
             rho_L = FP.PropsSI("D", "P", p, "Q", 0, fluid)
             rho_V = FP.PropsSI("D", "P", p, "Q", 1, fluid)
             c_p_L = FP.PropsSI("Cpmass", "P", p, "Q", 0, fluid)
             c_p_V = FP.PropsSI("Cpmass", "P", p, "Q", 1, fluid)
-            alpha_V = x_V * (rho/rho_V)
-            alpha_L = x_L * (rho/rho_L)
+            alpha_V = y_V * (rho/rho_V)
+            alpha_L = y_L * (rho/rho_L)
             
             # Central difference for ds/dp at constant Q
             ds_dp_cQ_L = (FP.PropsSI("S", "P", p + 1e3, "Q", 0, fluid) -
@@ -233,6 +234,10 @@ class FluidReal():
     def computeEntropy_p_rho(self, p, rho):
         s = FP.PropsSI('S', 'P', p, 'D', rho, self.fluid)
         return s
+
+    def computeQuality_p_rho(self, p, rho):
+        Q = FP.PropsSI('Q', 'P', p, 'D', rho, self.fluid)
+        return Q
 
     def computeEntropy_p_T(self, p, T):
         s = FP.PropsSI('S', 'P', p, 'T', T, self.fluid)
@@ -392,6 +397,15 @@ class FluidReal():
     
     def computeDensity_p_s(self, p, s):
         return FP.PropsSI('D', 'P', p, 'S', s, self.fluid)
+
+    def computeDynamicViscosity_p_rho(self, p, rho):
+        y_V = FP.PropsSI("Q", "P", p, "D", rho, self.fluid)
+        rho_V = self.fluid.PropsSI("D", "P", p, "Q", 1, self.fluid)
+        alpha_V = y_V * rho / rho_V
+        mu_V = FP.PropsSI("V", "P", p, "Q", 1, self.fluid)
+        mu_L = self.fluid.PropsSI("V", "P", p, "Q", 0, self.fluid)
+        mu_2phase = alpha_V * mu_V + (1-alpha_V) * (1+2.5*alpha_V) * mu_L
+        return mu_2phase
 
     def compute_gammapv_p_rho(self, p, rho):
         cp = FP.PropsSI("Cpmass", "P", p, "D", rho, self.fluid)

@@ -127,7 +127,7 @@ class Driver:
                                 'Humid Air', 'Humid Air Mix', 'LuT', 'feos::HOGC-PCP-SAFT']
             if fluidLibrary not in availFluidLibs:
                 raise ValueError(f"Invalid fluid library: {fluidLibrary}. Must be one of {availFluidLibs}")
-            self.fluid = FluidReal(self.fluidName, fluidLibrary, self.config.PropertyExtractionMethod(), False)
+            self.fluid = FluidReal(self.fluidName, fluidLibrary, self.config.fluidPropertyExtractionMethod(), False)
         
         # geometry
         if self.topology.lower()=='nozzle':

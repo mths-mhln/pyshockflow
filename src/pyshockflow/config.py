@@ -22,9 +22,9 @@ class Config:
         self.inputFileCheck()
 
 
-    # ------------------------------------
-    # input type verification helpers
-    # ------------------------------------
+    # ---------------------------------------------------------------------------------------------------------
+    # input extraction helper functions, also verify whether input is of correct type or within acceptable set
+    # ---------------------------------------------------------------------------------------------------------
     def _get_raw(self, section: str, key: str, default: str | None = None, inputOptions: list[str] | None = None) -> str:
         """Allows for special characters, necessary for e.g. fluid name R1234ze(E) """
         try:
@@ -160,9 +160,9 @@ class Config:
             "GEOMETRY": ["EXPANSION_DEVICE_TYPE", "DEVICE_GEOMETRY_FILE_PATH"],
             "MESH": ["NUM_MESH_NODES", "MESH_REFINEMENT_BOOL"],
             "TIME": ["MAX_TIME"],
-            "NUMERICS": ["INTERCELL_FLUX_SCHEME", "CFL_MAX"], 
+            "NUMERICS": ["INTERCELL_FLUX_SCHEME", "CFL_MAX", "WALL_FRICTION_MODELLING_BOOL"], 
             "BOUNDARY CONDITIONS": ["BOUNDARY_CONDITION_LEFT", "BOUNDARY_CONDITION_RIGHT"],
-            "FLUID": ["FLUID_NAME", "FLUID_MODEL"],
+            "FLUID": ["FLUID_NAME", "FLUID_MODEL_TYPE"],
             "OUTPUT": ["RESULTS_DIRECTORY_NAME"]
             }
         requiredSectionsNKeysShocktube = {
@@ -170,9 +170,9 @@ class Config:
             "MESH": ["NUM_MESH_NODES", "MESH_REFINEMENT_BOOL"],
             "TIME": ["MAX_TIME"], 
             "INITIAL CONDITIONS": ["PRESSURE_LEFT", "PRESSURE_RIGHT", "VELOCITY_LEFT", "VELOCITY_RIGHT"],
-            "NUMERICS": ["INTERCELL_FLUX_SCHEME", "CFL_MAX"],
+            "NUMERICS": ["INTERCELL_FLUX_SCHEME", "CFL_MAX", "WALL_FRICTION_MODELLING_BOOL"],
             "BOUNDARY CONDITIONS": ["BOUNDARY_CONDITION_LEFT", "BOUNDARY_CONDITION_RIGHT"],
-            "FLUID": ["FLUID_NAME", "FLUID_MODEL"],
+            "FLUID": ["FLUID_NAME", "FLUID_MODEL_TYPE"],
             "OUTPUT": ["RESULTS_DIRECTORY_NAME"]
             }
 
@@ -223,8 +223,10 @@ class Config:
                 {"MESH": ["X_START_REFINEMENT", "X_END_REFINEMENT", "NUM_REFINEMENT_MESH_NODES"]}),
 
             ("NUMERICS", "INTERCELL_FLUX_SCHEME", ["roe", "roe_arabi", "roe_vinokur"],
-                {"NUMERICS": ["ENTROPY_FIX_ACTIVE_BOOL", "ENTROPY_FIX_COEFFICIENT",
-                            "MUSCL_RECONSTRUCTION_BOOL", "MUSCL_RECONSTR_FLUX_LIMITER"]}),
+                {"NUMERICS": ["ENTROPY_FIX_ACTIVE_BOOL", "ENTROPY_FIX_COEFFICIENT"]}),
+
+            ("NUMERICS", "MUSCL_RECONSTRUCTION_BOOL", [True],
+                {"NUMERICS": ["MUSCL_RECONSTR_FLUX_LIMITER"]}),
 
             ("BOUNDARY CONDITIONS", "BOUNDARY_CONDITION_LEFT", ["inlet"],
                 {"BOUNDARY CONDITIONS": ["INLET_CONDITIONS_TYPE", "INLET_CONDITIONS_VALUES"]}),
@@ -238,15 +240,21 @@ class Config:
             ("BOUNDARY CONDITIONS", "BOUNDARY_CONDITION_RIGHT", ["outlet"],
                 {"BOUNDARY CONDITIONS": ["OUTLET_CONDITIONS"]}),
 
-            ("FLUID", "FLUID_MODEL", ["ideal"],
+            ("FLUID", "FLUID_MODEL_TYPE", ["ideal"],
                 {"FLUID": ["FLUID_GAMMA", "GAS_R_CONSTANT"]}),
 
-            ("FLUID", "FLUID_MODEL", ["real"],
+            ("FLUID", "FLUID_MODEL_TYPE", ["real"],
                 {"FLUID": ["FLUID_LIBRARY"]}),
         ]
         for section, key, trigger_values, required in condRequiredCommon:
             if self._get_raw(section, key) in trigger_values:
                 check_required_sections(required)
+
+        # an outlier for the common conditionally required inputs is the fluid viscosity
+        # which only must be specified if the user has WALL_FRICTION_MODELLING_BOOL = True
+        # AND if FLUID_MODEL_TYPE = "ideal". This is handled below.
+        if self.wallFrictionModellingBool() and self.fluidModelType() == "ideal":
+            check_required_sections({"NUMERICS": ["FLUID_VISCOSITY"]})
 
         # check expansion device specific conditionally required inputs
         # =============================================================
@@ -315,13 +323,13 @@ class Config:
                             "MUSCL_RECONSTRUCTION_BOOL", "MUSCL_RECONSTR_FLUX_LIMITER"]},
                 "INTERCELL_FLUX_SCHEME is not a Roe-family scheme"),
 
-            ("FLUID", "FLUID_MODEL", ["ideal"],
+            ("FLUID", "FLUID_MODEL_TYPE", ["ideal"],
                 {"FLUID": ["FLUID_LIBRARY"]},
-                "FLUID_MODEL is 'ideal'"),
+                "FLUID_MODEL_TYPE is 'ideal'"),
 
-            ("FLUID", "FLUID_MODEL", ["real"],
+            ("FLUID", "FLUID_MODEL_TYPE", ["real"],
                 {"FLUID": ["FLUID_GAMMA", "GAS_R_CONSTANT"]},
-                "FLUID_MODEL is 'real'"),
+                "FLUID_MODEL_TYPE is 'real'"),
         ]
         for section, key, trigger_values, prohibited, reason in condProhibitedCommon:
             if self._get_raw(section, key) in trigger_values:
@@ -449,7 +457,13 @@ class Config:
     def CFLMax(self) -> float:
             return self._get_float("NUMERICS", "CFL_MAX", positive=True)
 
+    def wallFrictionModellingBool(self) -> bool:
+        return self._get_bool("NUMERICS", "WALL_FRICTION_MODELLING_BOOL")
 
+    def fluidViscosity(self) -> float:
+        return self._get_float("NUMERICS", "FLUID_VISCOSITY", positive=True)
+
+    
 
     # [BOUNDARY CONDITIONS]
     # =====================
@@ -495,8 +509,8 @@ class Config:
     def fluidName(self) -> str:
         return self._get_raw("FLUID", "FLUID_NAME")
 
-    def fluidModel(self) -> str:
-        return self._get_str("FLUID", "FLUID_MODEL", inputOptions=["ideal", "real"])
+    def fluidModelType(self) -> str:
+        return self._get_str("FLUID", "FLUID_MODEL_TYPE", inputOptions=["ideal", "real"])
 
     def fluidGamma(self) -> float:
         return self._get_float("FLUID", "FLUID_GAMMA", positive=True)
@@ -521,12 +535,12 @@ class Config:
             "feos::HOGC-PCP-SAFT"
         ])
 
-    def propertyExtractionMethod(self) -> str:
+    def fluidPropertyExtractionMethod(self) -> str:
         valid = {"fluid", "abstractstate", "abstractstate_v2"}
-        value = self._get_str("FLUID", "PROPERTY_EXTRACTION_METHOD", default = "abstractstate_v2")
+        value = self._get_str("FLUID", "FLUID_PROPERTY_EXTRACTION_METHOD", default = "abstractstate_v2")
         if value not in valid:
             raise ConfigError(
-                f"{self.config_file} [FLUID]: 'PROPERTY_EXTRACTION_METHOD' "
+                f"{self.config_file} [FLUID]: 'FLUID_PROPERTY_EXTRACTION_METHOD' "
                 f"must be one of {valid}, got '{value}'"
             )
         return value

@@ -6,6 +6,7 @@ import copy
 import shutil
 
 import numpy as np
+import pandas as pd
 import matplotlib.pyplot as plt
 from pathlib import Path
 
@@ -170,8 +171,8 @@ class Driver:
         print("=" * 80)
         print(" " * 32 + "SIMULATION DATA")
         print("Fluid name:                                  %s" % config.fluidName())
-        print("Fluid treatment:                             %s" % config.fluidModel())
-        if config.fluidModel().lower() == "ideal":
+        print("Fluid treatment:                             %s" % config.fluidModelType())
+        if config.fluidModelType().lower() == "ideal":
             print("Fluid cp/cv ratio [-]:                       %.6e" % config.fluidGamma())
             print("Fluid gas constant [J/kgK]:                  %.6e" % config.gasRConstant())
         print("Boundary Conditions Left:                    %s" % config.boundaryConditions()[0])
@@ -223,12 +224,20 @@ class Driver:
         # Instantiate geometryData dictionary.
         deviceGeometryData = {}
 
-        # Extract nozzle ordinates (physical distance along the nozzle) and coordinate
-        # (area of the nozzle cross-section) and store those in the geometryData dictionary.
-        nozzleData = np.loadtxt(deviceGeometryFilePath, skiprows=1, delimiter=",", dtype=float)
-        deviceGeometryData["deviceX"]    = nozzleData[:, 0]
-        deviceGeometryData["deviceArea"] = nozzleData[:, 1]
+        # Extract nozzle ordinates (physical distance along the nozzle) 
+        nozzleDataFrame = pd.read_csv(deviceGeometryFilePath)
+        nozzleData = nozzleDataFrame.to_numpy()
+        deviceGeometryData["deviceX"] = nozzleData[:, 0]
 
+        # coordinate is either the device radius, or the local circular cross-sectional 
+        # area of the device. 
+        if nozzleDataFrame.columns[1] == "y":
+            deviceGeometryData["deviceY"] = nozzleData[:, 1]
+            deviceGeometryData["deviceArea"] = np.pi * (deviceGeometryData["deviceY"] ** 2)
+        elif nozzleDataFrame.columns[1] == "A":
+            deviceGeometryData["deviceArea"] = nozzleData[:, 1]
+            deviceGeometryData["deviceY"] = np.sqrt(deviceGeometryData["deviceArea"] / np.pi)
+        
         # According to the shock tube input data format requirements, the second data row
         # (disregarding the header) contains the interface location.
         if config.expansionDeviceType() == "shocktube":
@@ -263,11 +272,11 @@ class Driver:
         Returns
         -------
         meshData : dict
-            - xMeshNodes          : np.1darray — node positions including halo nodes
-            - numMeshNodes        : int         — total number of nodes (physical + 2 halos)
-            - meshNodeSpacing     : np.1darray  — cell width at each node
-            - deviceAreaAtMeshNodes : np.1darray — cross-sectional area interpolated at nodes
-            - dAreaDx             : np.1darray  — area gradient along x, used for source terms
+            - xMeshNodes            : np.1darray    — node positions including halo nodes
+            - numMeshNodes          : int           — total number of nodes (physical + 2 halos)
+            - meshNodeSpacing       : np.1darray    — cell width at each node
+            - deviceAreaAtMeshNodes : np.1darray    — cross-sectional area interpolated at nodes
+            - dAreaDx               : np.1darray    — area gradient along x, used for source terms
         """
         def _build_outside_section(start, end, n_points, dx_near, dx_far, direction):
             """
@@ -472,17 +481,21 @@ class Driver:
             An instance of the fluid model class, capable of computing thermodynamic
             properties.
         """
-        fluidModel = config.fluidModel()
+        fluidModelType = config.fluidModelType()
 
-        if fluidModel.lower() == "ideal":
+        if fluidModelType.lower() == "ideal":
             gmma = config.fluidGamma()
             Rgas = config.gasRConstant()
-            return FluidIdeal(gmma, Rgas)
+            if config.wallFrictionModellingBool():
+                mu = config.fluidViscosity() 
+                return FluidIdeal(gmma, Rgas, mu)
+            else:
+                return FluidIdeal(gmma, Rgas)
 
-        elif fluidModel.lower() == "real":
+        elif fluidModelType.lower() == "real":
             fluidName    = config.fluidName()
             fluidLibrary = config.fluidLibrary()
-            return FluidReal(fluidName, fluidLibrary, config.propertyExtractionMethod(), False)
+            return FluidReal(fluidName, fluidLibrary, config.fluidPropertyExtractionMethod(), False)
         
 
 
@@ -670,7 +683,7 @@ class Driver:
                 [fluidState["Pressure"][0],  fluidState["Pressure"][-1]],
             )
 
-            if config.fluidModel() == "real":
+            if config.fluidModelType() == "real":
                 # Initialize density and energy assuming isentropic expansion from the inlet.
                 inletEntropy = fluidModel.computeEntropy_p_rho(
                     fluidState["Pressure"][inletIdx], fluidState["Density"][inletIdx]
@@ -680,7 +693,7 @@ class Driver:
                     fluidState["Pressure"], entropyField
                 )
 
-            if config.fluidModel() == "ideal":
+            if config.fluidModelType() == "ideal":
                 # Initialize density assuming isentropic expansion from the inlet. 
                 # for ideal fluid modelling, use the isentropic expansion equations for this. 
                 fluidState["Density"] = fluidModel.computeDensityIsentropic_p1_p2_rho1(
@@ -696,11 +709,11 @@ class Driver:
 
                 # Build a scalar density function that mirrors the happy-path dispatch,
                 # so that the bisection works for both ideal and real fluid models.
-                if config.fluidModel() == "real":
+                if config.fluidModelType() == "real":
                     # Real fluid: density from (p, s).
                     def _densityFromPressure(p_scalar):
                         return fluidModel.computeDensity_p_s(p_scalar, inletEntropy)
-                elif config.fluidModel() == "ideal":
+                elif config.fluidModelType() == "ideal":
                     # Both ideal and real: isentropic relation from inlet reference state.
                     rhoInlet = fluidState["Density"][inletIdx]
                     pInlet   = fluidState["Pressure"][inletIdx]
@@ -739,11 +752,11 @@ class Driver:
                 )
 
                 # Re-initialize density using the same dispatch as the happy path.
-                if config.fluidModel() == "real":
+                if config.fluidModelType() == "real":
                     fluidState["Density"] = fluidModel.computeDensity_p_s(
                         fluidState["Pressure"], entropyField
                     )
-                elif config.fluidModel() == "ideal":
+                elif config.fluidModelType() == "ideal":
                     fluidState["Density"] = fluidModel.computeDensityIsentropic_p1_p2_rho1(
                         fluidState["Pressure"][inletIdx], fluidState["Pressure"], rhoInlet
                     )
@@ -761,14 +774,14 @@ class Driver:
                 # evaluated from the local pressure and the inlet entropy.
                 if inletConditionsVars == "ptTt":
                     totalTemperature = inletConditionsValues[1]
-                    if config.fluidModel() == "real":
+                    if config.fluidModelType() == "real":
                         totalInternalEnergy = fluidModel.computeInternalEnergy_p_T(
                             fluidState["Pressure"][inletIdx], totalTemperature
                         )
                     else:
                         totalInternalEnergy = fluidModel.computeTotalInternalEnergy_Tt(totalTemperature)
                 elif inletConditionsVars == "ptQt":
-                    if config.fluidModel() == "real":
+                    if config.fluidModelType() == "real":
                         totalPressure, totalQuality = inletConditionsValues[:2]
                         totalInternalEnergy = fluidModel.computeInternalEnergy_p_Q(totalPressure, totalQuality)
                     else:
@@ -1119,6 +1132,7 @@ class Driver:
         """
         # Unpack all instance attributes up front.
         config              = self.config
+        deviceGeometryData  = self.deviceGeometryData
         meshData            = self.meshData
         fluidModel          = self.fluidModel
         fluidState          = self.fluidState
@@ -1140,7 +1154,7 @@ class Driver:
         timeMax               = config.maxTime()
         cflMax                = config.CFLMax()
         expansionDeviceType   = config.expansionDeviceType()
-        fluidModelType        = config.fluidModel()
+        fluidModelType        = config.fluidModelType()
         fluidLibrary          = config.fluidLibrary() if fluidModelType.lower() == "real" else None
         if isMusclActive:
             limiter = config.MUSCLReconstrFluxLimiter()
@@ -1185,10 +1199,10 @@ class Driver:
 
             # Compute residuals (finite-volume right-hand side).
             residuals = computeResiduals(
-                fluidState, meshData, fluidModel, dt,
-                advectionScheme, isMusclActive, limiter,
-                entropyFixActive, entropyFixCoefficient,
-                expansionDeviceType,
+                config, deviceGeometryData, meshData, fluidState, 
+                fluidModel, dt,advectionScheme, isMusclActive, 
+                limiter, entropyFixActive, entropyFixCoefficient,
+                expansionDeviceType
             )
 
             # Update conservative variables with the residuals, then recover fluid state variables.
@@ -1607,9 +1621,9 @@ def computeTimeStep(fluidState, meshData, fluidModel, cflMax):
 #  Residual computation
 # -----------------------------------------------------------------------------
 
-def computeResiduals(fluidState, meshData, fluidModel, dt,
-                     advectionScheme, isMusclActive, limiter,
-                     entropyFixActive, entropyFixCoefficient,
+def computeResiduals(config, deviceGeometryData, meshData, fluidState, 
+                     fluidModel, dt, advectionScheme, isMusclActive, 
+                     limiter, entropyFixActive, entropyFixCoefficient,
                      expansionDeviceType):
     """
     Compute the finite-volume residual vector for all interior nodes.
@@ -1667,7 +1681,7 @@ def computeResiduals(fluidState, meshData, fluidModel, dt,
 
     # Compute quasi-1D source terms for nozzle geometries; zero for constant area.
     if expansionDeviceType == "nozzle":
-        source = computeSourceTerms(fluidState, meshData)
+        source = computeSourceTerms(config, deviceGeometryData, meshData, fluidModel, fluidState)
     else:
         source = np.zeros((numMeshNodes, 3))
 
@@ -1996,7 +2010,7 @@ def updateSolution(conservativeState, fluidState, residuals, fluidModel):
 #  Source terms
 # -----------------------------------------------------------------------------
 
-def computeSourceTerms(fluidState, meshData):
+def computeSourceTerms(config, deviceGeometryData, meshData, fluidModel, fluidState):
     """
     Compute quasi-1D source terms due to cross-sectional area variation along
     the nozzle.  The formulation is taken from Vimercati & Guardone, "On the
@@ -2011,12 +2025,28 @@ def computeSourceTerms(fluidState, meshData):
 
     where E_tot = e + u^2/2 is the specific total energy.
 
+    If friction modelling is enabled, the momentum source term is augmented 
+    with the Darcy-Weisbach friction term:
+    
+        S_2 = -rho * u^2 * (1/A) * dA/dx - 1/8 * f * rho * (u**2) * P_w
+    
+    where P_w is the wetted perimeter and f is the Darcy friction factor.
+    The wetted perimeter assumes a circular cross-section, so P_w = pi * D, 
+    even for square nozzles, since the design tool is of quasi 1D nature.
+    D is the local diameter.
+
     Arguments
     ---------
-    fluidState : dict
-        Current fluid state variable arrays (including halo nodes).
+    config : Config
+        Configuration object containing simulation parameters.
+    deviceGeometryData : dict
+        Device geometry data dictionary, providing localDiameter.
     meshData : dict
         Mesh data dictionary, providing deviceAreaAtMeshNodes and dAreaDx.
+    fluidModel : FluidIdeal or FluidReal
+        Model describing the fluid properties.
+    fluidState : dict
+        Current fluid state variable arrays (including halo nodes).
 
     Returns
     -------
@@ -2031,16 +2061,31 @@ def computeSourceTerms(fluidState, meshData):
     area  = meshData["deviceAreaAtMeshNodes"]
     dAdx  = meshData["dAreaDx"]
 
-    totalEnergy = e + 0.5 * u**2   # specific total energy
+    totalEnergy = e + 0.5 * u**2 # specific total energy
 
-    # Pre-compute the common geometric factor (avoids repeating the division).
+    # Pre-compute the common geometric factor
     geomFactor = dAdx / area
 
     numMeshNodes = meshData["numMeshNodes"]
     source = np.zeros((numMeshNodes, 3))
-    source[:, 0] = -rho * u                      * geomFactor
-    source[:, 1] = -rho * u**2                   * geomFactor
+    source[:, 0] = -rho * u * geomFactor
+    source[:, 1] = -rho * u**2 * geomFactor
     source[:, 2] = -u   * (rho * totalEnergy + p) * geomFactor
+
+    # add wall friction to the momentum equation if enabled
+    if config.wallFrictionModellingBool():
+        # extract fluid dynamic viscosity for ideal fluid
+        if config.fluidModelType() == "ideal":
+            mu = fluidModel.mu
+        # compute dynamic viscosity for real fluid using the current state
+        elif config.fluidModelType() == "real":
+            mu_2phase = fluidModel.computeDynamicViscosity_p_rho(p, rho)    
+            mu = mu_2phase   
+        Re_2phase = rho * np.abs(u) * (2*deviceGeometryData["deviceY"]) / mu
+        f = (-1.81 * np.log10(6.9/Re_2phase))**-2  # Darcy-Weisbach friction factor
+        D = 2*deviceGeometryData["deviceY"]
+        P_w = np.pi * D
+        source[:, 1] -= 0.125 * f * rho * u**2 * P_w
 
     return source
 

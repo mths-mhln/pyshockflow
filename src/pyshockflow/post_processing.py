@@ -104,40 +104,38 @@ def expansion_device_geometry_plot(configFilePath: str) -> None:
 
         Returns
         -------
-        None. Saves the plot in the directory from which the file is executed.
+        fig : matplotlib.figure.Figure
+            The figure object containing the plot of the expansion device geometry and numerical grid.
         """
         # instantiate driver object from config file (already most of the necessary functionality)
+        # The driver object has internal procedures that extract the device geometry data
+        # and mesh upon initialization, and are accessible as attributes 
+        # driver.deviceGeometryData and driver.meshData respectively. 
         with pyshockflow.post_processing.HiddenPrints():
             driver = Driver(configFilePath = configFilePath)
 
-        nozzleData = np.loadtxt(driver.config.deviceGeometryFilePath(), skiprows=1, delimiter=',', dtype=float)
-        nozzleX = nozzleData[:,0]
-        nozzleArea = nozzleData[:,1]
-
-        # Linear interpolation with external filling set to area Reference (=Tube area)
-        interpolatedNozzleArea = np.interp(driver.xNodesVirtual, nozzleX, nozzleArea, left=nozzleData[0,1], right=nozzleData[-1,1])
-
+        xMeshNodes = driver.meshData["xMeshNodes"]
+        deviceAreaAtMeshNodes = driver.meshData["deviceAreaAtMeshNodes"]
+        
         # Scale plot axes according to the nozzle geometry
-        x_scale = driver.xNodesVirtual[-1]
-        area_scale = 2*max(interpolatedNozzleArea)
+        x_scale = xMeshNodes[-1]
+        area_scale = 2*max(deviceAreaAtMeshNodes)
         ratio = area_scale / x_scale
         
         # plot nozzle
         fig = plt.figure(figsize=(12, 12*ratio))
         ax = fig.add_subplot(1, 1, 1)
-        ax.plot(driver.xNodesVirtual, interpolatedNozzleArea, label='Interpolated Nozzle Area', color='blue')
-        ax.plot(driver.xNodesVirtual, -interpolatedNozzleArea, label='Interpolated Nozzle Area', color='blue')
-        ax.scatter(driver.xNodesVirtual, np.zeros_like(driver.xNodesVirtual), color='red', label='Virtual Mesh Nodes', s=0.5)
+        ax.plot(xMeshNodes, deviceAreaAtMeshNodes, label='Interpolated Nozzle Area', color='blue')
+        ax.plot(xMeshNodes, -deviceAreaAtMeshNodes, label='Interpolated Nozzle Area', color='blue')
+        ax.scatter(xMeshNodes, np.zeros_like(xMeshNodes), color='red', label='Virtual Mesh Nodes', s=0.5)
         ax.set_xlabel('x [m]', fontsize=12)
         ax.set_ylabel('Area [m^2]', fontsize=12)
         ax.set_title('Nozzle Geometry', fontsize=12)
         ax.tick_params(axis='both', which='major', labelsize=10)
         fig.show()
         fig.tight_layout()
-        fig.savefig("nozzle_geometry.pdf", dpi=300, bbox_inches="tight", pad_inches=0)
-        plt.show()
 
-        return None
+        return fig
 
 
 
