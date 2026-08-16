@@ -123,20 +123,20 @@ def expansion_device_geometry_plot(config: Config) -> None:
         with pyshockflow.post_processing.HiddenPrints():
             driver = Driver(config = config)
 
-        xMeshNodes = driver.meshData["xMeshNodes"]
-        deviceAreaAtMeshNodes = driver.meshData["deviceAreaAtMeshNodes"]
-        
+        deviceX = driver.deviceGeometryData ["deviceX"]
+        deviceY = driver.deviceGeometryData["deviceY"]
+
         # Scale plot axes according to the nozzle geometry
-        x_scale = xMeshNodes[-1]
-        area_scale = 2*max(deviceAreaAtMeshNodes)
-        ratio = area_scale / x_scale
-        
+        x_scale = np.max(deviceX)
+        lengthScale = 2*np.max(deviceY)
+        lengthRatio = lengthScale / x_scale
+
         # plot nozzle
-        fig = plt.figure(figsize=(12, 12*ratio))
+        fig = plt.figure(figsize=(12, 12*lengthRatio))
         ax = fig.add_subplot(1, 1, 1)
-        ax.plot(xMeshNodes, deviceAreaAtMeshNodes, label='Interpolated Nozzle Area', color='blue')
-        ax.plot(xMeshNodes, -deviceAreaAtMeshNodes, label='Interpolated Nozzle Area', color='blue')
-        ax.scatter(xMeshNodes, np.zeros_like(xMeshNodes), color='red', label='Virtual Mesh Nodes', s=0.5)
+        ax.plot(deviceX, deviceY, label='Interpolated Nozzle Area', color='blue')
+        ax.plot(deviceX, -deviceY, label='Interpolated Nozzle Area', color='blue')
+        ax.scatter(deviceX, np.zeros_like(deviceX), color='red', label='Virtual Mesh Nodes', s=0.5)
         ax.set_xlabel('x [m]', fontsize=12)
         ax.set_ylabel('Area [m^2]', fontsize=12)
         ax.set_title('Nozzle Geometry', fontsize=12)
