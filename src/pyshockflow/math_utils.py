@@ -1,5 +1,4 @@
 import numpy as np
-from pyshockflow import FluidIdeal
 
 
 def getFluidStateFromConservatives(u1, u2, u3, fluid):

@@ -1,7 +1,4 @@
-from pyshockflow import Config
-from pyshockflow import Driver
 
-import pyshockflow.post_processing
 from pyshockflow.post_processing import expansion_device_geometry_plot
 import matplotlib.pyplot as plt
 

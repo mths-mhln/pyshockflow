@@ -1,6 +1,5 @@
 import configparser
 import os
-from typing import Literal
 
 
 class ConfigError(ValueError):
@@ -8,15 +7,15 @@ class ConfigError(ValueError):
 
 
 class Config:
-    def __init__(self, config_file: str = "input.ini"):
-        if not os.path.exists(config_file):
+    def __init__(self, configFilePath: str = "input.ini"):
+        if not os.path.exists(configFilePath):
             raise FileNotFoundError(
-                f"Config file '{config_file}' not found. "
+                f"Config file '{configFilePath}' not found. "
                 f"Check path relative to cwd: {os.getcwd()}"
             )
-        self.config_file = config_file
+        self.config_file = configFilePath
         self._parser = configparser.ConfigParser()
-        self._parser.read(config_file)
+        self._parser.read(configFilePath)
 
         # perform input file verification checks
         self.inputFileCheck()
@@ -163,7 +162,7 @@ class Config:
             "NUMERICS": ["INTERCELL_FLUX_SCHEME", "CFL_MAX", "WALL_FRICTION_MODELLING_BOOL"], 
             "BOUNDARY CONDITIONS": ["BOUNDARY_CONDITION_LEFT", "BOUNDARY_CONDITION_RIGHT"],
             "FLUID": ["FLUID_NAME", "FLUID_MODEL_TYPE"],
-            "OUTPUT": ["RESULTS_DIRECTORY_NAME"]
+            "OUTPUT": ["RESULTS_SUBDIRECTORY_NAME"]
             }
         requiredSectionsNKeysShocktube = {
             "GEOMETRY": ["EXPANSION_DEVICE_TYPE", "DEVICE_GEOMETRY_FILE_PATH"],
@@ -173,7 +172,7 @@ class Config:
             "NUMERICS": ["INTERCELL_FLUX_SCHEME", "CFL_MAX", "WALL_FRICTION_MODELLING_BOOL"],
             "BOUNDARY CONDITIONS": ["BOUNDARY_CONDITION_LEFT", "BOUNDARY_CONDITION_RIGHT"],
             "FLUID": ["FLUID_NAME", "FLUID_MODEL_TYPE"],
-            "OUTPUT": ["RESULTS_DIRECTORY_NAME"]
+            "OUTPUT": ["RESULTS_SUBDIRECTORY_NAME"]
             }
 
         # check for presence of required sections and keys
@@ -549,8 +548,8 @@ class Config:
 
     # [OUTPUT]
     # ========
-    def resultsDirectoryName(self) -> str:
-        return self._get_raw("OUTPUT", "RESULTS_DIRECTORY_NAME")
+    def resultsSubdirectoryName(self) -> str:
+        return self._get_raw("OUTPUT", "RESULTS_SUBDIRECTORY_NAME")
 
     def writeInterval(self) -> int:
         return self._get_int("OUTPUT", "WRITE_INTERVAL", default=250)

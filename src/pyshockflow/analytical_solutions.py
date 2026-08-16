@@ -1,6 +1,5 @@
 import numpy as np
-from CoolProp.CoolProp import PropsSI, PhaseSI
-from scipy.integrate import solve_ivp
+from CoolProp.CoolProp import PropsSI
 
 
 def solve_nonideal_expansion(densityStart, temperatureStart, densityFinal, numberPoints, fluid):

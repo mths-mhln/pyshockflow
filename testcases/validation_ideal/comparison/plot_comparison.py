@@ -1,8 +1,5 @@
 import matplotlib.pyplot as plt
-import numpy as np
 import pickle
-import os
-from pyshockflow import RiemannProblem
 from pyshockflow import *
 
 testNumber = [1,3,5]

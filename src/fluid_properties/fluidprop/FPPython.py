@@ -16,7 +16,7 @@
 
 
 from __future__ import print_function
-from   ctypes   import byref, cdll, c_double, c_int, c_float, c_void_p
+from   ctypes   import byref, cdll, c_double, c_int, c_void_p
 from sys import platform
 import os
 import numpy as np
@@ -1358,18 +1358,18 @@ def AllProps( InputSpec, Input1, Input2) :
     l_errmsg = c_int(80)
     b_ErrorMsg = b'No errors                                                                       '
 
-    P   = c_double();    alpha = c_double(); 
-    T   = c_double();    beta  = c_double(); 
-    v   = c_double();    chi   = c_double(); 
-    d   = c_double();    fi    = c_double(); 
-    h   = c_double();    ksi   = c_double(); 
-    s   = c_double();    psi   = c_double(); 
-    u   = c_double();    zeta  = c_double(); 
-    q   = c_double();    theta = c_double(); 
-    cv  = c_double();    kappa = c_double(); 
-    cp  = c_double();    gamma = c_double(); 
-    c   = c_double(); 
-    eta = c_double();    lamda = c_double(); 
+    P   = c_double();    alpha = c_double() 
+    T   = c_double();    beta  = c_double() 
+    v   = c_double();    chi   = c_double() 
+    d   = c_double();    fi    = c_double() 
+    h   = c_double();    ksi   = c_double() 
+    s   = c_double();    psi   = c_double() 
+    u   = c_double();    zeta  = c_double() 
+    q   = c_double();    theta = c_double() 
+    cv  = c_double();    kappa = c_double() 
+    cp  = c_double();    gamma = c_double() 
+    c   = c_double() 
+    eta = c_double();    lamda = c_double() 
 
     x = np.array(20*[0.0]) 
     y = np.array(20*[0.0])
@@ -1431,10 +1431,10 @@ def PhaseEnvelope() :
     b_ErrorMsg = b'No errors                                                                       '
 
     nPnts = c_int(0)
-    T = np.zeros(5000); 
-    P = np.zeros(5000);
-    x = np.zeros((20,5000)); 
-    y = np.zeros((20,5000)); 
+    T = np.zeros(5000) 
+    P = np.zeros(5000)
+    x = np.zeros((20,5000)) 
+    y = np.zeros((20,5000)) 
 
     FPP[0].saturationline( byref(nPnts), T.ctypes.data_as(c_void_p), P.ctypes.data_as(c_void_p),
                            x.ctypes.data_as(c_void_p), x.ctypes.data_as(c_void_p),

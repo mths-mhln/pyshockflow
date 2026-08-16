@@ -1,7 +1,4 @@
 import numpy as np
-import matplotlib.pyplot as plt
-import os
-import pickle
 from numpy import sqrt
 from pyshockflow import FluidIdeal
 from pyshockflow.math_utils import *

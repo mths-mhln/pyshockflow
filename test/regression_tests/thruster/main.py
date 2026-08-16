@@ -4,7 +4,8 @@ import traceback
 
 def main():
     try:
-        driver = Driver(configFilePath = "input.ini")
+        config = Config("input.ini")
+        driver = Driver(config=config)
         driver.solve()
         return 0  # success
     except Exception:

@@ -7,7 +7,6 @@ Created on Tue Mar 19 13:40:47 2024
 import numpy as np 
 from . import fluid_properties as FP
 from .group_contribution_methods.molecular_structure import MolecularStructure
-from itertools import permutations
 
 
 def declare_fluid(n_cmp, concentrations,

@@ -1,8 +1,5 @@
 import matplotlib.pyplot as plt
-import numpy as np
 import pickle
-from pyshockflow import RiemannProblem
-from pyshockflow import Driver
 import os
 
 

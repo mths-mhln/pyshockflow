@@ -1,7 +1,6 @@
 import subprocess
 from pathlib import Path
 import pytest
-import os
 import sys
 import shutil
 import pickle
@@ -156,22 +155,23 @@ def compare_results_with_reference(case_dir):
     # so I temporarily went around it, you can easily standerdize this to the new data format
     # by running the test case separately, copying the results pkl and copying it as the reference pkl. 
     try:
-        assert file_datas[0]['X Coords'].shape == file_datas[1]['xMeshNodes'].shape, "X Coords shape mismatch between reference and result"
+        assert file_datas[0]['X Coords'].shape == file_datas[1]["meshData"]['xMeshNodes'].shape, "X Coords shape mismatch between reference and result"
     except:
         try: 
             assert file_datas[0]['X Coords'].shape == file_datas[1]['X Coords'].shape, "X Coords shape mismatch between reference and result"
         except:
-            assert file_datas[0]['xMeshNodes'].shape == file_datas[1]['xMeshNodes'].shape, "X Coords shape mismatch between reference and result"
+            assert file_datas[0]["meshData"]['xMeshNodes'].shape == file_datas[1]["meshData"]['xMeshNodes'].shape, "X Coords shape mismatch between reference and result"
     
     keys_to_check = ['Pressure', 'Velocity', 'Density']
+    print(file_datas[0])
     for key in keys_to_check:
         try:
-            they_agree, err = result_arrays_agree(file_datas[0]['Primitive'][key][:, -1], file_datas[1]['fluidState'][key][:, -1])
+            they_agree, err = result_arrays_agree(file_datas[0]['Primitive'][key][:, -1], file_datas[1]['fluidStateHistory'][key][:, -1])
         except:
             try:
                 they_agree, err = result_arrays_agree(file_datas[0]['Primitive'][key][:, -1], file_datas[1]['Primitive'][key][:, -1])
             except:
-                they_agree, err = result_arrays_agree(file_datas[0]['fluidState'][key][:, -1], file_datas[1]['fluidState'][key][:, -1])
+                they_agree, err = result_arrays_agree(file_datas[0]['fluidStateHistory'][key][:, -1], file_datas[1]["fluidStateHistory"][key][:, -1])
         assert they_agree, f"{key} field mismatch between reference and result with relative error {err:.2e}"
     
 

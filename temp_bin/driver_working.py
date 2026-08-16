@@ -1,5 +1,3 @@
-import os
-import re
 import pickle
 import sys
 import copy
@@ -602,7 +600,7 @@ class Driver:
                 rhoL, rhoR = config.initialDensityLeft(), config.initialDensityRight()
                 TL = fluidModel.computeTemperature_p_rho(pL, rhoL)
                 TR = fluidModel.computeTemperature_p_rho(pR, rhoR)
-            except Exception as e:
+            except Exception:
                 TL, TR = config.initialTemperatureLeft(), config.initialTemperatureRight()
                 rhoL   = fluidModel.computeDensity_p_T(pL, TL)
                 rhoR   = fluidModel.computeDensity_p_T(pR, TR)
@@ -1868,7 +1866,7 @@ class Driver:
         print(f"The nozzle maximum area is {interpolatedNozzleArea.max():.6f} [m2].")
         print(f"The area ratio between nozzle throat and exit section is {interpolatedNozzleArea.min()/interpolatedNozzleArea[-1]:.6f}.")
         print(f"The area ratio between nozzle throat and tube is {interpolatedNozzleArea.min()/nozzleData[0,1]:.6f}.")
-        print(f"If this is not correct, modify the REFERENCE_AREA setting in the geometry section of the input file to the correct value for the tube area, or modify the nozzle csv file to be consistent with the tube area.")
+        print("If this is not correct, modify the REFERENCE_AREA setting in the geometry section of the input file to the correct value for the tube area, or modify the nozzle csv file to be consistent with the tube area.")
         
         return interpolatedNozzleArea
 

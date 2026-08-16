@@ -1,7 +1,6 @@
 import os
 import numpy as np
 import base_interface
-from scipy.optimize import brentq
 try:
     import feos.pcsaft as pcsaft
     import feos.eos as eos

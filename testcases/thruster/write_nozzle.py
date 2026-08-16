@@ -49,7 +49,7 @@ plt.grid(alpha=.3)
 
 
 print()
-print(f"After polyfitting, the new info are these:")
+print("After polyfitting, the new info are these:")
 print(f"The area of the tube is {A_tube:.6e}.")
 print(f"The area of the throat is {np.min(area):.6e}.")
 print(f"The diameter of the throat is {np.sqrt(4*np.min(area)/PI):.6e}.")

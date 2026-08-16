@@ -8,13 +8,12 @@ import shutil
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+
 from pathlib import Path
 
-from pyshockflow import Config
 from pyshockflow import RiemannProblem
 from pyshockflow import AdvectionRoeBase, AdvectionRoeArabi, AdvectionRoeVinokur
 from pyshockflow import FluidIdeal, FluidReal
-
 from pyshockflow.math_utils import (
     getConservativesFromFluidState,
     getFluidStateFromConservatives,
@@ -23,16 +22,16 @@ from pyshockflow.math_utils import (
 
 
 class Driver:
-    def __init__(self, configFilePath=None, restartFilePath=None):
+    def __init__(self, config=None, restartFilePath=None):
         """
         Initialize the Driver object for a new simulation or to continue a previous
         simulation from a restart file.
 
         Arguments
         ---------
-        configFilePath : str, optional
-            The path to the configuration file, which contains the simulation parameters.
-            If not provided, a restart file must be specified.
+        config : Config
+            Config object containing the user-specified simulation parameters. Originally
+            read from a config file by a Config object.
         restartFilePath : str, optional
             The path to the restart file, which contains the simulation data from a
             previous step. If not provided, a configuration file must be specified.
@@ -41,40 +40,40 @@ class Driver:
         -------
         None, stores all the relevant information as attributes of the Driver class.
         """
-        if configFilePath is None and restartFilePath is None:
+        if config is None and restartFilePath is None:
             raise ValueError(
                 "Either a configuration file path or a restart file path must be provided."
             )
-        if restartFilePath is not None:
+        if restartFilePath is None:
+            # Prepare Driver object to start a new simulation from scratch based
+            # on the configuration options provided by the user.
+            self.prepareCleanStart(config)
+        else:
             # Prepare Driver object to continue simulation from a previous step.
             # If user specifies a config file as well, the old simulation configuration
             # options stored in the restart file will be overwritten by the new ones.
-            self.prepareRestart(configFilePath, restartFilePath)
-        else:
-            # Prepare Driver object to start a new simulation from scratch based
-            # on the configuration options provided by the user.
-            self.prepareCleanStart(configFilePath)
+            self.prepareRestart(config, restartFilePath)
+            
 
 
     # =========================================================================
     #  Startup helpers
     # =========================================================================
 
-    def prepareCleanStart(self, configFilePath):
+    def prepareCleanStart(self, config):
         """
         Prepare a fresh simulation from scratch: read config, build mesh, instantiate
         the fluid model, initialize the fluid state, and set boundary conditions.
 
         Arguments
         ---------
-        configFilePath : str
-            Path to the .ini configuration file.
+        config : Config
+            Config object containing the user-specified simulation parameters.
 
         Returns
         -------
         None, but populates all attributes needed by solve().
         """
-        config = Config(configFilePath)
         self._printWelcomeBanner(config)
 
         deviceGeometryData = self.extractDeviceGeometricalFeatures(config)
@@ -87,22 +86,22 @@ class Driver:
         # so that updateSolution() can operate on them from the very first step.
         conservativeState  = self._conservativesFromFluidState(fluidState, fluidModel)
 
-        # Output paths — created fresh (never from a previous run).
-        resultsPath = self._prepareOutputPaths(config, meshData, restartFilePath=None)
+        # Output paths - created fresh (never from a previous run).
+        resultsSubdirPath = self._prepareResultsSubdirPath(config, meshData, restartFilePath=None)
 
         # Pack everything the solver needs into attributes.
-        self.config            = config
-        self.meshData          = meshData
-        self.deviceGeometryData = deviceGeometryData
-        self.fluidModel        = fluidModel
-        self.fluidState        = fluidState
-        self.conservativeState = conservativeState
-        self.resultsPath       = resultsPath
-        self.time              = 0.0
-        self.iterationIndex    = 0
+        self.config              = config
+        self.meshData            = meshData
+        self.deviceGeometryData  = deviceGeometryData
+        self.fluidModel          = fluidModel
+        self.fluidState          = fluidState
+        self.conservativeState   = conservativeState
+        self.resultsSubdirPath   = resultsSubdirPath
+        self.time                = 0.0
+        self.iterationIndex      = 0
 
 
-    def prepareRestart(self, configFilePath, restartFilePath):
+    def prepareRestart(self, config, restartFilePath):
         """
         Prepare a simulation that continues from a previously saved restart file.
         The geometry, mesh, fluid model and output paths are rebuilt from config;
@@ -110,11 +109,11 @@ class Driver:
 
         Arguments
         ---------
-        configFilePath : str or None
-            Path to an (optionally) overriding .ini configuration file.  When
+        config : Config or None
+            Config object containing the user-specified simulation parameters.  When
             None the configuration stored inside the restart file is used.
         restartFilePath : str
-            Path to the pickle restart file produced by saveResults().
+            Path to the pickle restart file produced by saveSingleIterResult().
 
         Returns
         -------
@@ -129,7 +128,7 @@ class Driver:
         )
 
         # Allow the user to override the stored config by supplying a new file.
-        config = Config(configFilePath) if configFilePath is not None else configRestart
+        config = config if config is not None else configRestart
 
         self._printWelcomeBanner(config)
 
@@ -146,7 +145,7 @@ class Driver:
         conservativeState  = self._conservativesFromFluidState(fluidState, fluidModel)
 
         # Append new iterations to the same directory as the restart file.
-        resultsPath = Path(restartFilePath).parent
+        resultsSubdirPath = Path(restartFilePath).parent
 
         # Pack everything the solver needs into attributes.
         self.config             = config
@@ -155,7 +154,7 @@ class Driver:
         self.fluidModel         = fluidModel
         self.fluidState         = fluidState
         self.conservativeState  = conservativeState
-        self.resultsPath        = resultsPath
+        self.resultsSubdirPath  = resultsSubdirPath
         self.time               = timeElapsed
         self.iterationIndex     = iterationIndex
 
@@ -272,11 +271,18 @@ class Driver:
         Returns
         -------
         meshData : dict
-            - xMeshNodes            : np.1darray    — node positions including halo nodes
-            - numMeshNodes          : int           — total number of nodes (physical + 2 halos)
-            - meshNodeSpacing       : np.1darray    — cell width at each node
-            - deviceAreaAtMeshNodes : np.1darray    — cross-sectional area interpolated at nodes
-            - dAreaDx               : np.1darray    — area gradient along x, used for source terms
+            A dictionary containing the generated mesh data:
+            xMeshNodes: np.1darray
+                The physical positions of the mesh nodes along the 1D axis, including halo nodes.
+            numMeshNodes: int
+                The total number of mesh nodes, including halo nodes.
+            meshNodeSpacing: np.1darray
+                The physical width of each mesh cell, computed as the average of the distances
+                to the neighboring nodes. Halo nodes are included.
+            deviceAreaAtMeshNodes: np.1darray
+                The cross-sectional area of the expansion device, interpolated at the mesh node positions.
+            dAreaDx: np.1darray
+                The gradient of the cross-sectional area along the 1D axis, computed using central differences.
         """
         def _build_outside_section(start, end, n_points, dx_near, dx_far, direction):
             """
@@ -531,13 +537,22 @@ class Driver:
         Returns
         -------
         fluidState : dict
-            Dictionary with keys 'Density', 'Velocity', 'Pressure', 'Energy',
+            A dictionary containing the fluid state variables at each mesh node:
+            - Density: np.1darray
+                Density at each mesh node.
+            - Velocity: np.1darray
+                Velocity at each mesh node.
+            - Pressure: np.1darray
+                Pressure at each mesh node.
+            - StaticInternalEnergy: np.1darray
+                Static internal energy at each mesh node.
+
             each mapping to a np.1darray of length meshData['numMeshNodes'].
         """
         # Instantiate fluid state dict and arrays.
         fluidState = {
             key: np.zeros(meshData["numMeshNodes"])
-            for key in ("Density", "Velocity", "Pressure", "Energy")
+            for key in ("Density", "Velocity", "Pressure", 'staticInternalEnergy')
         }
 
         # ------------------------------------------------------------------
@@ -559,6 +574,12 @@ class Driver:
             Returns
             -------
             fluidState : dict
+                Dictionary containing the fluid state variables at each mesh node, initialized
+                according to the left and right initial conditions.
+                - Density: np.1darray
+                - Velocity: np.1darray
+                - Pressure: np.1darray
+                - StaticInternalEnergy: np.1darray
             """
             pL, pR = config.initialPressureLeft(), config.initialPressureRight()
             vL, vR = config.initialVelocityLeft(), config.initialVelocityRight()
@@ -569,7 +590,7 @@ class Driver:
                 rhoL, rhoR = config.initialDensityLeft(), config.initialDensityRight()
                 TL = fluidModel.computeTemperature_p_rho(pL, rhoL)
                 TR = fluidModel.computeTemperature_p_rho(pR, rhoR)
-            except Exception as e:
+            except Exception:
                 TL, TR = config.initialTemperatureLeft(), config.initialTemperatureRight()
                 rhoL   = fluidModel.computeDensity_p_T(pL, TL)
                 rhoR   = fluidModel.computeDensity_p_T(pR, TR)
@@ -583,7 +604,7 @@ class Driver:
                 "Density":  (rhoL, rhoR),
                 "Velocity": (vL,   vR),
                 "Pressure": (pL,   pR),
-                "Energy":   (eL,   eR),
+                'staticInternalEnergy':   (eL,   eR),
             }
 
             xInterface = deviceGeometryData["shockTubeInterfaceLoc"]
@@ -619,6 +640,12 @@ class Driver:
             Returns
             -------
             fluidState : dict
+                Dictionary containing the fluid state variables at each mesh node, initialized
+                linearly from the inlet to the outlet.
+                - Density: np.1darray
+                - Velocity: np.1darray
+                - Pressure: np.1darray
+                - StaticInternalEnergy: np.1darray
             """
             isTotalInlet = config.inletConditionsType().lower() == "total"
             isStaticInlet = config.inletConditionsType().lower() == "static"
@@ -674,7 +701,7 @@ class Driver:
                     # For transparent BCs, seed with a fraction of the inlet pressure
                     # just to get a smooth initial field; this gets overwritten later
                     # by the transparent BC call inside setBoundaryConditions().
-                    fluidState["Pressure"][iHalo] = inletConditionsValues[0] / 10
+                    fluidState["Pressure"][iHalo] = inletConditionsValues[0] / 5
 
             # Initialize static pressure linearly across the domain from the two edge values.
             fluidState["Pressure"] = np.interp(
@@ -701,20 +728,19 @@ class Driver:
                 )
 
             # If the density field contains NaNs, the outlet pressure is likely too low
-            # (e.g. because of the /10 seed for a transparent BC).  Bisect to find the
+            # (e.g. because of the /5 seed for a transparent BC).  Bisect to find the
             # lowest pressure that still gives valid density, then re-initialize.
             if np.isnan(fluidState["Density"]).any():
                 pressureBad  = fluidState["Pressure"][-1]
                 pressureGood = fluidState["Pressure"][inletIdx]
 
-                # Build a scalar density function that mirrors the happy-path dispatch,
-                # so that the bisection works for both ideal and real fluid models.
+                # Build a scalar density function necessary for bisection method.
                 if config.fluidModelType() == "real":
                     # Real fluid: density from (p, s).
                     def _densityFromPressure(p_scalar):
                         return fluidModel.computeDensity_p_s(p_scalar, inletEntropy)
                 elif config.fluidModelType() == "ideal":
-                    # Both ideal and real: isentropic relation from inlet reference state.
+                    # Ideal fluid: isentropic relation from inlet reference state.
                     rhoInlet = fluidState["Density"][inletIdx]
                     pInlet   = fluidState["Pressure"][inletIdx]
                     def _densityFromPressure(p_scalar):
@@ -728,7 +754,7 @@ class Driver:
                         "NaN density (check inlet pressure / entropy / reference state)."
                     )
 
-                for _ in range(50):  # bisection — 50 iterations is far more than enough
+                for _ in range(50):  # bisection - 50 iterations is far more than enough
                     pressureMid  = 0.5 * (pressureBad + pressureGood)
                     densityMid   = _densityFromPressure(pressureMid)
                     if np.isnan(densityMid):
@@ -751,7 +777,7 @@ class Driver:
                     [fluidState["Pressure"][0],  fluidState["Pressure"][-1]],
                 )
 
-                # Re-initialize density using the same dispatch as the happy path.
+                # compute density using similar method as that used for the bisection method.
                 if config.fluidModelType() == "real":
                     fluidState["Density"] = fluidModel.computeDensity_p_s(
                         fluidState["Pressure"], entropyField
@@ -761,7 +787,7 @@ class Driver:
                         fluidState["Pressure"][inletIdx], fluidState["Pressure"], rhoInlet
                     )
 
-            fluidState["Energy"] = fluidModel.computeInternalEnergy_p_rho(
+            fluidState['staticInternalEnergy'] = fluidModel.computeInternalEnergy_p_rho(
                 fluidState["Pressure"], fluidState["Density"]
             )
 
@@ -769,7 +795,7 @@ class Driver:
             if isStaticInlet:
                 pass # velocity already initialized, was necessary for
                      # boundary condition specification, necessary for linear init.
-            else:
+            elif isTotalInlet:
                 # Total inlet conditions: u_i = sqrt(2*(e_t - e_s)), where h_s is
                 # evaluated from the local pressure and the inlet entropy.
                 if inletConditionsVars == "ptTt":
@@ -792,7 +818,7 @@ class Driver:
                         
                 totalInternalEnergyField = np.full_like(fluidState["Pressure"], totalInternalEnergy)
                 fluidState["Velocity"] = np.sqrt(
-                    2 * (totalInternalEnergyField - fluidState["Energy"])
+                    2 * (totalInternalEnergyField - fluidState['staticInternalEnergy'])
                 )
 
             return fluidState
@@ -816,6 +842,12 @@ class Driver:
             Returns
             -------
             fluidState : dict
+                Dictionary containing the fluid state variables at each mesh node, initialized
+                uniformly from the user-specified values.
+                - Density: np.1darray
+                - Velocity: np.1darray
+                - Pressure: np.1darray
+                - StaticInternalEnergy: np.1darray
             """
             p = config.initialPressure()
             v = config.initialVelocity()
@@ -830,7 +862,7 @@ class Driver:
             e = fluidModel.computeInternalEnergy_p_rho(p, rho)
 
             for key, value in zip(
-                ("Density", "Velocity", "Pressure", "Energy"),
+                ("Density", "Velocity", "Pressure", 'staticInternalEnergy'),
                 (rho,       v,          p,           e),
             ):
                 fluidState[key][:] = value
@@ -909,6 +941,10 @@ class Driver:
         -------
         fluidState : dict
             The fluid state dict with halo nodes updated according to the BCs.
+            - Density: np.1darray
+            - Velocity: np.1darray
+            - Pressure: np.1darray
+            - StaticInternalEnergy: np.1darray
         """
         bcLeft, bcRight = [bc.lower() for bc in config.boundaryConditions()]
 
@@ -970,7 +1006,7 @@ class Driver:
     def extractRestartData(restartFilePath):
         """
         Extract restart data from a previously saved simulation step.  The output
-        pickle file produced by saveResults() doubles as the restart file.
+        pickle file produced by saveSingleIterResult() doubles as the restart file.
 
         Arguments
         ---------
@@ -994,7 +1030,7 @@ class Driver:
         timeElapsed        = restartData["time"]
         fluidStateRestart  = restartData["fluidState"]
         configRestart      = restartData["config"]
-        iterationIndex     = restartData["iterationIdx"]
+        iterationIndex     = restartData["iterIdx"]
 
         return timeElapsed, fluidStateRestart, configRestart, iterationIndex
 
@@ -1004,15 +1040,21 @@ class Driver:
     # =========================================================================
 
     @staticmethod
-    def _prepareOutputPaths(config, meshData, restartFilePath):
+    def _prepareResultsSubdirPath(config, meshData, restartFilePath):
         """
-        Prepare and return the output directory path for simulation results.
-
-        If continuing from a restart, results are written into the same directory
-        as the restart file (no new folder is created).  For a clean start, a
-        subdirectory is created under Results/; if overwrite is disabled and the
+        Prepare and return the subdirectory path for in which to store simulation results.
+        The user specifies the name of the subdirectory in the configuration file.
+        When the solve() method is executed for a clean start, a "Results" directory 
+        will automatically be created in the working directory in which the solve() 
+        method is executed, and the results of solve() will be written into a 
+        subdirectory of "Results", with the name of said subdirectory being that 
+        specified in the configuration file. If overwrite is disabled and the
         directory already exists, a counter suffix is appended until a unique name
         is found.
+
+        This method only serves to prepare the output directory path, but not yet
+        to create or overwrite existing result directories. This will be done in the 
+        solve() method.
 
         Arguments
         ---------
@@ -1025,32 +1067,29 @@ class Driver:
 
         Returns
         -------
-        resultsPath : Path
-            The (created) directory where results will be written.
+        resultsSubdirPath : Path
+            The (created) directory in which the results will be written.
         """
         if restartFilePath is not None:
             # Append new iteration files to the same folder as the restart file.
             return Path(restartFilePath).parent
 
         numNodes = meshData["numMeshNodes"] - 2  # subtract halo nodes for the label
-        baseName = f"{config.resultsDirectoryName()}_NX_{numNodes}"
-        resultsRoot = Path("Results")
-        resultsRoot.mkdir(parents=True, exist_ok=True)
-        resultsPath = resultsRoot / baseName
+        resultsSubdirName = f"{config.resultsSubdirectoryName()}_NX_{numNodes}"
+        # we impose the parent dir to be called "Results"
+        resultsSubdirPardirName = Path("Results")
+        resultsSubdirPardirName.mkdir(parents=True, exist_ok=True)
+        resultsSubdirPath = resultsSubdirPardirName / resultsSubdirName
 
-        if config.overwriteResults():
-            if resultsPath.exists() and resultsPath.is_dir():
-                shutil.rmtree(resultsPath)
-        else:
+        if not config.overwriteResults():
             counter = 1
-            candidate = resultsPath
+            candidate = resultsSubdirPath
             while candidate.exists():
-                candidate = resultsRoot / f"{baseName}_{counter}"
+                candidate = resultsSubdirPath.with_name(f"{resultsSubdirName}_{counter}")
                 counter += 1
-            resultsPath = candidate
+            resultsSubdirPath = candidate
 
-        resultsPath.mkdir(parents=True, exist_ok=True)
-        return resultsPath
+        return resultsSubdirPath
 
 
     # =========================================================================
@@ -1087,7 +1126,7 @@ class Driver:
     def _fluidStateFromConservatives(conservativeState, fluidModel):
         """
         Compute fluid state variables from the conservative state and return them as a
-        dictionary with keys 'Density', 'Velocity', 'Pressure', 'Energy'. Wrapper function
+        dictionary with keys 'Density', 'Velocity', 'Pressure', 'staticInternalEnergy'. Wrapper function
         to make pre-processing code more compact.
 
         Arguments
@@ -1105,7 +1144,7 @@ class Driver:
             conservativeState["u3"],
             fluidModel,
         )
-        return {"Density": rho, "Velocity": u, "Pressure": p, "Energy": e}
+        return {"Density": rho, "Velocity": u, "Pressure": p, 'staticInternalEnergy': e}
 
 
     # =========================================================================
@@ -1127,7 +1166,7 @@ class Driver:
 
         Returns
         -------
-        None, but writes result files to self.resultsPath at intervals specified
+        None, but writes result files to self.resultsSubdirPath at intervals specified
         by writeInterval in the configuration file.
         """
         # Unpack all instance attributes up front.
@@ -1139,7 +1178,7 @@ class Driver:
         conservativeState   = self.conservativeState
         time                = self.time
         iterationIndex      = self.iterationIndex
-        resultsPath         = self.resultsPath
+        resultsSubdirPath   = self.resultsSubdirPath
 
         # Read solver settings from config.
         entropyFixActive      = config.entropyFixActiveBool()
@@ -1161,6 +1200,20 @@ class Driver:
         else:
             limiter = None
 
+        # generate results directory according to user specifications. 
+        if config.overwriteResults():
+            # remove subdirectory with name = resultsSubdirectoryName if it 
+            # exists within the directory where the solve() method is executed, 
+            # and if it is a directory. Then instantiate a new empty directory 
+            # with the same name.
+            if resultsSubdirPath.exists() and resultsSubdirPath.is_dir():
+                shutil.rmtree(resultsSubdirPath)
+            resultsSubdirPath.mkdir(parents=True, exist_ok=True)
+        else:
+            # _prepareResultsSubdirPath() has already determined a unique name for the 
+            # results subdirectory, all that is left is to create it.
+            resultsSubdirPath.mkdir(parents=True, exist_ok=True)
+
         print()
         print("=" * 80)
         print(" " * 33 + "START SOLVER")
@@ -1179,7 +1232,9 @@ class Driver:
         # Save the initial state (iteration 0, t = 0) for a clean start; a restart
         # already has its initial file so we skip this.
         if time == 0.0:
-            saveResults(0, 0.0, meshData, fluidState, config, resultsPath)
+            saveSingleIterResult(
+                config, deviceGeometryData, meshData, fluidState, resultsSubdirPath, 0, 0.0
+            )
 
         # Keep a copy of the previous step's fluid state variables for the convergence check.
         fluidStateOld   = copy.deepcopy(fluidState)
@@ -1221,9 +1276,11 @@ class Driver:
 
             # Periodic file output.
             if iterationIndex % writeInterval == 0:
-                saveResults(
-                    iterationIndex, newTime, meshData, fluidState, config, resultsPath
+                saveSingleIterResult(
+                    config, deviceGeometryData, meshData, fluidState, resultsSubdirPath, iterationIndex, time
                 )
+
+                
 
             # Check for NaNs / Infs and abort with a diagnostic if found.
             checkSimulationStatus(fluidState, meshData, fluidModel, dt)
@@ -1244,7 +1301,7 @@ class Driver:
                     np.abs(fluidState[var] - fluidStateOld[var])
                     / (np.max(np.abs(fluidStateOld[var])) + 1e-300)
                 ) < convergenceTolerance
-                for var in ("Density", "Velocity", "Pressure", "Energy")
+                for var in ("Density", "Velocity", "Pressure", 'staticInternalEnergy')
             )
             convergenceHist = convergenceHist + [True] if converged else []
             if len(convergenceHist) >= 20:
@@ -1265,8 +1322,8 @@ class Driver:
             print("=" * 80)
 
         # Save the final state regardless of whether writeInterval aligns with it.
-        saveResults(
-            iterationIndex, time, meshData, fluidState, config, resultsPath
+        saveSingleIterResult(
+            config, deviceGeometryData, meshData, fluidState, resultsSubdirPath, iterationIndex, time
         )
 
         # Update Driver attributes so the object reflects the final simulation state.
@@ -1278,7 +1335,7 @@ class Driver:
         print(" " * 34 + "END SOLVER")
         print("=" * 80)
         print(" " * 25 + "FINAL ASSEMBLY OF THE RESULTS")
-        self.regroupSingleResults(resultsPath)
+        self.groupSingleIterResults(resultsSubdirPath)
         print(" " * 34 + "END ASSEMBLER")
         print("=" * 80)
 
@@ -1288,52 +1345,54 @@ class Driver:
 # =============================================================================
 
 
-    def regroupSingleResults(self, filepath):
+    def groupSingleIterResults(self, filepath):
         # regrouping is only necessary when the results folder contains
         # files with filename RegEx: step*. 
         # Check for this
-        files = [f for f in os.listdir(filepath) if os.path.isfile(os.path.join(filepath, f)) and 'pik' in f]
-        files = sorted(files)
-        if not any(re.match(r'step_\d+\.pik', f) for f in files):
+        iterResultFiles = [f for f in os.listdir(filepath) if os.path.isfile(os.path.join(filepath, f)) and 'pik' in f]
+        iterResultFilesSorted = sorted(iterResultFiles)
+        if not any(re.match(r'step_\d+\.pik', f) for f in iterResultFilesSorted):
             print("No files with the expected naming convention found. No regrouping necessary.")
             return
 
-        nTimes = len(files)
-        solution = {}
+        nTimes = len(iterResultFilesSorted)
+        fluidStateHistory = {}
         
         print("Regrouping all the results in a single file...")
-        for iFile in range(len(files)):
-            print(f"Reading File {iFile+1} of {len(files)}")
-            with open(filepath / files[iFile], 'rb') as file:
-                result = pickle.load(file)
+        for iFile in range(len(iterResultFilesSorted)):
+            print(f"Reading File {iFile+1} of {len(iterResultFilesSorted)}")
+            with open(filepath / iterResultFilesSorted[iFile], 'rb') as file:
+                singleIterResult = pickle.load(file)
                 
                 if iFile == 0:
-                    nNodesVirtual = result['fluidState']['Pressure'].shape[0]
-                    xNodesVirtual = result['xMeshNodes']
-                    deviceAreaAtMeshNodes = result['deviceAreaAtMeshNodes']
-                    config = result['config']
+                    numMeshNodes = singleIterResult['meshData']['numMeshNodes'] 
+                    config = singleIterResult['config']
                     
-                    timeVec = np.zeros(nTimes)
-                    solution['Density'] = np.zeros((nNodesVirtual, nTimes))
-                    solution['Velocity'] = np.zeros((nNodesVirtual, nTimes))
-                    solution['Pressure'] = np.zeros((nNodesVirtual, nTimes))
+                    timeHistory = np.zeros(nTimes)
+                    fluidStateHistory['Density'] = np.zeros((numMeshNodes, nTimes))
+                    fluidStateHistory['Velocity'] = np.zeros((numMeshNodes, nTimes))
+                    fluidStateHistory['Pressure'] = np.zeros((numMeshNodes, nTimes))
+                    fluidStateHistory['staticInternalEnergy'] = np.zeros((numMeshNodes, nTimes))
                 
-                timeVec[iFile] = result['time']
-                solution['Density'][:, iFile] = result['fluidState']['Density']
-                solution['Velocity'][:, iFile] = result['fluidState']['Velocity']
-                solution['Pressure'][:, iFile] = result['fluidState']['Pressure']
+                timeHistory[iFile] = singleIterResult['time']
+                fluidStateHistory['Density'][:, iFile] = singleIterResult['fluidState']['Density']
+                fluidStateHistory['Velocity'][:, iFile] = singleIterResult['fluidState']['Velocity']
+                fluidStateHistory['Pressure'][:, iFile] = singleIterResult['fluidState']['Pressure']
+                fluidStateHistory['staticInternalEnergy'][:, iFile] = singleIterResult['fluidState']['staticInternalEnergy']
         
-        globalOutput = {'xMeshNodes': xNodesVirtual, 
-                        'deviceAreaAtMeshNodes': deviceAreaAtMeshNodes,
-                        'Time': timeVec, 
-                        'fluidState': solution, 
-                        'config': config}
+        groupedIterResults = {
+            "config": config,
+            "deviceGeometryData": singleIterResult['deviceGeometryData'],
+            "meshData": singleIterResult['meshData'],
+            "fluidStateHistory": fluidStateHistory,
+            "timeHistory": timeHistory
+            }
         
         print("Replacing all individual files with a single pickle (this could take a while) ...")
         shutil.rmtree(filepath)
         os.makedirs(filepath, exist_ok=True)
         with open(filepath / 'Results.pik', 'wb') as file:
-            pickle.dump(globalOutput, file)
+            pickle.dump(groupedIterResults, file)
         print(f"Regrouped all the times in a single file: {filepath / 'Results.pik'}")
 
         
@@ -1367,7 +1426,7 @@ def _applyReflectiveBC(location, fluidState):
     fluidState["Density"][iHalo]  = fluidState["Density"][iInternal]
     fluidState["Velocity"][iHalo] = -fluidState["Velocity"][iInternal]   # sign flip
     fluidState["Pressure"][iHalo] = fluidState["Pressure"][iInternal]
-    fluidState["Energy"][iHalo]   = fluidState["Energy"][iInternal]
+    fluidState['staticInternalEnergy'][iHalo]   = fluidState['staticInternalEnergy'][iInternal]
     return fluidState
 
 
@@ -1392,7 +1451,7 @@ def _applyTransparentBC(location, fluidState):
     fluidState : dict
     """
     iHalo, iInternal = (0, 1) if location == "left" else (-1, -2)
-    for key in ("Density", "Velocity", "Pressure", "Energy"):
+    for key in ("Density", "Velocity", "Pressure", 'staticInternalEnergy'):
         fluidState[key][iHalo] = fluidState[key][iInternal]
     return fluidState
 
@@ -1422,7 +1481,7 @@ def _applyPeriodicBC(location, fluidState):
         iHalo, iOpposite = 0, -2   # halo ← last physical node
     else:
         iHalo, iOpposite = -1, 1   # halo ← first physical node
-    for key in ("Density", "Velocity", "Pressure", "Energy"):
+    for key in ("Density", "Velocity", "Pressure", 'staticInternalEnergy'):
         fluidState[key][iHalo] = fluidState[key][iOpposite]
     return fluidState
 
@@ -1514,7 +1573,7 @@ def _applyInletBC(iHalo, iInternal, fluidModel, fluidState,
     fluidState["Density"][iHalo]  = density
     fluidState["Velocity"][iHalo] = velocity
     fluidState["Pressure"][iHalo] = pressure
-    fluidState["Energy"][iHalo]   = energy
+    fluidState['staticInternalEnergy'][iHalo]   = energy
 
     return fluidState
 
@@ -1566,7 +1625,7 @@ def _applyOutletBC(location, iHalo, iInternal, config, fluidModel, fluidState):
         fluidState["Density"][iHalo]  = density
         fluidState["Velocity"][iHalo] = velocity
         fluidState["Pressure"][iHalo] = pressure
-        fluidState["Energy"][iHalo]   = energy
+        fluidState['staticInternalEnergy'][iHalo]   = energy
     else:
         # Supersonic: transparent (all characteristics point into the domain).
         fluidState = _applyTransparentBC(location, fluidState)
@@ -1999,7 +2058,7 @@ def updateSolution(conservativeState, fluidState, residuals, fluidModel):
     fluidState["Density"][1:-1]  = rho
     fluidState["Velocity"][1:-1] = u
     fluidState["Pressure"][1:-1] = p
-    fluidState["Energy"][1:-1]   = e
+    fluidState['staticInternalEnergy'][1:-1]   = e
 
     return conservativeState, fluidState
 
@@ -2057,7 +2116,7 @@ def computeSourceTerms(config, deviceGeometryData, meshData, fluidModel, fluidSt
     rho   = fluidState["Density"]
     u     = fluidState["Velocity"]
     p     = fluidState["Pressure"]
-    e     = fluidState["Energy"]
+    e     = fluidState['staticInternalEnergy']
     area  = meshData["deviceAreaAtMeshNodes"]
     dAdx  = meshData["dAreaDx"]
 
@@ -2202,9 +2261,9 @@ def _printInfoResiduals(iterationIndex, time, timeMax, residuals):
     )
 
 
-def saveResults(iterationIndex, time, meshData, fluidState, config, resultsPath):
+def saveSingleIterResult(config, deviceGeometryData, meshData, fluidState, resultsSubdirPath, iterationIndex, time):
     """
-    Serialize the current simulation state to a pickle file in resultsPath.
+    Serialize the simulation state of single iteration to a pickle file in resultsDirPath.
 
     The file contains enough information both for post-processing and for
     restarting the simulation from this point.  The filename encodes the
@@ -2212,29 +2271,37 @@ def saveResults(iterationIndex, time, meshData, fluidState, config, resultsPath)
 
     Arguments
     ---------
-    iterationIndex : int
-    time : float
-        Physical time elapsed at this step.
-    meshData : dict
-    fluidState : dict
     config : Config
-    resultsPath : Path
+        Configuration object containing user-specified simulation parameters.
+    deviceGeometryData : dict
+        Device geometry data dictionary.
+    meshData : dict
+        Mesh data dictionary.
+    fluidState : dict
+        Fluid state data dictionary.
+    resultsSubdirPath : pathlib.Path
+        Path to the subdirectory where results should be saved.
+    iterationIndex : int
+        The iteration index for the current simulation step.
+    time : float
+        The physical time at the end of the current simulation step.
 
     Returns
     -------
     None.
     """
     filename = "step_%06i.pik" % iterationIndex
-    fullPath = resultsPath / filename
+    fullPath = resultsSubdirPath / filename
 
-    outputResults = {
-        "time":                    time,
-        "iterationIdx":            iterationIndex,
-        "xMeshNodes":              meshData["xMeshNodes"],
-        "deviceAreaAtMeshNodes":   meshData["deviceAreaAtMeshNodes"],
-        "fluidState":              fluidState,
+    singleIterResults = {
         "config":                  config,
+        "deviceGeometryData":      deviceGeometryData,
+        "meshData":                meshData,
+        "fluidState":              fluidState,
+        "iterIdx":                 iterationIndex,
+        "time":                    time,
+
     }
 
     with open(fullPath, "wb") as fh:
-        pickle.dump(outputResults, fh)
+        pickle.dump(singleIterResults, fh)

@@ -2,7 +2,6 @@ import numpy as np
 from scipy.optimize import brentq
 from functools import lru_cache
 from .grids import Grids
-import traceback
 import json
 
 

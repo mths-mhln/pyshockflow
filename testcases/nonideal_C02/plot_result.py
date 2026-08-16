@@ -1,8 +1,6 @@
 import matplotlib.pyplot as plt
 import numpy as np
 import pickle
-from pyshockflow import RiemannProblem
-from pyshockflow import Driver
 from pyshockflow.plot_styles import *
 import os
 from mpl_toolkits.axes_grid1.inset_locator import inset_axes, mark_inset

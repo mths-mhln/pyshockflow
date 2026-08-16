@@ -475,7 +475,7 @@ for prop_name in properties:
     prop_vals[prop_name]["vals"] = prop_vals[prop_name]["vals"][~np.isnan(prop_vals[prop_name]["vals"])]
 
 # store prop vals
-with open(f"../../data/test_fluid/CM92_CoolProp_mixture_thdy_properties.pkl", "wb") as f:
+with open("../../data/test_fluid/CM92_CoolProp_mixture_thdy_properties.pkl", "wb") as f:
     pickle.dump(prop_vals, f)
 
 
