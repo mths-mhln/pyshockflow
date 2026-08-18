@@ -7,7 +7,7 @@ Plotting the nozzle physical and virtual geometry incl. area distribution in ord
 """
 
 
-configFile = "inputs/config_files/CM-10.2/test_conf.ini"
+configFile = "inputs/config_files/lettieri/L1.ini"
 config = Config(configFilePath=configFile)
 fig = expansion_device_geometry_plot(config=config)
 plt.show()

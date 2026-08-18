@@ -9,26 +9,37 @@ from pyshockflow.post_processing import HiddenPrints
 from pyshockflow import Driver, Config
 
 
+# files whose data to extract:
+configFiles = [
+    "inputs/config_files/lettieri/L1_smooth.ini",
+    "inputs/config_files/lettieri/L1_friction.ini"
+]
 
-# Extract outputpath from config file
-config = Config(configFilePath = "inputs/config_files/CM-10.2/test_conf.ini")
-with HiddenPrints():
-    driver = Driver(config = config)
-output_path = driver.resultsSubdirPath
+# instantiate results path list
+resultPicklePaths = []
 
-# Extract all pickle files stored in that output path
-pickleList = sorted(Path(f"{output_path}").glob("*.pik"))
+# extract their data
+for configFile in configFiles:
+    # Extract outputpath from config file
+    config = Config(configFilePath = configFile)
+    with HiddenPrints():
+        driver = Driver(config = config)
+    output_path = driver.resultsSubdirPath
+
+    # Extract all pickle files stored in that output path
+    pickleList = sorted(Path(f"{output_path}").glob("*.pik"))
+    resultPicklePaths.append(pickleList[-1])
 
 
 # Specify output variables of interest. Currently supported variables are:
 # ["Density", "Pressure", "Velocity", "Mach", "Entropy", "Temperature"] 
 outputVars = ["Pressure", "Mach"]  
-fig = plot_results([pickleList[-1]], outputVars, showNozzleGeometry=True)
+fig = plot_results([resultPicklePaths[-1]], outputVars, showNozzleGeometry=True)
 plt.show()
 
 
 # plot expansion path on top of thermoplot
-fig = thermoplot_expansion_plot("inputs/thermoplot/thermoplot.ini", pickleList[-1], driver.config)
+fig = thermoplot_expansion_plot("inputs/thermoplot/CO2.ini", resultPicklePaths, driver.config)
 plt.show()
 
 
@@ -42,8 +53,11 @@ for verification_case in verification_cases:
         "meshData": {"xMeshNodes": df.iloc[1:, 0].values},
         "(final)fluidState": {"Pressure": df.iloc[1:, 1].values}
         }
-    # extract the simulation data
-    simulation_data = unpack_simulation_results(pickleList[-1])
+    # extract the legend keys from the filenames
+    simulation_data = {}
+    for i, resultPicklePath in enumerate(resultPicklePaths):
+        legend_key = Path(resultPicklePath).parent.name.split(".")[0]
+        simulation_data[legend_key] = unpack_simulation_results(resultPicklePath)
     comparison_results = perform_v_and_v(verification_data = v_and_v_data, simulation_data = simulation_data, show_plots = True)
 
     
