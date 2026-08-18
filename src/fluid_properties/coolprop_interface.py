@@ -460,7 +460,8 @@ class CoolPropAbstractState_v2():
                 "Cpmass": "cpmass",
                 "Cvmass": "cvmass",
                 "d(P)/d(D)|T": "drhomassdPcT",
-                "Phase": "phase"
+                "Phase": "phase",
+                "V": "viscosity"
             }
             AS.update(CP.SmassT_INPUTS, S, Tcrit)
             prop_crit = getattr(AS, translator[prop_str_AS])()
@@ -530,7 +531,8 @@ class CoolPropAbstractState_v2():
                 "Cpmass": "cpmass",
                 "Cvmass": "cvmass",
                 "d(P)/d(D)|T": "drhomassdPcT",
-                "Phase": "phase"
+                "Phase": "phase",
+                "V": "viscosity"
             }
             return self._update_and_get(AS, input_spec, x_str_AS, x, y_str_AS, y, translator[prop_AS], reorder, verbose)
 

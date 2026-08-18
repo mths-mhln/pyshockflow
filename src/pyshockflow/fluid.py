@@ -1,7 +1,9 @@
+import sys
 
 import numpy as np
 import fluid_properties.fluid_properties as FP
 from functools import partial
+from scipy.optimize import fsolve
 
 class FluidIdeal():
     """
@@ -215,14 +217,15 @@ class FluidReal():
         return Q
 
 
-
     def computeSoundSpeed_p_rho(self, p: float | np.ndarray, rho: float | np.ndarray) -> float | np.ndarray:
         # Ensure inputs are numpy arrays
         p = np.asarray(p, dtype=float)
         rho = np.asarray(rho, dtype=float)
         p, rho = np.broadcast_arrays(p, rho)
-        
-        # Vectorize the core function, passing self.fluid
+
+        # function vectorized separately to allow for both single 
+        # values and arrays and for both to still pass the phase 
+        # check. Vectorize the core function, passing self.fluid
         vectorized_func = np.vectorize(
             partial(self._computeSoundSpeed_p_rho_single, fluid=self.fluid),
             otypes=[float]
@@ -344,15 +347,54 @@ class FluidReal():
         return gamma_pT
 
     def computeDynamicViscosity_p_rho(self, p, rho):
-        y_V = FP.PropsSI("Q", "P", p, "D", rho, self.fluid)
-        rho_V = self.fluid.PropsSI("D", "P", p, "Q", 1, self.fluid)
-        alpha_V = y_V * rho / rho_V
-        mu_V = FP.PropsSI("V", "P", p, "Q", 1, self.fluid)
-        mu_L = self.fluid.PropsSI("V", "P", p, "Q", 0, self.fluid)
-        mu_2phase = alpha_V * mu_V + (1-alpha_V) * (1+2.5*alpha_V) * mu_L
-        return mu_2phase
+        # ensure inputs are numpy arrays
+        p = np.asarray(p, dtype=float)
+        rho = np.asarray(rho, dtype=float)
+        p, rho = np.broadcast_arrays(p, rho)
 
+        # function vectorized separately to allow for both single values and arrays 
+        # and for both to still pass the phase check.
+        # Vectorize the core function, passing self.fluid
+        vectorized_func = np.vectorize(
+            partial(self._computeDynamicViscosity_p_rho_single, fluid=self.fluid),
+            otypes=[float]
+        )
+        return vectorized_func(p, rho)
 
+    @staticmethod
+    def _computeDynamicViscosity_p_rho_single(p: float, rho: float, fluid: str) -> float:
+        # check if the state is two phase
+        # readers can find interpretation of the phase number in the CoolProp documentation:
+        # https://coolprop.org/_static/doxygen/html/namespace_cool_prop.html#aa1ce7c368d1058004293708038241850a648039a97f7392876038eaf56cf91e95
+        # under section "phases"
+        phase = FP.PropsSI("Phase", "P", p, "D", rho, fluid)
+
+        # if phase == 6, fluid is in two-phase region.
+        two_phase = False
+        if phase == 6:
+            two_phase = True
+
+        def _computeDynamicViscosity_p_rho_single_phase(p: float, rho: float) -> float:
+            mu = FP.PropsSI("V", "P", p, "D", rho, fluid)
+            return mu
+
+        def _computeDynamicViscosity_p_rho_two_phase(p: float, rho: float) -> float:
+            y_V = FP.PropsSI("Q", "P", p, "D", rho, fluid)
+            rho_V = FP.PropsSI("D", "P", p, "Q", 1, fluid)
+            alpha_V = y_V * rho / rho_V
+            mu_V = FP.PropsSI("V", "P", p, "Q", 1, fluid)
+            mu_L = FP.PropsSI("V", "P", p, "Q", 0, fluid)
+            mu_2phase = alpha_V * mu_V + (1-alpha_V) * (1+2.5*alpha_V) * mu_L
+            return mu_2phase
+
+        if not two_phase:
+            mu = _computeDynamicViscosity_p_rho_single_phase(p, rho)
+            return mu
+        else:
+            mu = _computeDynamicViscosity_p_rho_two_phase(p, rho)
+            return mu
+
+        
 
     def computeMach_pt_p_gammapv(self, pt, p, gamma_pv):
         """Reference to equation 8.10 Nederstigt MS thesis"""

@@ -1,3 +1,12 @@
+# To the person extending this code. Please spend time making the 
+# code readable, maintainable, documented, modular, and self-explanatory. 
+# the fact that you are here for results does not mean you should deliver 
+# quick and dirty code. This will significantly impede future development. 
+# a little extra time spent on these things goes so much further than most
+# think. I tried my best refactoring what I was given, and writing my own 
+# code to these standards, I hope you do the same. 
+
+
 import os
 import re
 import pickle
@@ -236,7 +245,6 @@ class Driver:
         elif nozzleDataFrame.columns[1] == "A":
             deviceGeometryData["deviceArea"] = nozzleData[:, 1]
             deviceGeometryData["deviceY"] = np.sqrt(deviceGeometryData["deviceArea"] / np.pi)
-        
         # According to the shock tube input data format requirements, the second data row
         # (disregarding the header) contains the interface location.
         if config.expansionDeviceType() == "shocktube":
@@ -416,6 +424,9 @@ class Driver:
 
         # Save physical positions of mesh nodes in the meshData dictionary.
         meshData["xMeshNodes"] = xMeshNodes
+
+        # interpolate y coordinate at mesh nodes
+        meshData["yMeshNodes"] = np.interp(xMeshNodes, deviceGeometryData["deviceX"], deviceGeometryData["deviceY"])
 
         # Total number of mesh nodes (physical + 2 halo nodes).
         meshData["numMeshNodes"] = len(xMeshNodes)
@@ -701,7 +712,7 @@ class Driver:
                     # For transparent BCs, seed with a fraction of the inlet pressure
                     # just to get a smooth initial field; this gets overwritten later
                     # by the transparent BC call inside setBoundaryConditions().
-                    fluidState["Pressure"][iHalo] = inletConditionsValues[0] / 5
+                    fluidState["Pressure"][iHalo] = inletConditionsValues[0] / 10
 
             # Initialize static pressure linearly across the domain from the two edge values.
             fluidState["Pressure"] = np.interp(
@@ -728,7 +739,7 @@ class Driver:
                 )
 
             # If the density field contains NaNs, the outlet pressure is likely too low
-            # (e.g. because of the /5 seed for a transparent BC).  Bisect to find the
+            # (e.g. because of the /10 seed for a transparent BC).  Bisect to find the
             # lowest pressure that still gives valid density, then re-initialize.
             if np.isnan(fluidState["Density"]).any():
                 pressureBad  = fluidState["Pressure"][-1]
@@ -893,7 +904,7 @@ class Driver:
                 ("inlet", "transparent"),
                 ("transparent", "inlet"),
             ]
-            if tuple(bcs) in linearBCPairs:
+            if tuple(bcs) in linearBCPairs and not config.enforceUniformInitNozzleBool():
                 fluidState = _imposeInitialConditionsNozzleLinear(
                     config, meshData, fluidModel, fluidState
                 )
@@ -1533,7 +1544,7 @@ def _applyInletBC(iHalo, iInternal, fluidModel, fluidState,
         # Guard against the static pressure being at or above total pressure,
         # which would break the isentropic relation inside the fluid model.
         if pressure >= totalPressure:
-            pressure = 0.9999 * totalPressure
+            pressure = 0.9999*totalPressure
 
         if inletConditionsVars == "ptTt":
             totalTemperature = inletConditionsValues[1]
@@ -1740,7 +1751,7 @@ def computeResiduals(config, deviceGeometryData, meshData, fluidState,
 
     # Compute quasi-1D source terms for nozzle geometries; zero for constant area.
     if expansionDeviceType == "nozzle":
-        source = computeSourceTerms(config, deviceGeometryData, meshData, fluidModel, fluidState)
+        source = computeSourceTerms(config, meshData, fluidModel, fluidState)
     else:
         source = np.zeros((numMeshNodes, 3))
 
@@ -2069,7 +2080,7 @@ def updateSolution(conservativeState, fluidState, residuals, fluidModel):
 #  Source terms
 # -----------------------------------------------------------------------------
 
-def computeSourceTerms(config, deviceGeometryData, meshData, fluidModel, fluidState):
+def computeSourceTerms(config, meshData, fluidModel, fluidState):
     """
     Compute quasi-1D source terms due to cross-sectional area variation along
     the nozzle.  The formulation is taken from Vimercati & Guardone, "On the
@@ -2098,8 +2109,6 @@ def computeSourceTerms(config, deviceGeometryData, meshData, fluidModel, fluidSt
     ---------
     config : Config
         Configuration object containing simulation parameters.
-    deviceGeometryData : dict
-        Device geometry data dictionary, providing localDiameter.
     meshData : dict
         Mesh data dictionary, providing deviceAreaAtMeshNodes and dAreaDx.
     fluidModel : FluidIdeal or FluidReal
@@ -2140,9 +2149,9 @@ def computeSourceTerms(config, deviceGeometryData, meshData, fluidModel, fluidSt
         elif config.fluidModelType() == "real":
             mu_2phase = fluidModel.computeDynamicViscosity_p_rho(p, rho)    
             mu = mu_2phase   
-        Re_2phase = rho * np.abs(u) * (2*deviceGeometryData["deviceY"]) / mu
+        Re_2phase = rho * np.abs(u) * (2*meshData["yMeshNodes"]) / mu
         f = (-1.81 * np.log10(6.9/Re_2phase))**-2  # Darcy-Weisbach friction factor
-        D = 2*deviceGeometryData["deviceY"]
+        D = 2*meshData["yMeshNodes"]
         P_w = np.pi * D
         source[:, 1] -= 0.125 * f * rho * u**2 * P_w
 
@@ -2299,8 +2308,7 @@ def saveSingleIterResult(config, deviceGeometryData, meshData, fluidState, resul
         "meshData":                meshData,
         "fluidState":              fluidState,
         "iterIdx":                 iterationIndex,
-        "time":                    time,
-
+        "time":                    time
     }
 
     with open(fullPath, "wb") as fh:

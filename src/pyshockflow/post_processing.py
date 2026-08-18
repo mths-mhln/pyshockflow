@@ -318,38 +318,76 @@ def plot_results(pickleFilePathsList: list[type[WindowsPath]], fluidStateVars: l
     return fig
 
 
-def thermoplot_expansion_plot(thermoplotConfigFilePath: str, pickleFilePath: type[WindowsPath], config: type[Config] = None) -> type[plt.Figure]:
-    # get expansion data
-    unpackedSimulationResults = unpack_simulation_results(pickleFilePath)
+def thermoplot_expansion_plot(
+    thermoplotConfigFilePath: str,
+    pickleFilePaths: list[type[WindowsPath]],
+    config: type[Config] = None,
+    labels: list[str] = None
+) -> type[plt.Figure]:
+    """
+    Plot expansion paths from multiple simulation results on a single thermoplot.
 
-    # compute fluid entropy and temperature variations throughout the device geometry 
-    # from the (final) fluid state arrays. We need methods available from the fluid model
-    # for this, which are most easily available through instantiating the driver object. 
-    with pyshockflow.post_processing.HiddenPrints():
-        driver = Driver(config = unpackedSimulationResults["config"])
-    entropy = driver.fluidModel.computeEntropy_p_rho(
-        unpackedSimulationResults["(final)fluidState"]['Pressure'][1:-1],
-        unpackedSimulationResults["(final)fluidState"]['Density'][1:-1]
-    )
-    temperature = driver.fluidModel.computeTemperature_p_rho(
-        unpackedSimulationResults["(final)fluidState"]['Pressure'][1:-1],
-        unpackedSimulationResults["(final)fluidState"]['Density'][1:-1]
-    )
+    Args:
+        thermoplotConfigFilePath: Path to the thermoplot configuration file.
+        pickleFilePaths:          List of paths to pickle files containing simulation results.
+        config:                   Optional Config object to extract fluid name from.
+        labels:                   Optional list of labels for each expansion path.
+                                  Defaults to 'Expansion Path 1', 'Expansion Path 2', etc.
+    """
+    if labels is None:
+        labels = [f"Expansion Path {i + 1}" for i in range(len(pickleFilePaths))]
 
-    # adapt thermoplot limits to center around the expansion path
-    thermoplot_overwrite_settings = {}
-    thermoplot_overwrite_settings["S_range"] = [entropy.min()*0.80, entropy.max()*1.2]
-    thermoplot_overwrite_settings["T_range"] = [temperature.min()*0.80, temperature.max()*1.2]
-    # get fluid name from config file
+    if len(labels) != len(pickleFilePaths):
+        raise ValueError("Length of 'labels' must match length of 'pickleFilePaths'.")
+
+    # collect entropy and temperature arrays across all pickle files,
+    # tracking global min/max to set thermoplot axis limits
+    all_entropy = []
+    all_temperature = []
+
+    for pickleFilePath in pickleFilePaths:
+        unpackedSimulationResults = unpack_simulation_results(pickleFilePath)
+
+        with pyshockflow.post_processing.HiddenPrints():
+            driver = Driver(config=unpackedSimulationResults["config"])
+
+        entropy = driver.fluidModel.computeEntropy_p_rho(
+            unpackedSimulationResults["(final)fluidState"]['Pressure'][1:-1],
+            unpackedSimulationResults["(final)fluidState"]['Density'][1:-1]
+        )
+        temperature = driver.fluidModel.computeTemperature_p_rho(
+            unpackedSimulationResults["(final)fluidState"]['Pressure'][1:-1],
+            unpackedSimulationResults["(final)fluidState"]['Density'][1:-1]
+        )
+
+        all_entropy.append(entropy)
+        all_temperature.append(temperature)
+
+    # adapt thermoplot limits to span all expansion paths with margin
+    global_entropy_min = min(s.min() for s in all_entropy)
+    global_entropy_max = max(s.max() for s in all_entropy)
+    global_temp_min    = min(t.min() for t in all_temperature)
+    global_temp_max    = max(t.max() for t in all_temperature)
+
+    thermoplot_overwrite_settings = {
+        "S_range": [global_entropy_min * 0.80, global_entropy_max * 1.2],
+        "T_range": [global_temp_min    * 0.80, global_temp_max    * 1.2],
+    }
     if config is not None:
         thermoplot_overwrite_settings["fluid_name"] = config.fluidName()
 
     # get plot background
     fig = thermoplot_cached(thermoplotConfigFilePath, thermoplot_overwrite_settings=thermoplot_overwrite_settings)
-
-    # get plot axes from fig and plot expansion path on top of thermoplot
     ax = fig.get_axes()[0]
-    ax.plot(entropy, temperature, color='red', marker='o', markersize=2, label='Expansion Path')
+
+    # plot each expansion path with a distinct colour
+    color_cycle = plt.rcParams["axes.prop_cycle"].by_key()["color"]
+
+    for i, (entropy, temperature, label) in enumerate(zip(all_entropy, all_temperature, labels)):
+        color = color_cycle[i % len(color_cycle)]
+        ax.plot(entropy, temperature, color=color, marker='o', markersize=2, label=label)
+
+    ax.legend()
 
     return fig
 
@@ -405,21 +443,31 @@ def perform_v_and_v(verification_data: dict = None, validation_data: dict = None
         A dictionary containing the validation data, complying to the 
         unpack_simulation_results function output data format.
     simulation_data : dict
-        A dictionary containing the simulation data, complying to the 
-        unpack_simulation_results function output data format.
+        Either a single simulation data dictionary complying to the 
+        unpack_simulation_results function output data format, or a dict of 
+        such dicts where the top-level keys are used as legend labels, e.g.:
+            {
+                "Simulation A": unpack_simulation_results(...),
+                "Simulation B": unpack_simulation_results(...),
+            }
 
     Returns
     -------
     comparison_metrics : dict
-        A dictionary containing the comparison metrics with keys as variable 
-        names and values as dictionaries containing 'error' and 'relative_error'.
+        A dictionary containing the comparison metrics. If multiple simulation 
+        datasets are provided, the top-level keys are the simulation labels and 
+        the values are the per-variable metric dicts. For a single simulation, 
+        the structure is the same as before.
     """
-    # instantiate comparison metrics dict and v_and_v_data dict. 
-    comparison_metrics = {}
-    v_and_v_data = {}
+    # --- normalise simulation_data to a labelled dict ---
+    # detect a "bare" simulation dict by checking for expected top-level keys
+    _bare_keys = {"meshData", "(final)fluidState", "config"}
+    if any(k in simulation_data for k in _bare_keys):
+        simulation_datasets = {"Simulation Data": simulation_data}
+    else:
+        simulation_datasets = simulation_data
 
-    # user can specify verification or validation data. 
-    # extract unique fluid statevariables from the available data
+    # --- resolve v_and_v reference data ---
     if verification_data is not None:
         v_and_v_variables = list(verification_data["(final)fluidState"].keys())
         v_and_v_data = verification_data
@@ -429,85 +477,244 @@ def perform_v_and_v(verification_data: dict = None, validation_data: dict = None
     else:
         raise ValueError("Either verification_data or validation_data must be provided")
 
-    # interpolate simulation data to v_and_v_data x-coordinates if they are not already aligned
-    simulation_interpolated = {}
-    if not np.array_equal(v_and_v_data["meshData"]["xMeshNodes"], simulation_data["meshData"]["xMeshNodes"]):
-        for var in v_and_v_variables:
-            if var in simulation_data["(final)fluidState"]:
-                # Interpolate simulation data to v_and_v_data x-coordinates
-                sim_interpolant = interp1d(
-                    simulation_data["meshData"]["xMeshNodes"], simulation_data["(final)fluidState"][var], 
-                    kind='linear', fill_value='extrapolate')
-                simulation_interpolated[var] = sim_interpolant(v_and_v_data["meshData"]["xMeshNodes"])
+    # --- interpolate and compute metrics for each simulation dataset ---
+    comparison_metrics = {}
 
-    # Extract absolute and relative errors for each variable in v_and_v_data at the shared x-coordinates    
-    for var in v_and_v_variables:
-        if var in simulation_data["(final)fluidState"]:
-            abs_error = simulation_interpolated[var] - v_and_v_data["(final)fluidState"][var]
-            relative_error = np.abs(abs_error) / np.abs(v_and_v_data["(final)fluidState"][var])
-            comparison_metrics[var] = {
-                'absolute_error': abs_error,
-                'relative_error': relative_error
-            }
-    print(comparison_metrics)
-    if len(comparison_metrics) != len(v_and_v_variables):
-        missing_keys = set(v_and_v_variables) - set(comparison_metrics.keys())
-        raise ValueError(f"Missing keys in simulation data due to different naming than simulation" \
-                          f" data dict keys: {missing_keys}")
-    
-    # set up rich table for printing the comparison results to terminal
+    for sim_label, sim_data in simulation_datasets.items():
+        sim_metrics = {}
+        simulation_interpolated = {}
+
+        if not np.array_equal(v_and_v_data["meshData"]["xMeshNodes"], sim_data["meshData"]["xMeshNodes"]):
+            for var in v_and_v_variables:
+                if var in sim_data["(final)fluidState"]:
+                    sim_interpolant = interp1d(
+                        sim_data["meshData"]["xMeshNodes"], sim_data["(final)fluidState"][var],
+                        kind='linear', fill_value='extrapolate'
+                    )
+                    simulation_interpolated[var] = sim_interpolant(v_and_v_data["meshData"]["xMeshNodes"])
+        else:
+            for var in v_and_v_variables:
+                if var in sim_data["(final)fluidState"]:
+                    simulation_interpolated[var] = sim_data["(final)fluidState"][var]
+
+        for var in v_and_v_variables:
+            if var in sim_data["(final)fluidState"]:
+                abs_error = simulation_interpolated[var] - v_and_v_data["(final)fluidState"][var]
+                relative_error = np.abs(abs_error) / np.abs(v_and_v_data["(final)fluidState"][var])
+                sim_metrics[var] = {
+                    'absolute_error': abs_error,
+                    'relative_error': relative_error
+                }
+
+        if len(sim_metrics) != len(v_and_v_variables):
+            missing_keys = set(v_and_v_variables) - set(sim_metrics.keys())
+            raise ValueError(
+                f"[{sim_label}] Missing keys in simulation data due to different naming than "
+                f"simulation data dict keys: {missing_keys}"
+            )
+
+        comparison_metrics[sim_label] = sim_metrics
+
+    # --- rich table: one row per (simulation, variable) pair ---
     table = Table(title="Verification and Validation")
-    table.add_column("Variable", justify="left", style="cyan", no_wrap=True)
+    table.add_column("Simulation",         justify="left",  style="blue",    no_wrap=True)
+    table.add_column("Variable",           justify="left",  style="cyan",    no_wrap=True)
     table.add_column("Max Absolute Error", justify="right", style="magenta")
     table.add_column("Max Relative Error", justify="right", style="green")
-    # populate the rich table with the comparison results, displaying only the maximum absolute and relative errors for each variable
-    for key, value in comparison_metrics.items():
-        absolute_error_str = f"{value['absolute_error']:.6e}" if np.isscalar(value['absolute_error']) else f"{np.max(value['absolute_error']):.6e}"
-        relative_error_str = f"{value['relative_error']:.6e}" if np.isscalar(value['relative_error']) else f"{np.max(value['relative_error']):.6e}"
-        table.add_row(key, absolute_error_str, relative_error_str)
-    # display the rich table in the terminal
+
+    for sim_label, sim_metrics in comparison_metrics.items():
+        for key, value in sim_metrics.items():
+            absolute_error_str = (
+                f"{value['absolute_error']:.6e}" if np.isscalar(value['absolute_error'])
+                else f"{np.max(value['absolute_error']):.6e}"
+            )
+            relative_error_str = (
+                f"{value['relative_error']:.6e}" if np.isscalar(value['relative_error'])
+                else f"{np.max(value['relative_error']):.6e}"
+            )
+            table.add_row(sim_label, key, absolute_error_str, relative_error_str)
+
     console = Console()
     console.print(table)
-    
-    # Plot the comparison results for each variable
+
+    # --- plots: one figure per variable, all simulations overlaid ---
     if show_plots:
-        # extract nozzle geometry
-        xMeshNodes = simulation_data["meshData"]["xMeshNodes"]
-        deviceAreaAtMeshNodes = simulation_data["meshData"]["deviceAreaAtMeshNodes"]
-        
-        # instantiate max_y necessary for rescaling the nozzle geometry to the y range of the variable of interest
-        max_y = 0
-        
-        # plot variable progression for each variable in v_and_v_data
+        # use the first simulation dataset for nozzle geometry
+        first_sim_data = next(iter(simulation_datasets.values()))
+        xMeshNodes         = first_sim_data["meshData"]["xMeshNodes"]
+        deviceAreaAtMeshNodes = first_sim_data["meshData"]["deviceAreaAtMeshNodes"]
+
+        colors = (
+            plt.cm.tab10.colors if len(simulation_datasets) <= 10
+            else [plt.cm.tab20(i / len(simulation_datasets)) for i in range(len(simulation_datasets))]
+        )
+
         for var in v_and_v_variables:
-            if var in simulation_data["(final)fluidState"]:
-                max_y = max(
-                    max_y, np.max(np.abs(simulation_data["(final)fluidState"][var])), 
-                    np.max(np.abs(v_and_v_data["(final)fluidState"][var]))
-                    )                
-                plt.figure(figsize=(10, 5))
-                plt.plot(
-                    v_and_v_data["meshData"]["xMeshNodes"], v_and_v_data["(final)fluidState"][var],
-                    label='Verification/Validation Data', marker='o'
+            max_y = max(
+                np.max(np.abs(v_and_v_data["(final)fluidState"][var])),
+                *(np.max(np.abs(sim_data["(final)fluidState"][var]))
+                  for sim_data in simulation_datasets.values()
+                  if var in sim_data["(final)fluidState"])
+            )
+
+            plt.figure(figsize=(10, 5))
+
+            # reference data
+            plt.plot(
+                v_and_v_data["meshData"]["xMeshNodes"][1:-1],
+                v_and_v_data["(final)fluidState"][var][1:-1],
+                label='Verification/Validation Data', marker='o', color='black'
+            )
+
+            # one line per simulation dataset
+            for (sim_label, sim_data), color in zip(simulation_datasets.items(), colors):
+                if var in sim_data["(final)fluidState"]:
+                    plt.plot(
+                        sim_data["meshData"]["xMeshNodes"][1:-1],
+                        sim_data["(final)fluidState"][var][1:-1],
+                        label=sim_label, marker='x', color=color
                     )
-                plt.plot(
-                    simulation_data["meshData"]["xMeshNodes"], simulation_data["(final)fluidState"][var], 
-                    label='Simulation Data', marker='x'
-                    )
-                # plot nozzle scaled to y range
-                y_interval = [0, 1.2*max_y]
-                plt.plot(
-                    xMeshNodes, deviceAreaAtMeshNodes*y_interval[1]*0.3/max(deviceAreaAtMeshNodes), 
-                    label='Nozzle Geometry', color='gray', alpha=0.5, zorder=-1
-                    )
-                plt.title(f'Comparison of {var}')
-                plt.xlabel("xMeshNodes")
-                plt.ylabel(var)
-                plt.legend()
-                plt.grid()
-                plt.show()
-                
+
+            # nozzle geometry scaled to y range
+            plt.plot(
+                xMeshNodes,
+                deviceAreaAtMeshNodes * 1.2 * max_y * 0.3 / max(deviceAreaAtMeshNodes),
+                label='Nozzle Geometry', color='gray', alpha=0.5, zorder=-1
+            )
+
+            plt.title(f'Comparison of {var}')
+            plt.xlabel("xMeshNodes")
+            plt.ylabel(var)
+            plt.legend()
+            plt.grid()
+            plt.show()
+
+    # unwrap to original flat structure if only a single dataset was passed
+    if len(comparison_metrics) == 1:
+        return next(iter(comparison_metrics.values()))
+
     return comparison_metrics
+
+# def perform_v_and_v(verification_data: dict = None, validation_data: dict = None, simulation_data: dict = None, show_plots: bool = False) -> dict:
+#     """
+#     The user provides verification or validation data, with data
+#     format similar to that resulting from applying the 
+#     unpack_simulation_results function to the simulation results pickle file, 
+#     Which can be a singleIterResults or groupedIterResults. 
+#     The function will then compare the simulation results with the verification 
+#     or validation data and return a dictionary containing comparison metrics.
+
+#     Arguments
+#     ---------
+#     verification_data : dict
+#         A dictionary containing the verification data, complying to the 
+#         unpack_simulation_results function output data format.
+#     validation_data : dict
+#         A dictionary containing the validation data, complying to the 
+#         unpack_simulation_results function output data format.
+#     simulation_data : dict
+#         A dictionary containing the simulation data, complying to the 
+#         unpack_simulation_results function output data format.
+
+#     Returns
+#     -------
+#     comparison_metrics : dict
+#         A dictionary containing the comparison metrics with keys as variable 
+#         names and values as dictionaries containing 'error' and 'relative_error'.
+#     """
+#     # instantiate comparison metrics dict and v_and_v_data dict. 
+#     comparison_metrics = {}
+#     v_and_v_data = {}
+
+#     # user can specify verification or validation data. 
+#     # extract unique fluid statevariables from the available data
+#     if verification_data is not None:
+#         v_and_v_variables = list(verification_data["(final)fluidState"].keys())
+#         v_and_v_data = verification_data
+#     elif validation_data is not None:
+#         v_and_v_variables = list(validation_data["(final)fluidState"].keys())
+#         v_and_v_data = validation_data
+#     else:
+#         raise ValueError("Either verification_data or validation_data must be provided")
+
+#     # interpolate simulation data to v_and_v_data x-coordinates if they are not already aligned
+#     simulation_interpolated = {}
+#     if not np.array_equal(v_and_v_data["meshData"]["xMeshNodes"], simulation_data["meshData"]["xMeshNodes"]):
+#         for var in v_and_v_variables:
+#             if var in simulation_data["(final)fluidState"]:
+#                 # Interpolate simulation data to v_and_v_data x-coordinates
+#                 sim_interpolant = interp1d(
+#                     simulation_data["meshData"]["xMeshNodes"], simulation_data["(final)fluidState"][var], 
+#                     kind='linear', fill_value='extrapolate')
+#                 simulation_interpolated[var] = sim_interpolant(v_and_v_data["meshData"]["xMeshNodes"])
+
+#     # Extract absolute and relative errors for each variable in v_and_v_data at the shared x-coordinates    
+#     for var in v_and_v_variables:
+#         if var in simulation_data["(final)fluidState"]:
+#             abs_error = simulation_interpolated[var] - v_and_v_data["(final)fluidState"][var]
+#             relative_error = np.abs(abs_error) / np.abs(v_and_v_data["(final)fluidState"][var])
+#             comparison_metrics[var] = {
+#                 'absolute_error': abs_error,
+#                 'relative_error': relative_error
+#             }
+#     if len(comparison_metrics) != len(v_and_v_variables):
+#         missing_keys = set(v_and_v_variables) - set(comparison_metrics.keys())
+#         raise ValueError(f"Missing keys in simulation data due to different naming than simulation" \
+#                           f" data dict keys: {missing_keys}")
+    
+#     # set up rich table for printing the comparison results to terminal
+#     table = Table(title="Verification and Validation")
+#     table.add_column("Variable", justify="left", style="cyan", no_wrap=True)
+#     table.add_column("Max Absolute Error", justify="right", style="magenta")
+#     table.add_column("Max Relative Error", justify="right", style="green")
+#     # populate the rich table with the comparison results, displaying only the maximum absolute and relative errors for each variable
+#     for key, value in comparison_metrics.items():
+#         absolute_error_str = f"{value['absolute_error']:.6e}" if np.isscalar(value['absolute_error']) else f"{np.max(value['absolute_error']):.6e}"
+#         relative_error_str = f"{value['relative_error']:.6e}" if np.isscalar(value['relative_error']) else f"{np.max(value['relative_error']):.6e}"
+#         table.add_row(key, absolute_error_str, relative_error_str)
+#     # display the rich table in the terminal
+#     console = Console()
+#     console.print(table)
+    
+#     # Plot the comparison results for each variable
+#     if show_plots:
+#         # extract nozzle geometry
+#         xMeshNodes = simulation_data["meshData"]["xMeshNodes"]
+#         deviceAreaAtMeshNodes = simulation_data["meshData"]["deviceAreaAtMeshNodes"]
+        
+#         # instantiate max_y necessary for rescaling the nozzle geometry to the y range of the variable of interest
+#         max_y = 0
+        
+#         # plot variable progression for each variable in v_and_v_data
+#         for var in v_and_v_variables:
+#             if var in simulation_data["(final)fluidState"]:
+#                 max_y = max(
+#                     max_y, np.max(np.abs(simulation_data["(final)fluidState"][var])), 
+#                     np.max(np.abs(v_and_v_data["(final)fluidState"][var]))
+#                     )                
+#                 plt.figure(figsize=(10, 5))
+#                 plt.plot(
+#                     v_and_v_data["meshData"]["xMeshNodes"][1:-1], v_and_v_data["(final)fluidState"][var][1:-1],
+#                     label='Verification/Validation Data', marker='o'
+#                     )
+#                 plt.plot(
+#                     simulation_data["meshData"]["xMeshNodes"][1:-1], simulation_data["(final)fluidState"][var][1:-1], 
+#                     label='Simulation Data', marker='x'
+#                     )
+#                 # plot nozzle scaled to y range
+#                 y_interval = [0, 1.2*max_y]
+#                 plt.plot(
+#                     xMeshNodes, deviceAreaAtMeshNodes*y_interval[1]*0.3/max(deviceAreaAtMeshNodes), 
+#                     label='Nozzle Geometry', color='gray', alpha=0.5, zorder=-1
+#                     )
+#                 plt.title(f'Comparison of {var}')
+#                 plt.xlabel("xMeshNodes")
+#                 plt.ylabel(var)
+#                 plt.legend()
+#                 plt.grid()
+#                 plt.show()
+                
+#     return comparison_metrics
 
 
 

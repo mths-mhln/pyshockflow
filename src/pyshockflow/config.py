@@ -231,21 +231,21 @@ class Config:
                 {"BOUNDARY CONDITIONS": ["INLET_CONDITIONS_TYPE", "INLET_CONDITIONS_VALUES"]}),
 
             ("BOUNDARY CONDITIONS", "BOUNDARY_CONDITION_LEFT", ["outlet"],
-                {"BOUNDARY CONDITIONS": ["OUTLET_CONDITIONS"]}),
+                {"BOUNDARY CONDITIONS": ["OUTLET_CONDITIONS_VALUES"]}),
 
             ("BOUNDARY CONDITIONS", "BOUNDARY_CONDITION_RIGHT", ["inlet"],
                 {"BOUNDARY CONDITIONS": ["INLET_CONDITIONS_TYPE", "INLET_CONDITIONS_VALUES"]}),
 
             ("BOUNDARY CONDITIONS", "BOUNDARY_CONDITION_RIGHT", ["outlet"],
-                {"BOUNDARY CONDITIONS": ["OUTLET_CONDITIONS"]}),
+                {"BOUNDARY CONDITIONS": ["OUTLET_CONDITIONS_VALUES"]}),
 
             ("FLUID", "FLUID_MODEL_TYPE", ["ideal"],
                 {"FLUID": ["FLUID_GAMMA", "GAS_R_CONSTANT"]}),
 
             ("FLUID", "FLUID_MODEL_TYPE", ["real"],
-                {"FLUID": ["FLUID_LIBRARY"]}),
+                {"FLUID": ["FLUID_LIBRARY"]})
         ]
-        for section, key, trigger_values, required in condRequiredCommon:
+        for section, key, trigger_values, required in condRequiredCommon: 
             if self._get_raw(section, key) in trigger_values:
                 check_required_sections(required)
 
@@ -261,16 +261,31 @@ class Config:
         # inputs that are specific to the expansion device type. They also require specific 
         # handling, which is dealt with below.
         if expansion_device_type == "nozzle":
-            # If the boundary condition pair is not one of the allowed inlet/outlet/transparent
-            # combinations, the initial conditions must be fully specified by the user.
+            # If the boundary condition pair is not one of inlet/outlet/transparent
+            # combinations, the initial conditions must be fully specified by the user
+            # and the nozzle fluid state will be initialized uniformly. 
             bc_left  = self._get_raw("BOUNDARY CONDITIONS", "BOUNDARY_CONDITION_LEFT")
             bc_right = self._get_raw("BOUNDARY CONDITIONS", "BOUNDARY_CONDITION_RIGHT")
-            allowed_pairs = [
+            linear_init_pairs = [
                 ("transparent", "inlet"), ("inlet", "transparent"),
                 ("inlet", "outlet"),      ("outlet", "inlet"),
                 ("outlet", "transparent"), ("transparent", "outlet"),
             ]
-            if (bc_left, bc_right) not in allowed_pairs:
+            if ((bc_left, bc_right) not in linear_init_pairs) or (self.enforceUniformInitNozzleBool()):
+                # user must specify inputs "PRESSURE", "VELOCITY", ()"DENSITY" or "TEMPERATURE") in the config file
+                # check "PRESSURE" and "VELOCITY"
+                if self._parser.has_option("INITIAL CONDITIONS", "PRESSURE") is False:
+                    raise ConfigError(
+                        f"{self.config_file} [INITIAL CONDITIONS]: 'PRESSURE' must be specified "
+                        f"when BOUNDARY_CONDITION_LEFT = '{bc_left}' and BOUNDARY_CONDITION_RIGHT = '{bc_right}'"
+                    )
+                if self._parser.has_option("INITIAL CONDITIONS", "VELOCITY") is False:
+                    raise ConfigError(
+                        f"{self.config_file} [INITIAL CONDITIONS]: 'VELOCITY' must be specified "
+                        f"when BOUNDARY_CONDITION_LEFT = '{bc_left}' and BOUNDARY_CONDITION_RIGHT = '{bc_right}'"
+                    )
+
+                # check for presence of density or temperature. One of the two must be specified, but not both. 
                 has_density     = self._parser.has_option("INITIAL CONDITIONS", "DENSITY")
                 has_temperature = self._parser.has_option("INITIAL CONDITIONS", "TEMPERATURE")
 
@@ -329,6 +344,14 @@ class Config:
             ("FLUID", "FLUID_MODEL_TYPE", ["real"],
                 {"FLUID": ["FLUID_GAMMA", "GAS_R_CONSTANT"]},
                 "FLUID_MODEL_TYPE is 'real'"),
+
+            ("NUMERICS", "WALL_FRICTION_MODELLING_BOOL", [False],
+                {"NUMERICS": ["FLUID_VISCOSITY"]},
+                "WALL_FRICTION_MODELLING_BOOL is False"),
+
+            ("INITIAL CONDITIONS", "ENFORCE_UNIFORM_INIT_NOZZLE_BOOL", [False],
+                {"INITIAL CONDITIONS": ["PRESSURE", "VELOCITY", "DENSITY", "TEMPERATURE"]},
+                "ENFORCE_UNIFORM_INIT_NOZZLE_BOOL is False"),
         ]
         for section, key, trigger_values, prohibited, reason in condProhibitedCommon:
             if self._get_raw(section, key) in trigger_values:
@@ -340,7 +363,7 @@ class Config:
         bc_right = self._get_raw("BOUNDARY CONDITIONS", "BOUNDARY_CONDITION_RIGHT")
 
         _inlet_keys  = {"BOUNDARY CONDITIONS": ["INLET_CONDITIONS_TYPE", "INLET_CONDITIONS_VALUES"]}
-        _outlet_keys = {"BOUNDARY CONDITIONS": ["OUTLET_CONDITIONS"]}
+        _outlet_keys = {"BOUNDARY CONDITIONS": ["OUTLET_CONDITIONS_VALUES"]}
 
         if bc_left != "inlet" and bc_right != "inlet":
             check_prohibited_keys(_inlet_keys,  "Neither BOUNDARY_CONDITION_LEFT nor BOUNDARY_CONDITION_RIGHT is 'inlet'")
@@ -420,8 +443,8 @@ class Config:
     def initialPressureRight(self) -> float:
         return self._get_float("INITIAL CONDITIONS", "PRESSURE_RIGHT", positive=True)
 
-    # for nozzle simulations w/ at least one BC different than (inlet, outlet, transparent)
-    # -------------------------------------------------------------------------------------
+    # for nozzle simulations w/ at least one BC different than (inlet, outlet, transparent) or enforce_uniform_init_nozzle = True
+    # ---------------------------------------------------------------------------------------------------------------------------
     def initialPressure(self) -> float:
         return self._get_float("INITIAL CONDITIONS", "PRESSURE", positive=True)
 
@@ -433,6 +456,11 @@ class Config:
 
     def initialDensity(self) -> float:
         return self._get_float("INITIAL CONDITIONS", "DENSITY", positive=True)
+
+    def enforceUniformInitNozzleBool(self) -> bool:
+        return self._get_bool("INITIAL CONDITIONS", "ENFORCE_UNIFORM_INIT_NOZZLE_BOOL", default=False)
+    
+    
     
 
 
@@ -499,7 +527,7 @@ class Config:
         return values
 
     def outletConditions(self) -> float:
-        return self._get_float("BOUNDARY CONDITIONS", "OUTLET_CONDITIONS")
+        return self._get_float("BOUNDARY CONDITIONS", "OUTLET_CONDITIONS_VALUES")
 
 
 
