@@ -160,10 +160,12 @@ def compare_results_with_reference(case_dir):
         try: 
             assert file_datas[0]['X Coords'].shape == file_datas[1]['X Coords'].shape, "X Coords shape mismatch between reference and result"
         except:
-            assert file_datas[0]["meshData"]['xMeshNodes'].shape == file_datas[1]["meshData"]['xMeshNodes'].shape, "X Coords shape mismatch between reference and result"
-    
+            try:
+                assert file_datas[0]["meshData"]['xMeshNodes'].shape == file_datas[1]["meshData"]['xMeshNodes'].shape, "X Coords shape mismatch between reference and result"
+            except:
+                assert file_datas[0]['xMeshNodes'].shape == file_datas[1]["meshData"]['xMeshNodes'].shape, "X Coords shape mismatch between reference and result"
+
     keys_to_check = ['Pressure', 'Velocity', 'Density']
-    print(file_datas[0])
     for key in keys_to_check:
         try:
             they_agree, err = result_arrays_agree(file_datas[0]['Primitive'][key][:, -1], file_datas[1]['fluidStateHistory'][key][:, -1])
@@ -171,7 +173,10 @@ def compare_results_with_reference(case_dir):
             try:
                 they_agree, err = result_arrays_agree(file_datas[0]['Primitive'][key][:, -1], file_datas[1]['Primitive'][key][:, -1])
             except:
-                they_agree, err = result_arrays_agree(file_datas[0]['fluidStateHistory'][key][:, -1], file_datas[1]["fluidStateHistory"][key][:, -1])
+                try:
+                    they_agree, err = result_arrays_agree(file_datas[0]['fluidStateHistory'][key][:, -1], file_datas[1]["fluidStateHistory"][key][:, -1])
+                except:
+                    they_agree, err = result_arrays_agree(file_datas[0]['fluidState'][key][:, -1], file_datas[1]['fluidStateHistory'][key][:, -1])
         assert they_agree, f"{key} field mismatch between reference and result with relative error {err:.2e}"
     
 

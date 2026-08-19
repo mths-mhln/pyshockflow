@@ -254,292 +254,300 @@ class CoolPropAbstractState:
 
 
 
-class CoolPropAbstractState_v2():
+import numpy as np
+from CoolProp.CoolProp import AbstractState
+import CoolProp.CoolProp as CP
+
+
+class CoolPropAbstractState_v2:
     """
-    CoolProp AbstractState wrapper. allows user to use the familiar PropsSI syntax for CoolProp property extraction, while using the AbstractState under the hood for better performance. 
-    The wrapper is necessary to allow vectorized evaluation of the AbstractState, which is not natively supported by CoolProp. Nan will be returned for points that are not valid for the 
-    AbstractState (e.g. points outside the phase envelope). For more information on the AbstractState and its methods, see: https://coolprop.org/_static/doxygen/html/class_cool_prop_1_1_abstract_state.html
-    
-    Methods
-    -------
-    PropsSI(prop, x_str, x, y_str, y)
-        Extracts the specified property using the AbstractState. The input specification is automatically determined based on the x_str and y_str arguments, and the property is extracted using the 
-        appropriate AbstractState method. For more information on the input specifications, see: https://coolprop.org/coolprop/wrappers/Python/html/index.html#input-specifications    
+    CoolProp AbstractState wrapper that keeps the familiar PropsSI syntax
+    while using AbstractState under the hood. Supports scalar and vectorized
+    evaluation. Invalid states return nan.
+
+    Performance notes (relative to the original vectorize + per-point exception version):
+    - Explicit loop instead of np.vectorize
+    - Class-level lookup tables (no repeated string concat / getattr)
+    - Last-state cache (identical consecutive points skip update)
+    - Bound method getters for the most common properties
     """
 
-    def __init__(self, library, fluid_name):
-        """
-        Initializes the CoolPropAbstractState object with the specified library and fluid name. The library is typically "HEOS" for pure fluids, but can be adapted for mixtures and other libraries. 
-        The name is the name of the fluid as recognized by CoolProp, e.g. "Water" or "R134a". 
+    # ------------------------------------------------------------------
+    # Class-level constants (created once)
+    # ------------------------------------------------------------------
+    _MASS_PROPS = frozenset({"D", "U", "H", "S"})
 
-        Attributes
-        ----------
-        Library: str
-            Name of the backend library to use for extracting fluid thermodynamic properties
-        Name: str
-            Name of the fluid as recognized by CoolProp.
-        """
-        # extract properties necessary for initializing abstractstate
-        if library == 'CoolProp':
-            library = 'HEOS'
+    # PropsSI-style name  ->  AbstractState method name
+    _TRANSLATOR = {
+        "Umass": "umass",
+        "Dmass": "rhomass",
+        "Hmass": "hmass",
+        "A": "speed_sound",
+        "T": "T",
+        "Q": "Q",
+        "P": "p",
+        "G": "gibbsmass",
+        "Smass": "smass",
+        "Cpmass": "cpmass",
+        "Cvmass": "cvmass",
+        "d(P)/d(D)|T": "drhomassdPcT",   # special-cased below
+        "Phase": "phase",
+        "V": "viscosity",
+    }
+
+    # Supported input pairs (both orders).  Value = (CP.xxx_INPUTS, reorder)
+    # reorder=True means the user order is the reverse of the CoolProp pair.
+    _INPUT_SPEC = {
+        "PT": (CP.PT_INPUTS, False),
+        "TP": (CP.PT_INPUTS, True),
+        "PUmass": (CP.PUmass_INPUTS, False),
+        "UmassP": (CP.PUmass_INPUTS, True),
+        "DmassP": (CP.DmassP_INPUTS, False),
+        "PDmass": (CP.DmassP_INPUTS, True),
+        "HmassP": (CP.HmassP_INPUTS, False),
+        "PHmass": (CP.HmassP_INPUTS, True),
+        "PQ": (CP.PQ_INPUTS, False),
+        "QP": (CP.PQ_INPUTS, True),
+        "DmassT": (CP.DmassT_INPUTS, False),
+        "TDmass": (CP.DmassT_INPUTS, True),
+        "DmassUmass": (CP.DmassUmass_INPUTS, False),
+        "UmassDmass": (CP.DmassUmass_INPUTS, True),
+        "DmassHmass": (CP.DmassHmass_INPUTS, False),
+        "HmassDmass": (CP.DmassHmass_INPUTS, True),
+        "DmassQ": (CP.DmassQ_INPUTS, False),
+        "QDmass": (CP.DmassQ_INPUTS, True),
+        "TUmass": (CP.TUmass_INPUTS, False),
+        "UmassT": (CP.TUmass_INPUTS, True),
+        "HmassT": (CP.HmassT_INPUTS, False),
+        "THmass": (CP.HmassT_INPUTS, True),
+        "QT": (CP.QT_INPUTS, False),
+        "TQ": (CP.QT_INPUTS, True),
+        "SmassT": (CP.SmassT_INPUTS, False),
+        "TSmass": (CP.SmassT_INPUTS, True),
+        "SmassUmass": (CP.SmassUmass_INPUTS, False),
+        "UmassSmass": (CP.SmassUmass_INPUTS, True),
+        "DmassSmass": (CP.DmassSmass_INPUTS, False),
+        "SmassDmass": (CP.DmassSmass_INPUTS, True),
+        "HmassSmass": (CP.HmassSmass_INPUTS, False),
+        "SmassHmass": (CP.HmassSmass_INPUTS, True),
+        "QSmass": (CP.QSmass_INPUTS, False),
+        "SmassQ": (CP.QSmass_INPUTS, True),
+        "PSmass": (CP.PSmass_INPUTS, False),
+        "SmassP": (CP.PSmass_INPUTS, True),
+    }
+
+    def __init__(self, library: str, fluid_name: str):
+        if library == "CoolProp":
+            library = "HEOS"
+
         self.FluidName = fluid_name
         self.Library = library
         self._abstract_state = None
-        # legacy code. I do not imagine myself putting a fluid name with [1] at the end, but it is in there, so i assume it can be called... 
-        str_len = int(len(self.FluidName))
-        if str_len > 3:
-            if self.FluidName[str_len - 3: str_len] == '[1]':
-                fluid_name = self.FluidName[0:str_len - 3]
-            else:
-                fluid_name = self.FluidName
-        else:
-            fluid_name = self.FluidName
-        # initalize abstractstate:
-        self._abstract_state = AbstractState(self.Library, fluid_name)
 
-        # compute critical point properties for the fluid, to be used in the PropsSI method for points that are close to the critical point.
+        # Strip trailing "[1]" if present (legacy)
+        name = fluid_name
+        if len(name) > 3 and name[-3:] == "[1]":
+            name = name[:-3]
+
+        self._abstract_state = AbstractState(self.Library, name)
+
+        # Critical-point cache
         Tcrit = self._abstract_state.T_critical()
         Dcrit = self._abstract_state.rhomass_critical()
         Pcrit = self._abstract_state.p_critical()
         self.critical_point_vals = (Tcrit, Dcrit, Pcrit)
 
-    @staticmethod
-    def _update_wrapper(AS: AbstractState, input_spec: CP.PQ_INPUTS, x: float, y: float, verbose: bool = False) -> bool:
-        """
-        Coolprop utility to allow nan return upon vectorized evaluation of AbstractState. Note, input_spec
-        must not necessarily be CP.PQ_INPUTS, can be other pairs, I wanted to give an example for type hinting.
-        """
-        try:
-            AS.update(input_spec, x, y)
-            return False
-        except Exception as e:
-            if verbose:
-                print("Failed to update abstractstate. CoolProp output:", e)
-            return True
+        # Last successful state cache (avoids redundant updates)
+        self._last_spec = None          # CP.xxx_INPUTS
+        self._last_x = None
+        self._last_y = None
+        self._last_ok = False
 
+        # Pre-bind the most common getters so we avoid attribute lookup
+        # inside the hot loop.  Special keys are handled separately.
+        AS = self._abstract_state
+        self._getters = {
+            "umass": AS.umass,
+            "rhomass": AS.rhomass,
+            "hmass": AS.hmass,
+            "smass": AS.smass,
+            "T": AS.T,
+            "p": AS.p,
+            "Q": AS.Q,
+            "cpmass": AS.cpmass,
+            "cvmass": AS.cvmass,
+            "gibbsmass": AS.gibbsmass,
+            "speed_sound": AS.speed_sound,
+            "viscosity": AS.viscosity,
+            "phase": AS.phase,
+        }
+
+    # ------------------------------------------------------------------
+    # Internal helpers
+    # ------------------------------------------------------------------
     def _get_abstract_state(self) -> AbstractState:
-        """
-        If AbstractState instance is already created for the fluid type and library, no need to create it over and over again.
-        """
         if self._abstract_state is None:
-            str_len = int(len(self.FluidName))
-            if str_len > 3 and self.FluidName[str_len - 3: str_len] == '[1]':
-                fluid_name = self.FluidName[0:str_len - 3]
-            else:
-                fluid_name = self.FluidName
-            self._abstract_state = AbstractState(self.Library, fluid_name)
+            name = self.FluidName
+            if len(name) > 3 and name[-3:] == "[1]":
+                name = name[:-3]
+            self._abstract_state = AbstractState(self.Library, name)
+            # re-bind getters after recreation
+            AS = self._abstract_state
+            self._getters = {
+                "umass": AS.umass,
+                "rhomass": AS.rhomass,
+                "hmass": AS.hmass,
+                "smass": AS.smass,
+                "T": AS.T,
+                "p": AS.p,
+                "Q": AS.Q,
+                "cpmass": AS.cpmass,
+                "cvmass": AS.cvmass,
+                "gibbsmass": AS.gibbsmass,
+                "speed_sound": AS.speed_sound,
+                "viscosity": AS.viscosity,
+                "phase": AS.phase,
+            }
         return self._abstract_state
 
-    def _PropsSI_syntax_to_AbstractState_syntax(self, str: str) -> str:
-        """
-        Converts PropsSI syntax to AbstractState syntax. for properties that are typically mass-averaged, the subscript mass should be added behind it.
-        """
-        mass_props_list = ["D", "U", "H", "S"]
-        if str in mass_props_list:
-            return str + "mass"
-        else:
-            return str
-               
-    def _get_input_spec(self, x_str: str, y_str: str) -> tuple[CP.PQ_INPUTS, bool]:
-        """
-        Method to convert specified PropsSI input spec into a coolprop inputs object, required for updating the abstractstate thermodynamic state in update_and_get using the coolprop abstractstate
-        update method. Note, not really CP.PQ_INPUTS, can be other pairs, but i had to give an example. 
-        For all inputs, refer to "input_pairs" section of https://coolprop.org/_static/doxygen/html/namespace_cool_prop.html#aa1ce7c368d1058004293708038241850a648039a97f7392876038eaf56cf91e95
+    @staticmethod
+    def _to_AS_name(s: str) -> str:
+        """PropsSI short name -> AbstractState-style name used in tables."""
+        if s in CoolPropAbstractState_v2._MASS_PROPS:
+            return s + "mass"
+        return s
 
-        Attributes
-        ----------
-        x_str: str
-            String corresponding to the first input variable, e.g. "T" for temperature or "P" for pressure.
-        y_str: str
-            String corresponding to the second input variable, e.g. "T" for temperature or "P" for pressure.
-        """
-        supported_input_specs = [
-            "PT", "PUmass", "DmassP", "HmassP", "PQ", "DmassT", "DmassUmass", 
-            "DmassHmass", "DmassQ", "TUmass", "HmassT", "QT", "SmassT", "SmassUmass", 
-            "DmassSmass", "HmassSmass", "QSmass", "PSmass"
-            ]
-        if x_str + y_str in supported_input_specs:
-            reorder = False
-            return getattr(CP, x_str + y_str + "_INPUTS"), reorder
-        else:
-            reorder = True
-            return getattr(CP, y_str + x_str + "_INPUTS"), reorder
-        
-    @staticmethod # necessary to allow for vectorization of the method
-    @np.vectorize(otypes=[float])
-    def _update_and_get(AS: AbstractState, input_spec: CP.PQ_INPUTS, x_str: str, x: float, y_str: str, y: float, output: str, critical_point_vals: tuple, reorder: bool, verbose: bool = False) -> float:
-        """
-        Vectorized method to update the AbstractState with the specified input specification and input variables, and return the specified output variable. 
-        The method returns nan for points that are not valid for the AbstractState (e.g. points outside the phase envelope).
+    def _get_input_spec(self, x_str: str, y_str: str):
+        key = x_str + y_str
+        try:
+            return self._INPUT_SPEC[key]
+        except KeyError:
+            raise ValueError(
+                f"Unsupported input pair '{x_str}'+'{y_str}'. "
+                f"Supported combinations: {sorted(self._INPUT_SPEC)}"
+            )
 
-        Arguments
-        ---------
-        AS: AbstractState
-            CoolProp AbstractState object to update and extract properties from.
-        input_spec: int
-            CoolProp input specification corresponding to the x_str and y_str variables, e.g. CP.PT_INPUTS for temperature and pressure inputs. This is determined in the get_input_spec method.
-        x_str: str
-            String corresponding to the first input variable, e.g. "T" for temperature or "P" for pressure.
-        x: float
-            Value of the first input variable, e.g. temperature or pressure.
-        y_str: str
-            String corresponding to the second input variable, e.g. "T" for temperature or "
-        y: float
-            Value of the second input variable, e.g. temperature or pressure.
-        output: str
-            String corresponding to the desired output variable, e.g. "T" for temperature or "P" for pressure. This is translated to the corresponding AbstractState method in the PropsSI method.
-        reorder: bool
-            Boolean indicating whether the input variables need to be reordered for the AbstractState update method as a specific order may be required to comply with CoolProp AbstractState syntax.
-        
-        Returns
-        -------
-        output: float | np.ndarray
-            output of the desired variable, e.g. temperature or pressure. Will be a float for single point evaluation, or a numpy array for vectorized evaluation. 
-            For points that are not valid for the AbstractState (e.g. points outside the phase envelope), nan will be returned.
+    def _update_one(self, AS: AbstractState, input_spec, x: float, y: float,
+                    reorder: bool, verbose: bool = False) -> bool:
         """
-        # check if the input thermodynamic pair lies close to the critical point
-        if CoolPropAbstractState_v2._critical_value(AS, x_str, x, critical_point_vals) and CoolPropAbstractState_v2._critical_value(AS, y_str, y, critical_point_vals):
-            # input pair is close or equal to critical point, compute state from critical point. Thdy states close to the critical
-            # point caused some issues during computation.
-            Tcrit, Dcrit, Pcrit = critical_point_vals
-            AS.update(CP.DmassT_INPUTS, Dcrit, Tcrit)
-            S = AS.smass()
-            AS.update(CP.SmassT_INPUTS, S, Tcrit)
-
-            # extract the desired output variable using the critical values rather than the given input
-            return getattr(AS, output)()
-        
+        Attempt a single update. Returns True if the update failed
+        (caller should return nan).
+        Uses a tiny last-state cache to skip identical consecutive points.
+        """
         if reorder:
-            skip_update = CoolPropAbstractState_v2._update_wrapper(AS, input_spec, y, x, verbose)
+            xx, yy = y, x
         else:
-            skip_update = CoolPropAbstractState_v2._update_wrapper(AS, input_spec, x, y, verbose)
-        if skip_update:
-            return np.nan
-        if output == 'drhomassdPcT':
+            xx, yy = x, y
+
+        # Cache hit?
+        if (self._last_ok and
+                self._last_spec is input_spec and
+                self._last_x == xx and
+                self._last_y == yy):
+            return False
+
+        try:
+            AS.update(input_spec, xx, yy)
+            self._last_spec = input_spec
+            self._last_x = xx
+            self._last_y = yy
+            self._last_ok = True
+            return False
+        except Exception as e:
+            self._last_ok = False
+            if verbose:
+                print("Failed to update AbstractState:", e)
+            return True
+
+    def _extract(self, AS: AbstractState, prop_AS: str):
+        """Extract a property after a successful update."""
+        if prop_AS == "drhomassdPcT":
             return AS.first_partial_deriv(CP.iP, CP.iDmass, CP.iT)
-        return getattr(AS, output)()    
+        getter = self._getters.get(prop_AS)
+        if getter is not None:
+            return getter()
+        # fallback (should be rare)
+        return getattr(AS, prop_AS)()
 
-    def _critical_value(AS: AbstractState, prop_str_AS: str, prop_val: float, critical_point_vals: tuple) -> bool:
+    # ------------------------------------------------------------------
+    # Public API
+    # ------------------------------------------------------------------
+    def PropsSI(self, prop: str,
+                x_str: str = None, x=None,
+                y_str: str = None, y=None,
+                verbose: bool = False):
         """
-        This method checks if the specified input value is close to the critical point, 
-        and returns True if it is, and False otherwise.
+        PropsSI-compatible interface backed by AbstractState.
 
-        It does this by calculating the input values specified from the critical point
-        T and S values (which were found, from limited testing) to always return a value. 
-
-        Attributes
+        Parameters
         ----------
-        AS: AbstractState
-            AbstractState object to extract critical point properties from.
-        prop_str_AS: str
-            String corresponding to the property variable, e.g. "T" for temperature or "P" for pressure.
-            should comply with CoolProp AbstractState syntax, see self._PropsSI_syntax_to_AbstractState_syntax for translation from PropsSI syntax to AbstractState syntax.
-        prop_val: float
-            Value of the property variable, e.g. temperature or pressure.
+        prop : str
+            Desired output (e.g. "D", "H", "T", "P", "Q", ...).
+        x_str, y_str : str
+            Input variable names (PropsSI style).
+        x, y : float or array-like
+            Input values.  Scalars or 1-D arrays of the same length.
+        verbose : bool
+            Print CoolProp exception messages on failure.
 
         Returns
         -------
-        bool
-            True if the specified input pair is close to the critical point, False otherwise.
+        float or np.ndarray
+            Requested property.  Invalid states become nan.
         """
-        Tcrit, Dcrit, Pcrit = critical_point_vals
-        AS.update(CP.DmassT_INPUTS, Dcrit, Tcrit)
-        S = AS.smass()
-        if prop_str_AS == 'Q':
-            AS.update(CP.SmassT_INPUTS, S, Tcrit)
-            prop_crit = AS.Q()
-            if prop_crit < 0:
-                prop_crit = 0
-            if prop_crit > 1:
-                prop_crit = 1
-        else:
-            translator = {
-                "Umass": "umass",
-                "Dmass": "rhomass",
-                "Hmass": "hmass",
-                "A": "speed_sound",
-                "T": "T",
-                "P": "p",
-                "Smass": "smass",
-                "Cpmass": "cpmass",
-                "Cvmass": "cvmass",
-                "d(P)/d(D)|T": "drhomassdPcT",
-                "Phase": "phase",
-                "V": "viscosity"
-            }
-            AS.update(CP.SmassT_INPUTS, S, Tcrit)
-            prop_crit = getattr(AS, translator[prop_str_AS])()
-        if np.isclose(prop_val, prop_crit, rtol=1e-5, atol=1e-5):
-            return True
-        else:
-            return False   
-
-    def PropsSI(self, prop: str, x_str: str = None, x: float | np.ndarray = None, y_str: str = None, y: float | np.ndarray = None, verbose: bool = False) -> float | np.ndarray:
-        """
-        Integral functionality, uses various methods to convert user input to an input spec accepted by AbstractState syntax, and extracts fluid thermodynamic property according to user specification. 
-        using a CoolProp AbstractState syntax. 
-
-        Attributes
-        ----------
-        prop: str
-            String corresponding to the desired output variable, e.g. "T" for temperature or "P" for pressure. 
-        x_str: str
-            String corresponding to one of the input variables, e.g. "T" for temperature or "P" for pressure.
-        x: float | np.ndarray
-            Value of the first input variable, e.g. temperature or pressure. Can be a float for single point evaluation, or a numpy array for vectorized evaluation.
-        y_str: str
-            String corresponding to the other input variable, e.g. "T" for temperature or "P" for pressure.
-        y: float | np.ndarray
-            Value of the second input variable e.g. temperature or pressure. Can be a float for single point evaluation, or a numpy array for vectorized evaluation.
-        
-        Result
-        ------
-        output: float | np.ndarray
-            Value of the desired output variable, e.g. temperature or pressure. Will be a float for single point evaluation, or a numpy array for vectorized evaluation. 
-            For points that are not valid for the AbstractState (e.g. points outside the phase envelope), nan will be returned.       
-        """
-        critical_point_vals = self.critical_point_vals
-        AS = self._get_abstract_state()
-        if prop in ['Tcrit', 'Pcrit', 'Dcrit', 'Tmax', 'M', 'Ttriple']: # translation necessary to comply with AS syntax, see: https://coolprop.org/_static/doxygen/html/class_cool_prop_1_1_abstract_state.html
-            if prop== 'Tcrit':
-                return critical_point_vals[0]
-            elif prop == 'Dcrit':
-                return critical_point_vals[1]
-            elif prop == 'Pcrit':
-                return critical_point_vals[2]
-            elif prop == 'Tmax':
+        # ---- trivial / state-independent properties --------------------
+        if prop in ("Tcrit", "Pcrit", "Dcrit", "Tmax", "M", "Ttriple"):
+            AS = self._get_abstract_state()
+            if prop == "Tcrit":
+                return self.critical_point_vals[0]
+            if prop == "Dcrit":
+                return self.critical_point_vals[1]
+            if prop == "Pcrit":
+                return self.critical_point_vals[2]
+            if prop == "Tmax":
                 return AS.Tmax()
-            elif prop == 'M':
+            if prop == "M":
                 return AS.molar_mass()
-            elif prop == 'Ttriple':
+            if prop == "Ttriple":
                 return AS.Ttriple()
-        prop_AS = self._PropsSI_syntax_to_AbstractState_syntax(prop)
-        x_str_AS = self._PropsSI_syntax_to_AbstractState_syntax(x_str)
-        y_str_AS = self._PropsSI_syntax_to_AbstractState_syntax(y_str)
+
+        # ---- normal flash ----------------------------------------------
+        AS = self._get_abstract_state()
+
+        prop_AS = self._to_AS_name(prop)
+        x_str_AS = self._to_AS_name(x_str)
+        y_str_AS = self._to_AS_name(y_str)
+
         input_spec, reorder = self._get_input_spec(x_str_AS, y_str_AS)
-        if prop_AS == 'Q':
-            out = self._update_and_get(AS, input_spec, x_str_AS, x, y_str_AS, y, prop_AS, self.critical_point_vals, reorder, verbose)
-            out[out < 0] = 0
-            out[out > 1] = 1
-            return out
-        else:
-            translator = {
-                "Umass": "umass",
-                "Dmass": "rhomass",
-                "Hmass": "hmass",
-                "A": "speed_sound",
-                "T": "T",
-                "Q": "Q",
-                "P": "p",
-                "G": "gibbsmass",
-                "Smass": "smass",
-                "Cpmass": "cpmass",
-                "Cvmass": "cvmass",
-                "d(P)/d(D)|T": "drhomassdPcT",
-                "Phase": "phase",
-                "V": "viscosity"
-            }
-            return self._update_and_get(AS, input_spec, x_str_AS, x, y_str_AS, y, translator[prop_AS], self.critical_point_vals, reorder, verbose)
+
+        # Map to the internal method name used by _extract
+        out_key = self._TRANSLATOR.get(prop_AS, prop_AS)
+
+        # Normalise inputs to 1-D arrays (keeps scalar fast-path simple)
+        x_arr = np.atleast_1d(np.asarray(x, dtype=float))
+        y_arr = np.atleast_1d(np.asarray(y, dtype=float))
+        n = x_arr.size
+        if y_arr.size != n:
+            raise ValueError("x and y must have the same number of elements")
+
+        out = np.empty(n, dtype=float)
+
+        for i in range(n):
+            failed = self._update_one(AS, input_spec, x_arr[i], y_arr[i],
+                                      reorder, verbose)
+            if failed:
+                out[i] = np.nan
+            else:
+                out[i] = self._extract(AS, out_key)
+
+        # Quality clipping (match original behaviour)
+        if prop_AS == "Q":
+            np.clip(out, 0.0, 1.0, out=out)
+
+        # Return scalar when both inputs were scalar
+        if np.isscalar(x) and np.isscalar(y):
+            return float(out[0])
+        return out
 
 
 

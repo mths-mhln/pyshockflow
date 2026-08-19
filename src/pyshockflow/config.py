@@ -347,11 +347,7 @@ class Config:
 
             ("NUMERICS", "WALL_FRICTION_MODELLING_BOOL", [False],
                 {"NUMERICS": ["FLUID_VISCOSITY"]},
-                "WALL_FRICTION_MODELLING_BOOL is False"),
-
-            ("INITIAL CONDITIONS", "ENFORCE_UNIFORM_INIT_NOZZLE_BOOL", [False],
-                {"INITIAL CONDITIONS": ["PRESSURE", "VELOCITY", "DENSITY", "TEMPERATURE"]},
-                "ENFORCE_UNIFORM_INIT_NOZZLE_BOOL is False"),
+                "WALL_FRICTION_MODELLING_BOOL is False")
         ]
         for section, key, trigger_values, prohibited, reason in condProhibitedCommon:
             if self._get_raw(section, key) in trigger_values:
@@ -369,6 +365,14 @@ class Config:
             check_prohibited_keys(_inlet_keys,  "Neither BOUNDARY_CONDITION_LEFT nor BOUNDARY_CONDITION_RIGHT is 'inlet'")
         elif bc_left != "outlet" and bc_right != "outlet":
             check_prohibited_keys(_outlet_keys,  "Neither BOUNDARY_CONDITION_LEFT nor BOUNDARY_CONDITION_RIGHT is 'outlet'")
+
+        # in case of nozzle expansions, enforce_uniform_init_nozzle = False prohibits specification of the 
+        # initial conditions PRESSURE, VELOCITY, DENSITY or TEMPERATURE
+        if expansion_device_type == "nozzle" and not self.enforceUniformInitNozzleBool():
+            check_prohibited_keys(
+                {"INITIAL CONDITIONS": ["PRESSURE", "VELOCITY", "DENSITY", "TEMPERATURE"]},
+                "ENFORCE_UNIFORM_INIT_NOZZLE_BOOL is False"
+            )
 
         return None
 

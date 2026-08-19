@@ -2,7 +2,7 @@ import sys
 
 import numpy as np
 import fluid_properties.fluid_properties as FP
-from functools import partial
+from functools import partial, lru_cache
 from scipy.optimize import fsolve
 
 class FluidIdeal():
@@ -124,359 +124,385 @@ class FluidIdeal():
         return chi, kappa
 
 
+import numpy as np
+from functools import lru_cache, partial
+import CoolProp.CoolProp as CP
+from CoolProp.CoolProp import AbstractState
+import sys
+
 class FluidReal():
     """
-    Real Fluid Class, where thermodynamic properties and transformations are taken from coolprop
+    Real Fluid Class, where thermodynamic properties and transformations are taken from CoolProp
     """
     def __init__(self, fluid_name, fluid_library, fluid_property_extraction_method, print_error=True):
         self.fluid_name = fluid_name
-        self.fluid_library = fluid_library
-        if fluid_property_extraction_method.lower() == 'fluid':
-            self.fluid = FP.fluid(fluid_library, fluid_name,  print_error=print_error)
-        if fluid_property_extraction_method.lower() == 'abstractstate':
-            self.fluid = FP.AbstractState(fluid_library, fluid_name)
-        if fluid_property_extraction_method.lower() == 'abstractstate_v2':
-            self.fluid = FP.AbstractState_v2(fluid_library, fluid_name)
+        self.fluid_library = fluid_library if fluid_library != 'CoolProp' else 'HEOS'
+        self.extraction_method = fluid_property_extraction_method.lower()
+        
+        # Store the fluid identifier for PropsSI calls
+        self._fluid_string = fluid_name  # Always keep the string name for PropsSI
+        
+        if self.extraction_method == 'fluid':
+            # Use string-based PropsSI (original CoolProp high-level interface)
+            self.fluid = self._fluid_string
+        elif self.extraction_method == 'abstractstate':
+            # Use AbstractState directly
+            self._abstract_state = AbstractState(self.fluid_library, fluid_name)
+            self.fluid = self._abstract_state
+        elif self.extraction_method == 'abstractstate_v2':
+            # Use optimized AbstractState wrapper
+            from fluid_properties.coolprop_interface import CoolPropAbstractState_v2  # Adjust import
+            self.fluid = CoolPropAbstractState_v2(self.fluid_library, fluid_name)
+        elif self.extraction_method == 'abstractstate_v3':
+            # Use the newly optimized version
+            from fluid_properties.coolprop_interface import CoolPropAbstractState_v3  # Adjust import
+            self.fluid = CoolPropAbstractState_v3(self.fluid_library, fluid_name)
+        else:
+            raise ValueError(f"Unknown fluid property extraction method: {fluid_property_extraction_method}")
 
-
-
-    def computeTemperature_p_rho(self, p, rho):
-        T = FP.PropsSI('T', 'P', p, 'D', rho, self.fluid)
-        return T
-
-    def computeTemperature_p_Q(self, p, Q):
-        T = FP.PropsSI('T', 'P', p, 'Q', Q, self.fluid)
-        return T
-
-    def computeTemperature_p_S(self, p, s):
-        T = FP.PropsSI('T', 'P', p, 'S', s, self.fluid)
-        return T
-
-    def computeDensity_p_T(self, p, T):
-        rho = FP.PropsSI('D', 'P', p, 'T', T, self.fluid)
-        return rho
-
-    def computeDensity_p_S(self, p, s):
-        rho = FP.PropsSI('D', 'P', p, 'S', s, self.fluid)
-        return rho
-
-    def computeDensity_p_s(self, p, s):
-        return FP.PropsSI('D', 'P', p, 'S', s, self.fluid)
-
-    def computeDensity_p_h(self, p, h):
-        return FP.PropsSI('D', 'P', p, 'H', h, self.fluid)
-
-    def computePressure_rho_e(self, rho, e):
-        p = FP.PropsSI('P', 'D', rho, 'U', e, self.fluid)
-        return p
-
-    def computeInternalEnergy_p_rho(self, p, rho):
-        e = FP.PropsSI('U', 'P', p, 'D', rho, self.fluid)
-        return e
-
-    def computeInternalEnergy_p_T(self, p, T):
-        e = FP.PropsSI('U', 'P', p, 'T', T, self.fluid)
-        return e
-
-    def computeInternalEnergy_p_Q(self, p, Q):
-        e = FP.PropsSI('U', 'P', p, 'Q', Q, self.fluid)
-        return e
-
-    def computeInternalEnergy_p_s(self, p, s):
-        e = FP.PropsSI('U', 'P', p, 'S', s, self.fluid)
-        return e
-
-    def computeEntropy_p_rho(self, p, rho):
-        s = FP.PropsSI('S', 'P', p, 'D', rho, self.fluid)
-        return s
-
-    def computeEntropy_p_T(self, p, T):
-        s = FP.PropsSI('S', 'P', p, 'T', T, self.fluid)
-        return s
-
-    def computeEntropy_p_Q(self, p, Q):
-        s = FP.PropsSI('S', 'P', p, 'Q', Q, self.fluid)
-        return s
-
-    def computeEnthalpy_p_rho(self, p, rho):
-        h = FP.PropsSI('H', 'P', p, 'D', rho, self.fluid)
-        return h
-
-    def computeEnthalpy_p_T(self, p, T):
-        return FP.PropsSI('H', 'P', p, 'T', T, self.fluid)
-
-    def computeEnthalpy_p_Q(self, p, Q):
-        h = FP.PropsSI('H', 'P', p, 'Q', Q, self.fluid)
-        return h
-
-    def computeEnthalpy_p_s(self, p, s):
-        return FP.PropsSI('H', 'P', p, 'S', s, self.fluid)
-
-    def computeQuality_p_rho(self, p, rho):
-        Q = FP.PropsSI('Q', 'P', p, 'D', rho, self.fluid)
-        return Q
-
-
-    def computeSoundSpeed_p_rho(self, p: float | np.ndarray, rho: float | np.ndarray) -> float | np.ndarray:
-        # Ensure inputs are numpy arrays
-        p = np.asarray(p, dtype=float)
-        rho = np.asarray(rho, dtype=float)
-        p, rho = np.broadcast_arrays(p, rho)
-
-        # function vectorized separately to allow for both single 
-        # values and arrays and for both to still pass the phase 
-        # check. Vectorize the core function, passing self.fluid
-        vectorized_func = np.vectorize(
-            partial(self._computeSoundSpeed_p_rho_single, fluid=self.fluid),
-            otypes=[float]
+        # Cache scalar property calls
+        self._computeInternalEnergyScalarCached = lru_cache(maxsize=200000)(
+            self._computeInternalEnergyScalar
         )
-        return vectorized_func(p, rho)
+        self._computePressureScalarCached = lru_cache(maxsize=200000)(
+            self._computePressureScalar
+        )
+        self._computeSoundSpeedScalarCached = lru_cache(maxsize=200000)(
+            self._computeSoundSpeedScalar
+        )
+
+    def _get_property(self, prop, x_str, x, y_str, y):
+        """
+        Unified property extraction that works with all fluid types
+        """
+        if self.extraction_method == 'fluid':
+            # Use string-based PropsSI
+            return CP.PropsSI(prop, x_str, x, y_str, y, self._fluid_string)
+        elif self.extraction_method == 'abstractstate':
+            # Use AbstractState directly
+            return self._get_property_abstractstate(prop, x_str, x, y_str, y)
+        elif self.extraction_method in ['abstractstate_v2', 'abstractstate_v3']:
+            # Use the wrapper's PropsSI method
+            return self.fluid.PropsSI(prop, x_str, x, y_str, y)
+    
+    def _get_property_abstractstate(self, prop, x_str, x, y_str, y):
+        """
+        Property extraction using AbstractState directly
+        """
+        # Map PropsSI names to AbstractState methods
+        prop_map = {
+            'T': 'T', 'P': 'p', 'D': 'rhomass', 'U': 'umass',
+            'H': 'hmass', 'S': 'smass', 'Q': 'Q', 'A': 'speed_sound',
+            'Cpmass': 'cpmass', 'Cvmass': 'cvmass', 'V': 'viscosity',
+            'Phase': 'phase', 'Z': 'compressibility_factor',
+            'd(P)/d(D)|T': 'first_partial_deriv'
+        }
+        
+        # Map input pairs to AbstractState input specifications
+        input_map = {
+            ('P', 'T'): CP.PT_INPUTS, ('T', 'P'): CP.PT_INPUTS,
+            ('P', 'D'): CP.DmassP_INPUTS, ('D', 'P'): CP.DmassP_INPUTS,
+            ('P', 'H'): CP.HmassP_INPUTS, ('H', 'P'): CP.HmassP_INPUTS,
+            ('P', 'Q'): CP.PQ_INPUTS, ('Q', 'P'): CP.PQ_INPUTS,
+            ('P', 'S'): CP.PSmass_INPUTS, ('S', 'P'): CP.PSmass_INPUTS,
+            ('P', 'U'): CP.PUmass_INPUTS, ('U', 'P'): CP.PUmass_INPUTS,
+            ('D', 'T'): CP.DmassT_INPUTS, ('T', 'D'): CP.DmassT_INPUTS,
+            ('D', 'U'): CP.DmassUmass_INPUTS, ('U', 'D'): CP.DmassUmass_INPUTS,
+            ('D', 'H'): CP.DmassHmass_INPUTS, ('H', 'D'): CP.DmassHmass_INPUTS,
+            ('T', 'Q'): CP.QT_INPUTS, ('Q', 'T'): CP.QT_INPUTS,
+            ('T', 'S'): CP.SmassT_INPUTS, ('S', 'T'): CP.SmassT_INPUTS,
+        }
+        
+        # Determine if inputs need reordering
+        input_key = (x_str, y_str)
+        if input_key in input_map:
+            input_spec = input_map[input_key]
+            reorder = False
+        else:
+            input_key_reversed = (y_str, x_str)
+            if input_key_reversed in input_map:
+                input_spec = input_map[input_key_reversed]
+                reorder = True
+            else:
+                raise ValueError(f"Unsupported input pair: {x_str}, {y_str}")
+        
+        # Update state
+        try:
+            if reorder:
+                self._abstract_state.update(input_spec, y, x)
+            else:
+                self._abstract_state.update(input_spec, x, y)
+        except:
+            return np.nan
+        
+        # Get property
+        if prop == 'd(P)/d(D)|T':
+            return self._abstract_state.first_partial_deriv(CP.iP, CP.iDmass, CP.iT)
+        elif prop in prop_map:
+            method = getattr(self._abstract_state, prop_map[prop])
+            return method()
+        else:
+            raise ValueError(f"Unsupported property: {prop}")
+
+    def clearPropertyCaches(self):
+        """Clear all scalar-property caches."""
+        self._computeInternalEnergyScalarCached.cache_clear()
+        self._computePressureScalarCached.cache_clear()
+        self._computeSoundSpeedScalarCached.cache_clear()
+
+    def _computeInternalEnergyScalar(self, p, rho):
+        return self._get_property('U', 'P', p, 'D', rho)
+
+    def _computePressureScalar(self, rho, e):
+        return self._get_property('P', 'D', rho, 'U', e)
+
+    def _computeSoundSpeedScalar(self, p, rho):
+        # This is the critical fix - avoid recursive calls
+        if self.extraction_method == 'fluid':
+            return self._computeSoundSpeed_p_rho_single_fluid(p, rho)
+        else:
+            return self._computeSoundSpeed_p_rho_single(p, rho)
 
     @staticmethod
-    def _computeSoundSpeed_p_rho_single(p: float, rho: float, fluid: str) -> float:
-        """single thdy point evaluation"""
-        # check if the state is two phase
-        # readers can find interpretation of the phase number in the CoolProp documentation:
-        # https://coolprop.org/_static/doxygen/html/namespace_cool_prop.html#aa1ce7c368d1058004293708038241850a648039a97f7392876038eaf56cf91e95
-        # under section "phases"
-        phase = FP.PropsSI("Phase", "P", p, "D", rho, fluid)
+    def _computeSoundSpeed_p_rho_single_fluid(p, rho, fluid):
+        """Sound speed calculation for string-based fluid"""
+        phase = CP.PropsSI("Phase", "P", p, "D", rho, fluid)
         
-        # if phase == 6, fluid is in two-phase region. 
-        two_phase = False
-        if phase == 6:
-            two_phase = True
-
-        def _computeSoundSpeed_p_rho_single_phase(p: float, rho: float) -> float:
-            a = FP.PropsSI("A", "P", p, "D", rho, fluid)      
-            return a
-        
-        def _computeSoundSpeed_p_rho_two_phase(p: float, rho: float) -> float:
-            # two-phase (HEM model from Cioffi et al.)
-            T = FP.PropsSI("T", "P", p, "D", rho, fluid)
-            y_V = FP.PropsSI("Q", "P", p, "D", rho, fluid)
+        if phase == 6:  # Two-phase
+            # Use HEM model
+            T = CP.PropsSI("T", "P", p, "D", rho, fluid)
+            y_V = CP.PropsSI("Q", "P", p, "D", rho, fluid)
             y_L = 1 - y_V
-            soundSpeed_L = FP.PropsSI("A", "P", p, "Q", 0, fluid)
-            soundSpeed_V = FP.PropsSI("A", "P", p, "Q", 1, fluid)
-            rho_L = FP.PropsSI("D", "P", p, "Q", 0, fluid)
-            rho_V = FP.PropsSI("D", "P", p, "Q", 1, fluid)
-            c_p_L = FP.PropsSI("Cpmass", "P", p, "Q", 0, fluid)
-            c_p_V = FP.PropsSI("Cpmass", "P", p, "Q", 1, fluid)
+            soundSpeed_L = CP.PropsSI("A", "P", p, "Q", 0, fluid)
+            soundSpeed_V = CP.PropsSI("A", "P", p, "Q", 1, fluid)
+            rho_L = CP.PropsSI("D", "P", p, "Q", 0, fluid)
+            rho_V = CP.PropsSI("D", "P", p, "Q", 1, fluid)
+            c_p_L = CP.PropsSI("Cpmass", "P", p, "Q", 0, fluid)
+            c_p_V = CP.PropsSI("Cpmass", "P", p, "Q", 1, fluid)
             alpha_V = y_V * (rho/rho_V)
             alpha_L = y_L * (rho/rho_L)
             
-            # Central difference for ds/dp at constant Q
-            ds_dp_cQ_L = (FP.PropsSI("S", "P", p + 1e3, "Q", 0, fluid) -
-                            FP.PropsSI("S", "P", p - 1e3, "Q", 0, fluid)) / (2 * 1e3)
-            ds_dp_cQ_V = (FP.PropsSI("S", "P", p + 1e3, "Q", 1, fluid) -
-                            FP.PropsSI("S", "P", p - 1e3, "Q", 1, fluid)) / (2 * 1e3)
-
-            # Sound speed according to Eq. 29 (Cioffi et al.)
+            ds_dp_cQ_L = (CP.PropsSI("S", "P", p + 1e3, "Q", 0, fluid) -
+                          CP.PropsSI("S", "P", p - 1e3, "Q", 0, fluid)) / (2 * 1e3)
+            ds_dp_cQ_V = (CP.PropsSI("S", "P", p + 1e3, "Q", 1, fluid) -
+                          CP.PropsSI("S", "P", p - 1e3, "Q", 1, fluid)) / (2 * 1e3)
+            
             a = (rho * (
                     alpha_L / (rho_L * soundSpeed_L**2) +
                     alpha_V / (rho_V * soundSpeed_V**2) +
                     T * ((alpha_L * rho_L / c_p_L) * ds_dp_cQ_L**2 +
-                            (alpha_V * rho_V / c_p_V) * ds_dp_cQ_V**2)
+                         (alpha_V * rho_V / c_p_V) * ds_dp_cQ_V**2)
                     ))**(-0.5)
             return a
-        if not two_phase:
-            # from tests performed in pyshockflow of this function, when computesoundspeed
-            # is called in any region other than two-phase near the two-phase dome, 
-            # the value is stable. Values inside the two-phase dome (phase == 6) near the 
-            # dome can return -9999980 or nan. 
-            a = _computeSoundSpeed_p_rho_single_phase(p, rho)
-            # common errors:
-            if abs(a) > 99999:
-                # for qualities near 0, I did see two-phase SOS in the thousands, but that
-                # is considered acceptably finite for an edge case.
-                print(f"Warning: Computed sound speed {a} is unusually high for p={p}, rho={rho}.\n"
-                    "This issue is common when the thdy pair is considered two-phase by CoolProp\n"
-                    "but is nevertheless evaluated using PropsSI, which from experience only\n"
-                    "returns sensible values for non-two-phase regions.")
-            if np.isnan(a):
-                print(f"Warning: Computed sound speed is NaN for p={p}, rho={rho}.\n"
-                    "This issue is common when the thdy pair is close to the critical point.\n"
-                    "The user may try relaxing the tolerance of the CoolPropAbstractState_v2\n"
-                    "_critical_value method. However if the relaxation required is too large\n"
-                    "it is recommended to launch a separate investigation.")
+        else:
+            # Single phase
+            return CP.PropsSI("A", "P", p, "D", rho, fluid)
+
+    def _computeSoundSpeed_p_rho_single(self, p, rho):
+        """Sound speed calculation for AbstractState-based fluids"""
+        if self.extraction_method in ['abstractstate_v2', 'abstractstate_v3']:
+            # Use the wrapper's PropsSI method
+            phase = self.fluid.PropsSI("Phase", "P", p, "D", rho)
+        else:
+            # Use AbstractState directly
+            phase = self._get_property('Phase', 'P', p, 'D', rho)
+        
+        if phase == 6:  # Two-phase
+            # Similar HEM model but using the appropriate property extraction
+            T = self._get_property('T', 'P', p, 'D', rho)
+            y_V = self._get_property('Q', 'P', p, 'D', rho)
+            y_L = 1 - y_V
+            
+            if self.extraction_method in ['abstractstate_v2', 'abstractstate_v3']:
+                soundSpeed_L = self.fluid.PropsSI("A", "P", p, "Q", 0)
+                soundSpeed_V = self.fluid.PropsSI("A", "P", p, "Q", 1)
+                rho_L = self.fluid.PropsSI("D", "P", p, "Q", 0)
+                rho_V = self.fluid.PropsSI("D", "P", p, "Q", 1)
+                c_p_L = self.fluid.PropsSI("Cpmass", "P", p, "Q", 0)
+                c_p_V = self.fluid.PropsSI("Cpmass", "P", p, "Q", 1)
+            else:
+                soundSpeed_L = self._get_property('A', 'P', p, 'Q', 0)
+                soundSpeed_V = self._get_property('A', 'P', p, 'Q', 1)
+                rho_L = self._get_property('D', 'P', p, 'Q', 0)
+                rho_V = self._get_property('D', 'P', p, 'Q', 1)
+                c_p_L = self._get_property('Cpmass', 'P', p, 'Q', 0)
+                c_p_V = self._get_property('Cpmass', 'P', p, 'Q', 1)
+            
+            alpha_V = y_V * (rho/rho_V)
+            alpha_L = y_L * (rho/rho_L)
+            
+            # For AbstractState, we need to use finite differences differently
+            ds_dp_cQ_L = (self._get_property('S', 'P', p + 1e3, 'Q', 0) -
+                          self._get_property('S', 'P', p - 1e3, 'Q', 0)) / (2 * 1e3)
+            ds_dp_cQ_V = (self._get_property('S', 'P', p + 1e3, 'Q', 1) -
+                          self._get_property('S', 'P', p - 1e3, 'Q', 1)) / (2 * 1e3)
+            
+            a = (rho * (
+                    alpha_L / (rho_L * soundSpeed_L**2) +
+                    alpha_V / (rho_V * soundSpeed_V**2) +
+                    T * ((alpha_L * rho_L / c_p_L) * ds_dp_cQ_L**2 +
+                         (alpha_V * rho_V / c_p_V) * ds_dp_cQ_V**2)
+                    ))**(-0.5)
             return a
         else:
-            # but if the value is computed using the cioffi equation, the returned value
-            # has no risk of being -9999980 or nan either, so we can be ensured about stability.
-            a = _computeSoundSpeed_p_rho_two_phase(p, rho)
-            return a
+            # Single phase
+            return self._get_property('A', 'P', p, 'D', rho)
+
+    # Rest of the methods remain the same but use _get_property instead of FP.PropsSI
+    def computeTemperature_p_rho(self, p, rho):
+        return self._get_property('T', 'P', p, 'D', rho)
+
+    def computeTemperature_p_Q(self, p, Q):
+        return self._get_property('T', 'P', p, 'Q', Q)
+
+    def computeTemperature_p_S(self, p, s):
+        return self._get_property('T', 'P', p, 'S', s)
+
+    def computeDensity_p_T(self, p, T):
+        return self._get_property('D', 'P', p, 'T', T)
+
+    def computeDensity_p_S(self, p, s):
+        return self._get_property('D', 'P', p, 'S', s)
+
+    def computeDensity_p_s(self, p, s):
+        return self._get_property('D', 'P', p, 'S', s)
+
+    def computeDensity_p_h(self, p, h):
+        return self._get_property('D', 'P', p, 'H', h)
+
+    def computePressure_rho_e(self, rho, e):
+        rho_arr = np.asarray(rho, dtype=float)
+        e_arr = np.asarray(e, dtype=float)
+        rho_arr, e_arr = np.broadcast_arrays(rho_arr, e_arr)
+        return np.vectorize(self._computePressureScalarCached, otypes=[float])(rho_arr, e_arr)
+
+    def computeInternalEnergy_p_rho(self, p, rho):
+        p_arr = np.asarray(p, dtype=float)
+        rho_arr = np.asarray(rho, dtype=float)
+        p_arr, rho_arr = np.broadcast_arrays(p_arr, rho_arr)
+        return np.vectorize(self._computeInternalEnergyScalarCached, otypes=[float])(p_arr, rho_arr)
+
+    def computeInternalEnergy_p_T(self, p, T):
+        return self._get_property('U', 'P', p, 'T', T)
+
+    def computeInternalEnergy_p_Q(self, p, Q):
+        return self._get_property('U', 'P', p, 'Q', Q)
+
+    def computeInternalEnergy_p_s(self, p, s):
+        return self._get_property('U', 'P', p, 'S', s)
+
+    def computeEntropy_p_rho(self, p, rho):
+        return self._get_property('S', 'P', p, 'D', rho)
+
+    def computeEntropy_p_T(self, p, T):
+        return self._get_property('S', 'P', p, 'T', T)
+
+    def computeEntropy_p_Q(self, p, Q):
+        return self._get_property('S', 'P', p, 'Q', Q)
+
+    def computeEnthalpy_p_rho(self, p, rho):
+        return self._get_property('H', 'P', p, 'D', rho)
+
+    def computeEnthalpy_p_T(self, p, T):
+        return self._get_property('H', 'P', p, 'T', T)
+
+    def computeEnthalpy_p_Q(self, p, Q):
+        return self._get_property('H', 'P', p, 'Q', Q)
+
+    def computeEnthalpy_p_s(self, p, s):
+        return self._get_property('H', 'P', p, 'S', s)
+
+    def computeQuality_p_rho(self, p, rho):
+        return self._get_property('Q', 'P', p, 'D', rho)
+
+    def computeSoundSpeed_p_rho(self, p, rho):
+        p_arr = np.asarray(p, dtype=float)
+        rho_arr = np.asarray(rho, dtype=float)
+        p_arr, rho_arr = np.broadcast_arrays(p_arr, rho_arr)
+        return np.vectorize(self._computeSoundSpeedScalarCached, otypes=[float])(p_arr, rho_arr)
 
     def computeMach_u_p_rho(self, u, p, rho):
         soundSpeed = self.computeSoundSpeed_p_rho(p, rho)
         return np.abs(u)/soundSpeed
 
     def computeComprFactorZ_p_rho(self, p, rho):
-        Z = FP.PropsSI('Z', 'P', p, 'D', rho, self.fluid)
-        return Z
+        return self._get_property('Z', 'P', p, 'D', rho)
 
     def computeFunDerGamma_p_rho(self, p, rho):
         try:
-            G = FP.PropsSI("FUNDAMENTAL_DERIVATIVE_OF_GAS_DYNAMICS", "P", p, "D", rho, self.fluid)
-            return G
+            return self._get_property("FUNDAMENTAL_DERIVATIVE_OF_GAS_DYNAMICS", "P", p, "D", rho)
         except:
             T = self.computeTemperature_p_rho(p, rho)
             try:
-                Q = FP.PropsSI("Q", "T", T, "P", p, self.fluid)
+                Q = self._get_property("Q", "T", T, "P", p)
             except:
                 Q = 1
 
-            G_liquid = FP.PropsSI("FUNDAMENTAL_DERIVATIVE_OF_GAS_DYNAMICS", "T", T, "Q", 0, self.fluid)
-            G_vapor = FP.PropsSI("FUNDAMENTAL_DERIVATIVE_OF_GAS_DYNAMICS", "T", T, "Q", 1, self.fluid)
+            G_liquid = self._get_property("FUNDAMENTAL_DERIVATIVE_OF_GAS_DYNAMICS", "T", T, "Q", 0)
+            G_vapor = self._get_property("FUNDAMENTAL_DERIVATIVE_OF_GAS_DYNAMICS", "T", T, "Q", 1)
 
             G = (1 - Q) * G_liquid + Q * G_vapor
             return G
 
     def compute_gammapv_p_rho(self, p, rho):
-        cp = FP.PropsSI("Cpmass", "P", p, "D", rho, self.fluid)
-        cv = FP.PropsSI("Cvmass", "P", p, "D", rho, self.fluid)
-        dp_drho_T = FP.PropsSI("d(P)/d(D)|T", "P", p, "D", rho, self.fluid)
+        cp = self._get_property("Cpmass", "P", p, "D", rho)
+        cv = self._get_property("Cvmass", "P", p, "D", rho)
+        dp_drho_T = self._get_property("d(P)/d(D)|T", "P", p, "D", rho)
         dp_dv_T = - rho**2 * dp_drho_T
         gmma_pv = -1/(p*rho) * cp/cv * dp_dv_T
         return gmma_pv
 
     def compute_gammapt_p_T(self, p, T):
-        rho = FP.PropsSI("D", "P", p, "T", T, self.fluid)
-        d_rho_dT_P = FP.PropsSI("d(D)/d(T)|P", "P", p, "T", T, self.fluid)
+        rho = self._get_property("D", "P", p, "T", T)
+        d_rho_dT_P = self._get_property("d(D)/d(T)|P", "P", p, "T", T)
         dv_dT_P = - d_rho_dT_P / (rho**2)
-        cp = FP.PropsSI("Cpmass", "P", p, "T", T, self.fluid)
+        cp = self._get_property("Cpmass", "P", p, "T", T)
         gamma_pT = 1 / (1 - p/cp*dv_dT_P)
         return gamma_pT
 
     def computeDynamicViscosity_p_rho(self, p, rho):
-        # ensure inputs are numpy arrays
         p = np.asarray(p, dtype=float)
         rho = np.asarray(rho, dtype=float)
         p, rho = np.broadcast_arrays(p, rho)
-
-        # function vectorized separately to allow for both single values and arrays 
-        # and for both to still pass the phase check.
-        # Vectorize the core function, passing self.fluid
         vectorized_func = np.vectorize(
-            partial(self._computeDynamicViscosity_p_rho_single, fluid=self.fluid),
+            partial(self._computeDynamicViscosity_p_rho_single),
             otypes=[float]
         )
         return vectorized_func(p, rho)
 
-    @staticmethod
-    def _computeDynamicViscosity_p_rho_single(p: float, rho: float, fluid: str) -> float:
-        # check if the state is two phase
-        # readers can find interpretation of the phase number in the CoolProp documentation:
-        # https://coolprop.org/_static/doxygen/html/namespace_cool_prop.html#aa1ce7c368d1058004293708038241850a648039a97f7392876038eaf56cf91e95
-        # under section "phases"
-        phase = FP.PropsSI("Phase", "P", p, "D", rho, fluid)
-
-        # if phase == 6, fluid is in two-phase region.
-        two_phase = False
-        if phase == 6:
-            two_phase = True
-
-        def _computeDynamicViscosity_p_rho_single_phase(p: float, rho: float) -> float:
-            mu = FP.PropsSI("V", "P", p, "D", rho, fluid)
-            return mu
-
-        def _computeDynamicViscosity_p_rho_two_phase(p: float, rho: float) -> float:
-            y_V = FP.PropsSI("Q", "P", p, "D", rho, fluid)
-            rho_V = FP.PropsSI("D", "P", p, "Q", 1, fluid)
+    def _computeDynamicViscosity_p_rho_single(self, p, rho):
+        phase = self._get_property("Phase", "P", p, "D", rho)
+        
+        if phase == 6:  # Two-phase
+            y_V = self._get_property("Q", "P", p, "D", rho)
+            rho_V = self._get_property("D", "P", p, "Q", 1)
             alpha_V = y_V * rho / rho_V
-            mu_V = FP.PropsSI("V", "P", p, "Q", 1, fluid)
-            mu_L = FP.PropsSI("V", "P", p, "Q", 0, fluid)
+            mu_V = self._get_property("V", "P", p, "Q", 1)
+            mu_L = self._get_property("V", "P", p, "Q", 0)
             mu_2phase = alpha_V * mu_V + (1-alpha_V) * (1+2.5*alpha_V) * mu_L
             return mu_2phase
-
-        if not two_phase:
-            mu = _computeDynamicViscosity_p_rho_single_phase(p, rho)
-            return mu
         else:
-            mu = _computeDynamicViscosity_p_rho_two_phase(p, rho)
-            return mu
-
-        
+            return self._get_property("V", "P", p, "D", rho)
 
     def computeMach_pt_p_gammapv(self, pt, p, gamma_pv):
-        """Reference to equation 8.10 Nederstigt MS thesis"""
         mach = np.sqrt(2/(gamma_pv-1) * ((pt/p)**((gamma_pv-1)/gamma_pv) - 1))
         return mach
 
-
-
     def computeInletQuantitiesTotal_pt_Tt(self, pressure, totPressure, totTemperature, direction):
-        """The full state must be reconstructed from the quantities given in the arguments.
-        The entropy of the static and total state must be the same by definition. This is used to find the temperature.
-        Method used for computation of inlet static state for total state in single-phase region.
-
-        Args:
-            pressure (float): static pressure
-            totPressure (float): total pressure
-            totTemperature (float): total temperature
-            direction (float): flow direction, integer (-1 or 1)
-        """
-        # compute entropy from total conditions
         entropyTotal = self.computeEntropy_p_T(totPressure, totTemperature)
-        # copmpute static density from total entropy and static pressure
         density = self.computeDensity_p_S(pressure, entropyTotal)
-        # compute velocity from total and static enthalpy
         enthalpyTotal = self.computeEnthalpy_p_T(totPressure, totTemperature)
         enthalpyStatic = self.computeEnthalpy_p_rho(pressure, density)
         velocity = direction * np.sqrt(2 * (enthalpyTotal - enthalpyStatic))
-        # compute static energy
         energy = self.computeInternalEnergy_p_rho(pressure, density)
         return density, velocity, energy
 
-        # # old method
-        # def compute_function_residual(temperatureGuess, verbose = False):
-        #     entropyStatic = self.computeEntropy_p_T(pressure, temperatureGuess)
-        #     entropyTotal = self.computeEntropy_p_T(totPressure, totTemperature)
-        #     residual = entropyStatic - entropyTotal
-        #     if verbose:
-        #         print(f"  T_guess={temperatureGuess} pressure={pressure} entropyStatic={entropyStatic} pressure={totPressure} \
-        #               totTemperature={totTemperature} entropyTotal={entropyTotal} resid={residual}", flush=True)
-        #         sys.stdout.flush()  
-        #     return residual
-
-        # # temperature = fsolve(compute_function_residual, totTemperature, xtol=1e-8)[0]
-        # temperature, info, ier, msg = fsolve(
-        #     compute_function_residual,
-        #     totTemperature,
-        #     xtol=1e-6,
-        #     full_output=True
-        # )
-        # if ier != 1:
-        #     raise RuntimeError(f"fsolve did not converge: {msg}")
-        
-        # temperature = temperature[0]
-        # density = self.computeDensity_p_T(pressure, temperature)
-        # gamma_pv = self.compute_gammapv_p_rho(pressure, density)
-        # mach = self.computeMach_pt_p_gammapv(totPressure, pressure, gamma_pv)
-        # soundSpeed = self.computeSoundSpeed_p_rho(pressure, density)
-        # velocity = direction * mach * soundSpeed
-        # energy = self.computeInternalEnergy_p_rho(pressure, density)
-        # return density, velocity, energy
-
     def computeInletQuantitiesTotal_pt_Q(self, pressure, totPressure, quality, direction):
-        """
-        The full state must be reconstructed from the quantities given in the arguments.
-        The entropy of the static and total state must be the same by definition. This is used to find the temperature.
-        Method used for computation of inlet static state for total state in two-phase region.
-
-        Args:
-            pressure (float): static pressure
-            totPressure (float): total pressure
-            quality (float): vapor quality
-            direction (float): flow direction, integer (-1 or 1)
-        """
-        # compute entropy from total conditions
         entropyTotal = self.computeEntropy_p_Q(totPressure, quality)
-        # compute static density from total entropy and static pressure
         density = self.computeDensity_p_S(pressure, entropyTotal)
-        # compute velocity from total and static enthalpy
         enthalpyTotal = self.computeEnthalpy_p_Q(totPressure, quality)
         enthalpyStatic = self.computeEnthalpy_p_rho(pressure, density)
         velocity = direction * np.sqrt(2 * (enthalpyTotal - enthalpyStatic))
-        # compute static energy
         energy = self.computeInternalEnergy_p_rho(pressure, density)
         return density, velocity, energy
 
@@ -490,12 +516,10 @@ class FluidReal():
         energy = self.computeInternalEnergy_p_Q(pressure, quality)
         return density, energy
 
-
-
     def computeChiKappa_VinokurScheme_p_rho(self, p, rho):
-        e = FP.PropsSI("U", "P", p, "D", rho, self.fluid)
-        dp_drho_econst = FP.PropsSI("d(P)/d(D)|U", "P", p, "D", rho, self.fluid)
-        dp_de_rhoconst = FP.PropsSI("d(P)/d(U)|D", "P", p, "D", rho, self.fluid)
+        e = self._get_property("U", "P", p, "D", rho)
+        dp_drho_econst = self._get_property("d(P)/d(D)|U", "P", p, "D", rho)
+        dp_de_rhoconst = self._get_property("d(P)/d(U)|D", "P", p, "D", rho)
         chi = dp_drho_econst - e/rho * dp_de_rhoconst
         kappa = dp_de_rhoconst / rho
         return chi, kappa
