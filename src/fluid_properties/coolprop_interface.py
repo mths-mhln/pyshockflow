@@ -366,8 +366,8 @@ class CoolPropAbstractState_v2():
             return getattr(CP, y_str + x_str + "_INPUTS"), reorder
         
     @staticmethod # necessary to allow for vectorization of the method
-    @np.vectorize(otypes=[float])
-    def _update_and_get(AS: AbstractState, input_spec: CP.PQ_INPUTS, x_str: str, x: float, y_str: str, y: float, output: str, critical_point_vals: tuple, reorder: bool, verbose: bool = False) -> float:
+    @np.vectorize(otypes=[float], excluded=["critical_point_vals"])
+    def _update_and_get(AS: AbstractState, input_spec: CP.PQ_INPUTS, x_str: str, x: float, y_str: str, y: float, output: str, reorder: bool, verbose: bool = False, critical_point_vals: tuple = None) -> float:
         """
         Vectorized method to update the AbstractState with the specified input specification and input variables, and return the specified output variable. 
         The method returns nan for points that are not valid for the AbstractState (e.g. points outside the phase envelope).
@@ -518,7 +518,7 @@ class CoolPropAbstractState_v2():
         y_str_AS = self._PropsSI_syntax_to_AbstractState_syntax(y_str)
         input_spec, reorder = self._get_input_spec(x_str_AS, y_str_AS)
         if prop_AS == 'Q':
-            out = self._update_and_get(AS, input_spec, x_str_AS, x, y_str_AS, y, prop_AS, self.critical_point_vals, reorder, verbose)
+            out = self._update_and_get(AS, input_spec, x_str_AS, x, y_str_AS, y, prop_AS, reorder, verbose, critical_point_vals = critical_point_vals)
             out[out < 0] = 0
             out[out > 1] = 1
             return out
@@ -539,7 +539,7 @@ class CoolPropAbstractState_v2():
                 "Phase": "phase",
                 "V": "viscosity"
             }
-            return self._update_and_get(AS, input_spec, x_str_AS, x, y_str_AS, y, translator[prop_AS], self.critical_point_vals, reorder, verbose)
+            return self._update_and_get(AS, input_spec, x_str_AS, x, y_str_AS, y, translator[prop_AS], reorder, verbose, critical_point_vals = critical_point_vals)
 
 
 

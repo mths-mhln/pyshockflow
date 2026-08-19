@@ -47,10 +47,13 @@ Thumbs.db
 
 # Node artifact files
 node_modules/
+
+# directories
 dist/
 venv/
 *.egg-info/
 build/
+src/benchmarking_tools/
 
 # Compiled Java class files
 *.class
