@@ -1265,7 +1265,7 @@ class Driver:
 
             # Compute residuals (finite-volume right-hand side).
             residuals = computeResiduals(
-                config, deviceGeometryData, meshData, fluidState, 
+                config, meshData, fluidState, 
                 fluidModel, dt,advectionScheme, isMusclActive, 
                 limiter, entropyFixActive, entropyFixCoefficient,
                 expansionDeviceType
@@ -1691,7 +1691,7 @@ def computeTimeStep(fluidState, meshData, fluidModel, cflMax):
 #  Residual computation
 # -----------------------------------------------------------------------------
 
-def computeResiduals(config, deviceGeometryData, meshData, fluidState, 
+def computeResiduals(config, meshData, fluidState, 
                      fluidModel, dt, advectionScheme, isMusclActive, 
                      limiter, entropyFixActive, entropyFixCoefficient,
                      expansionDeviceType):
@@ -2153,7 +2153,29 @@ def computeSourceTerms(config, meshData, fluidModel, fluidState):
         f = (-1.81 * np.log10(6.9/Re_2phase))**-2  # Darcy-Weisbach friction factor
         D = 2*meshData["yMeshNodes"]
         P_w = np.pi * D
+        # show percentage change of source term magnitude by adding darcy friction
+        source_magnitude = np.linalg.norm(source[:, 1])
+        friction_magnitude = np.linalg.norm(0.125 * f * rho * u**2 * P_w)
+        percentage_change = (friction_magnitude / source_magnitude) * 100
+        # print("source magnitude:", source_magnitude)
+        # print("friction magnitude:", friction_magnitude)
+        # print(f"Percentage change in momentum source term due to wall friction: {percentage_change:.2f}%")
         source[:, 1] -= 0.125 * f * rho * u**2 * P_w
+
+    # print all variables and magnitude
+    # print("rho:", rho)
+    # print("u:", u)
+    # print("p:", p)
+    # print("e:", e)
+    # print("area:", area)
+    # print("dAdx:", dAdx)
+    # print("geomFactor:", geomFactor)
+    # print("mu:", mu)
+    # print("Re_2phase:", Re_2phase)
+    # print("log10(6.9/Re_2phase):", np.log10(6.9/Re_2phase))
+    # print("f:", f)
+    # print("D:", D)
+    # print("P_w:", P_w)
 
     return source
 

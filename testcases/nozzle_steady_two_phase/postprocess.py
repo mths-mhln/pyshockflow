@@ -11,8 +11,12 @@ from pyshockflow import Driver, Config
 
 # files whose data to extract:
 configFiles = [
-    "inputs/config_files/lettieri/L1_smooth.ini",
-    "inputs/config_files/lettieri/L1_friction.ini"
+    "inputs/config_files/lettieri/L1_smooth.ini"
+]
+
+# perform verification on the simulation
+verification_cases = [
+    "lettieri/L1_pressure"
 ]
 
 # instantiate results path list
@@ -41,10 +45,6 @@ plt.show()
 # plot expansion path on top of thermoplot
 fig = thermoplot_expansion_plot("inputs/thermoplot/CO2.ini", resultPicklePaths, driver.config)
 plt.show()
-
-
-# perform verification on the simulation
-verification_cases = ["lettieri/L1_pressure"]
 
 # convert csv information to dict to comply with v_and_v function argument data format.
 for verification_case in verification_cases:

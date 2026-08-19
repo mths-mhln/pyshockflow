@@ -297,6 +297,12 @@ class CoolPropAbstractState_v2():
         # initalize abstractstate:
         self._abstract_state = AbstractState(self.Library, fluid_name)
 
+        # compute critical point properties for the fluid, to be used in the PropsSI method for points that are close to the critical point.
+        Tcrit = self._abstract_state.T_critical()
+        Dcrit = self._abstract_state.rhomass_critical()
+        Pcrit = self._abstract_state.p_critical()
+        self.critical_point_vals = (Tcrit, Dcrit, Pcrit)
+
     @staticmethod
     def _update_wrapper(AS: AbstractState, input_spec: CP.PQ_INPUTS, x: float, y: float, verbose: bool = False) -> bool:
         """
@@ -361,7 +367,7 @@ class CoolPropAbstractState_v2():
         
     @staticmethod # necessary to allow for vectorization of the method
     @np.vectorize(otypes=[float])
-    def _update_and_get(AS: AbstractState, input_spec: CP.PQ_INPUTS, x_str: str, x: float, y_str: str, y: float, output: str, reorder: bool, verbose: bool = False) -> float:
+    def _update_and_get(AS: AbstractState, input_spec: CP.PQ_INPUTS, x_str: str, x: float, y_str: str, y: float, output: str, critical_point_vals: tuple, reorder: bool, verbose: bool = False) -> float:
         """
         Vectorized method to update the AbstractState with the specified input specification and input variables, and return the specified output variable. 
         The method returns nan for points that are not valid for the AbstractState (e.g. points outside the phase envelope).
@@ -392,11 +398,10 @@ class CoolPropAbstractState_v2():
             For points that are not valid for the AbstractState (e.g. points outside the phase envelope), nan will be returned.
         """
         # check if the input thermodynamic pair lies close to the critical point
-        if CoolPropAbstractState_v2._critical_value(AS, x_str, x) and CoolPropAbstractState_v2._critical_value(AS, y_str, y):
+        if CoolPropAbstractState_v2._critical_value(AS, x_str, x, critical_point_vals) and CoolPropAbstractState_v2._critical_value(AS, y_str, y, critical_point_vals):
             # input pair is close or equal to critical point, compute state from critical point. Thdy states close to the critical
             # point caused some issues during computation.
-            Tcrit = AS.T_critical()
-            Dcrit = AS.rhomass_critical()
+            Tcrit, Dcrit, Pcrit = critical_point_vals
             AS.update(CP.DmassT_INPUTS, Dcrit, Tcrit)
             S = AS.smass()
             AS.update(CP.SmassT_INPUTS, S, Tcrit)
@@ -414,7 +419,7 @@ class CoolPropAbstractState_v2():
             return AS.first_partial_deriv(CP.iP, CP.iDmass, CP.iT)
         return getattr(AS, output)()    
 
-    def _critical_value(AS: AbstractState, prop_str_AS: str, prop_val: float) -> bool:
+    def _critical_value(AS: AbstractState, prop_str_AS: str, prop_val: float, critical_point_vals: tuple) -> bool:
         """
         This method checks if the specified input value is close to the critical point, 
         and returns True if it is, and False otherwise.
@@ -437,8 +442,7 @@ class CoolPropAbstractState_v2():
         bool
             True if the specified input pair is close to the critical point, False otherwise.
         """
-        Tcrit = AS.T_critical()
-        Dcrit = AS.rhomass_critical()
+        Tcrit, Dcrit, Pcrit = critical_point_vals
         AS.update(CP.DmassT_INPUTS, Dcrit, Tcrit)
         S = AS.smass()
         if prop_str_AS == 'Q':
@@ -494,14 +498,15 @@ class CoolPropAbstractState_v2():
             Value of the desired output variable, e.g. temperature or pressure. Will be a float for single point evaluation, or a numpy array for vectorized evaluation. 
             For points that are not valid for the AbstractState (e.g. points outside the phase envelope), nan will be returned.       
         """
+        critical_point_vals = self.critical_point_vals
         AS = self._get_abstract_state()
         if prop in ['Tcrit', 'Pcrit', 'Dcrit', 'Tmax', 'M', 'Ttriple']: # translation necessary to comply with AS syntax, see: https://coolprop.org/_static/doxygen/html/class_cool_prop_1_1_abstract_state.html
             if prop== 'Tcrit':
-                return AS.T_critical()
-            elif prop == 'Pcrit':
-                return AS.p_critical()
+                return critical_point_vals[0]
             elif prop == 'Dcrit':
-                return AS.rhomass_critical()    
+                return critical_point_vals[1]
+            elif prop == 'Pcrit':
+                return critical_point_vals[2]
             elif prop == 'Tmax':
                 return AS.Tmax()
             elif prop == 'M':
@@ -513,7 +518,7 @@ class CoolPropAbstractState_v2():
         y_str_AS = self._PropsSI_syntax_to_AbstractState_syntax(y_str)
         input_spec, reorder = self._get_input_spec(x_str_AS, y_str_AS)
         if prop_AS == 'Q':
-            out = self._update_and_get(AS, input_spec, x_str_AS, x, y_str_AS, y, prop_AS, reorder, verbose)
+            out = self._update_and_get(AS, input_spec, x_str_AS, x, y_str_AS, y, prop_AS, self.critical_point_vals, reorder, verbose)
             out[out < 0] = 0
             out[out > 1] = 1
             return out
@@ -534,7 +539,7 @@ class CoolPropAbstractState_v2():
                 "Phase": "phase",
                 "V": "viscosity"
             }
-            return self._update_and_get(AS, input_spec, x_str_AS, x, y_str_AS, y, translator[prop_AS], reorder, verbose)
+            return self._update_and_get(AS, input_spec, x_str_AS, x, y_str_AS, y, translator[prop_AS], self.critical_point_vals, reorder, verbose)
 
 
 

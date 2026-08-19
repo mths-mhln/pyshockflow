@@ -2,7 +2,7 @@ from pyshockflow import Driver
 from pyshockflow import Config
 
 
-# configFile = "inputs/config_files/lettieri/L1_smooth.ini"
+configFile = "inputs/config_files/lettieri/L1_smooth.ini"
 # configFile = "inputs/config_files/lettieri/L1_friction.ini"
 # configFile = "inputs/config_files/lettieri/L5_smooth.ini"
 # configFile = "inputs/config_files/lettieri/L5_friction.ini"
@@ -12,7 +12,7 @@ from pyshockflow import Config
 # configFile = "inputs/config_files/petruccelli/P4.ini"
 # configFile = "inputs/config_files/berana/B1.ini"
 # configFile = "inputs/config_files/berana/B2.ini"
-configFile = "inputs/config_files/berana/B3.ini"
+# configFile = "inputs/config_files/berana/B3.ini"
 
 # config = Config(configFile)
 # driver = Driver(config=config)
