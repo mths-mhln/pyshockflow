@@ -4,322 +4,659 @@ from pyshockflow import FluidIdeal
 from pyshockflow.math_utils import *
 
 
-class AdvectionRoeBase:
-    def __init__(self, rhoL, rhoR, uL, uR, pL, pR, fluid):
-        """
-        Roe scheme numerics for ideal gas. Parameters are left and right values of density, velocity and pressure, and the fluid object.
-        Formulation based on x-split Riemann Solver in the book by Toro.
-        """
-        self.rhoL = rhoL
-        self.rhoR = rhoR
-        self.uL = uL
-        self.uR = uR
-        self.pL = pL
-        self.pR = pR
-        self.fluid = fluid
-        if isinstance(fluid, FluidIdeal):
-            self.gmma = fluid.gmma
-        self.eL = fluid.computeInternalEnergy_p_rho(pL, rhoL)
-        self.eR = fluid.computeInternalEnergy_p_rho(pR, rhoR)
-        self.htL = self.computeTotalEnthalpy(rhoL, uL, pL, self.eL)
-        self.htR = self.computeTotalEnthalpy(rhoR, uR, pR, self.eR)
-        self.u1L, self.u2L, self.u3L = getConservativesFromFluidState(rhoL, uL, pL, self.fluid)
-        self.u1R, self.u2R, self.u3R = getConservativesFromFluidState(rhoR, uR, pR, self.fluid)
-        self.aL = self.fluid.computeSoundSpeed_p_rho(self.pL, self.rhoL)
-        self.aR = self.fluid.computeSoundSpeed_p_rho(self.pR, self.rhoR)
 
 
-    def computeRoeAvg(self, fL, fR):
-        """
-        Roe Averaging Operator
-        """
-        favg = (sqrt(self.rhoL)*fL + sqrt(self.rhoR)*fR)/(sqrt(self.rhoL)+ sqrt(self.rhoR))
-        return favg
+def computeFluxRoeBaseMUSCL(rhoL, rhoR, uL, uR, pL, pR, fluid, entropyFixActive, fixCoefficient):
+    """Compute Roe fluxes for all faces for the ideal-gas Roe scheme. 
+    Formulation of the flux computation based on x-split Riemann Solver 
+    in the book by Toro.
 
-    
-    def computeAveragedVariables(self):
-        """
-        compute the Roe averaged variables for the 1D Euler equations
-        """
-        self.rhoAVG = sqrt(self.rhoL*self.rhoR)
-        self.uAVG = self.computeRoeAvg(self.uL, self.uR)
-        self.hAVG = self.computeRoeAvg(self.htL, self.htR)
-        self.aAVG = sqrt((self.gmma-1)*(self.hAVG-0.5*self.uAVG**2))
-    
-    
-    def computeTotalEnthalpy(self, rho, u, p, e):
-        et = 0.5*u**2 + e
-        ht = et+p/rho
-        return ht
-    
+    Fluid states are MUSCL-reconstructed. In this scenario, 
+    the left and right fluid state arrays are compltely different,
+    and the internal energy values computed at the start of every iteration
+    in the Driver.solve() method cannot be reused. """
+    # compute left and right internal energy from the left and right
+    # MUSCL-reconstructed pressure and density. 
+    eL = fluid.computeInternalEnergy_p_rho(pL, rhoL)
+    eR = fluid.computeInternalEnergy_p_rho(pR, rhoR)
 
-    def computeAveragedEigenvalues(self):
-        """
-        compute eigenvalues of the averaged Jacobian
-        """
-        self.lambda_vec = np.array([self.uAVG-self.aAVG, 
-                                    self.uAVG, 
-                                    self.uAVG+self.aAVG])
-    
+    # compute the total enthalpy from its definition. 
+    htL = 0.5 * uL**2 + eL + pL / rhoL
+    htR = 0.5 * uR**2 + eR + pR / rhoR
 
-    def computeAveragedEigenvectors(self):
-        """
-        compute eigenvector matrix of the averaged flux Jacobian
-        """
-        self.eigenvector_mat = np.zeros((3, 3))
-        
-        self.eigenvector_mat[0, 0] = 1
-        self.eigenvector_mat[1, 0] = self.uAVG-self.aAVG
-        self.eigenvector_mat[2, 0] = self.hAVG-self.uAVG*self.aAVG
+    # precompute often reused terms for the Roe average state.
+    sqrtRhoL = np.sqrt(rhoL)
+    sqrtRhoR = np.sqrt(rhoR)
+    denom = sqrtRhoL + sqrtRhoR
 
-        self.eigenvector_mat[0, 1] = 1
-        self.eigenvector_mat[1, 1] = self.uAVG
-        self.eigenvector_mat[2, 1] = 0.5*self.uAVG**2
+    # compute the Roe averaged variables for the 1D Euler equations
+    rhoAVG = np.sqrt(rhoL * rhoR)
+    uAVG = (sqrtRhoL * uL + sqrtRhoR * uR) / denom
+    hAVG = (sqrtRhoL * htL + sqrtRhoR * htR) / denom
+    aAVG = np.sqrt((fluid.gmma - 1.0) * (hAVG - 0.5 * uAVG**2))
 
-        self.eigenvector_mat[0, 2] = 1
-        self.eigenvector_mat[1, 2] = self.uAVG+self.aAVG
-        self.eigenvector_mat[2, 2] = self.hAVG+self.uAVG*self.aAVG
-    
+    # compute eigenvalues of the averaged Jacobian.
+    eigs = np.column_stack((uAVG - aAVG, uAVG, uAVG + aAVG))
+    if entropyFixActive:
+        absEig = applyEntropyFix(eigs, aAVG, fixCoefficient)
+    else:
+        absEig = np.abs(eigs)
 
-    def computeWaveStrengths(self):
-        """
-        Characteristic jumps due to initial conditions
-        """
-        self.alphas = np.zeros(3)
-        self.alphas[0] = 1/2/self.aAVG**2 *(self.pR-self.pL-self.rhoAVG*self.aAVG*(self.uR-self.uL))
-        self.alphas[1] = self.rhoR-self.rhoL - (self.pR-self.pL)/self.aAVG**2
-        self.alphas[2] = 1/2/self.aAVG**2*(self.pR-self.pL + self.rhoAVG*self.aAVG*(self.uR-self.uL))
-        
+    # Characteristic jumps due to initial conditions. Some delta's
+    # are precomputed for efficiency.
+    deltaP = pR - pL
+    deltaU = uR - uL
+    a2 = aAVG**2
+    alpha0 = 0.5 / a2 * (deltaP - rhoAVG * aAVG * deltaU)
+    alpha1 = (rhoR - rhoL) - deltaP / a2
+    alpha2 = 0.5 / a2 * (deltaP + rhoAVG * aAVG * deltaU)
 
-    def computeFlux(self, entropyFixActive, fixCoefficient):
-        """
-        compute the Roe flux. The flux is computed for 1D problems.
-        """
-        self.computeAveragedVariables()
-        self.computeAveragedEigenvalues()
-        self.computeAveragedEigenvectors()
-        self.computeWaveStrengths()
-        
-        fluxL = self.EulerFlux(self.u1L, self.u2L, self.u3L)
-        fluxR = self.EulerFlux(self.u1R, self.u2R, self.u3R)
-        fluxRoe = 0.5*(fluxL+fluxR)
+    # "Euler fluxes from MUSCL-reconstructed fluid States
+    fluxL = np.column_stack((
+        rhoL * uL,
+        rhoL * uL**2 + pL,
+        uL * (rhoL * (eL + 0.5 * uL**2) + pL),
+    ))
+    fluxR = np.column_stack((
+        rhoR * uR,
+        rhoR * uR**2 + pR,
+        uR * (rhoR * (eR + 0.5 * uR**2) + pR),
+    ))
 
-        # compute the entropy fixed abs eigenvalues
-        if entropyFixActive==False:
-            absEig = np.abs(self.lambda_vec)
-        else:
-            absEig = applyEntropyFix(self.lambda_vec, self.aAVG, fixCoefficient)
+    # compute the dissipation terms for the Roe fluxes. 
+    # the dissipation terms are a combination of characteristic jump info, 
+    # eigenvalue info, and eigenvector info, the latter of which is not 
+    # explicitly computed here, but embedded in the calculation of the dissipation terms.
+    diss0 = alpha0 * absEig[:, 0] + alpha1 * absEig[:, 1] + alpha2 * absEig[:, 2]
+    diss1 = (
+        alpha0 * absEig[:, 0] * (uAVG - aAVG)
+        + alpha1 * absEig[:, 1] * uAVG
+        + alpha2 * absEig[:, 2] * (uAVG + aAVG)
+    )
+    diss2 = (
+        alpha0 * absEig[:, 0] * (hAVG - uAVG * aAVG)
+        + alpha1 * absEig[:, 1] * (0.5 * uAVG**2)
+        + alpha2 * absEig[:, 2] * (hAVG + uAVG * aAVG)
+    )
+    diss = np.column_stack((diss0, diss1, diss2))
 
-        for iDim in range(3):
-            for jVec in range(3):
-                fluxRoe[iDim] -= 0.5*self.alphas[jVec]*absEig[jVec]*self.eigenvector_mat[iDim, jVec]
-        
-        return fluxRoe
-        
-    def EulerFlux(self, u1, u2, u3):
-        """
-        Get the Euler flux starting from conservative variables. 
-        """
-        flux1D = computeAdvectionFluxFromConservatives(u1, u2, u3, self.fluid)
-        return flux1D
+    return 0.5 * (fluxL + fluxR) - 0.5 * diss
 
 
 
-class AdvectionRoeArabi(AdvectionRoeBase):
-    """
-    Generalised Roe Scheme for real gases, taken from the article 'A simple extension of Roe scheme for real gases', Arabi et al. 
+def computeFluxRoeBaseNoMUSCL(rhoL, rhoR, uL, uR, pL, pR, fluidState, fluid, entropyFixActive, fixCoefficient):
+    """Compute Roe fluxes for all faces for the ideal-gas Roe scheme. 
+    Formulation of the flux computation based on x-split Riemann Solver 
+    in the book by Toro.
+
+    Fluid states are not MUSCL-reconstructed. In this scenario, 
+    the left and right fluid state arrays contain N-1 similar values, 
+    with N being the total amount of elements in the array. The internal energy 
+    values computed at the start of every iteration in the Driver.solve() 
+    method _can_ be reused. """
+    # unpack the fluid state dictionary for easier access to the variables
+    # and reducing the amount of dictionary lookups.
+    e = fluidState["internalEnergy"]
+    u = fluidState["Velocity"]
+    p = fluidState["Pressure"]
+    rho = fluidState["Density"]
+
+    # Internal energy not computed since it has already been 
+    # pre-computed in the Driver.solve() method.
+
+    # compute the total enthalpy from its definition.
+    ht = 0.5 * u**2 + e + p / rho
+
+    # precompute often reused terms for the Roe average state.
+    sqrtRhoL = np.sqrt(rhoL)
+    sqrtRhoR = np.sqrt(rhoR)
+    denom = sqrtRhoL + sqrtRhoR
+
+    # compute the Roe averaged variables for the 1D Euler equations
+    rhoAVG = np.sqrt(rhoL * rhoR)
+    uAVG = (sqrtRhoL * uL + sqrtRhoR * uR) / denom
+    hAVG = (sqrtRhoL * ht[:-1] + sqrtRhoR * ht[1:]) / denom
+    aAVG = np.sqrt((fluid.gmma - 1.0) * (hAVG - 0.5 * uAVG**2))
+
+    # compute eigenvalues of the averaged Jacobian.
+    eigs = np.column_stack((uAVG - aAVG, uAVG, uAVG + aAVG))
+    if entropyFixActive:
+        absEig = applyEntropyFix(eigs, aAVG, fixCoefficient)
+    else:
+        absEig = np.abs(eigs)
+
+    # Characteristic jumps due to initial conditions. Some delta's
+    # are precomputed for efficiency.
+    deltaP = pR - pL
+    deltaU = uR - uL
+    a2 = aAVG**2
+    alpha0 = 0.5 / a2 * (deltaP - rhoAVG * aAVG * deltaU)
+    alpha1 = (rhoR - rhoL) - deltaP / a2
+    alpha2 = 0.5 / a2 * (deltaP + rhoAVG * aAVG * deltaU)
+
+    # Euler fluxes from fluid States
+    flux = np.column_stack((
+        rho * u,
+        rho * u**2 + p,
+        u * (rho * (e + 0.5 * u**2) + p),
+    ))
+
+    # compute the dissipation terms for the Roe fluxes.
+    # the dissipation terms are a combination of characteristic jump info, 
+    # eigenvalue info, and eigenvector info, the latter of which is not 
+    # explicitly computed here, but embedded in the calculation of the dissipation terms.
+    diss0 = alpha0 * absEig[:, 0] + alpha1 * absEig[:, 1] + alpha2 * absEig[:, 2]
+    diss1 = (
+        alpha0 * absEig[:, 0] * (uAVG - aAVG)
+        + alpha1 * absEig[:, 1] * uAVG
+        + alpha2 * absEig[:, 2] * (uAVG + aAVG)
+    )
+    diss2 = (
+        alpha0 * absEig[:, 0] * (hAVG - uAVG * aAVG)
+        + alpha1 * absEig[:, 1] * (0.5 * uAVG**2)
+        + alpha2 * absEig[:, 2] * (hAVG + uAVG * aAVG)
+    )
+    diss = np.column_stack((diss0, diss1, diss2))
+
+    return 0.5 * (flux[:-1] + flux[1:]) - 0.5 * diss
+
+
+
+def computeFluxRoeArabiMUSCL(rhoL, rhoR, uL, uR, pL, pR, fluid, entropyFixActive, fixCoefficient):
+    """Generalised Roe Scheme for real gases, taken from the article 
+    'A simple extension of Roe scheme for real gases', Arabi et al. 
     Journal of Computational Physics 2017. Formulation based on 1D problem.
-    """
-    def __init__(self, rhoL, rhoR, uL, uR, pL, pR, fluid):
-        super().__init__(rhoL, rhoR, uL, uR, pL, pR, fluid)
-        self.deltaP = (self.pR-self.pL)
-        self.deltaU = (self.uR - self.uL)
-        self.deltaRho = (self.rhoR - self.rhoL)
     
-    
-    def computeAveragedVariables(self):
-        """
-        compute the Roe averaged variables for the 1D Euler equations
-        """
-        self.rhoAVG = sqrt(self.rhoL*self.rhoR)
-        self.uAVG = self.computeRoeAvg(self.uL, self.uR)
-        self.hAVG = self.computeRoeAvg(self.htL, self.htR)
-        self.aAVG = self.computeRoeAvg(self.aL, self.aR)
+    Fluid states are MUSCL-reconstructed. In this scenario, 
+    the left and right fluid state arrays are compltely different,
+    and the internal energy values computed at the start of every iteration
+    in the Driver.solve() method cannot be reused. """
+    # compute left and right internal energy from the left and right
+    # MUSCL-reconstructed pressure and density.
+    eL = fluid.computeInternalEnergy_p_rho(pL, rhoL)
+    eR = fluid.computeInternalEnergy_p_rho(pR, rhoR)
+
+    # compute the total enthalpy from its definition.
+    htL = 0.5 * uL**2 + eL + pL / rhoL
+    htR = 0.5 * uR**2 + eR + pR / rhoR
+
+    # precompute often reused terms for the Roe average state.
+    n_faces = rhoL.size
+    p_lr = np.concatenate((pL, pR))
+    rho_lr = np.concatenate((rhoL, rhoR))
+    a_lr = fluid.computeSoundSpeed_p_rho(p_lr, rho_lr)
+    aL = a_lr[:n_faces]
+    aR = a_lr[n_faces:]
+
+    # precompute often reused terms for the Roe average state.
+    sqrtRhoL = np.sqrt(rhoL)
+    sqrtRhoR = np.sqrt(rhoR)
+    denom = sqrtRhoL + sqrtRhoR
+
+    # compute the Roe averaged variables for the 1D Euler equations
+    rhoAVG = np.sqrt(rhoL * rhoR)
+    uAVG = (sqrtRhoL * uL + sqrtRhoR * uR) / denom
+    hAVG = (sqrtRhoL * htL + sqrtRhoR * htR) / denom
+    aAVG = (sqrtRhoL * aL + sqrtRhoR * aR) / denom
+
+    # compute the characteristic jumps due to initial conditions. Some delta's
+    # are precomputed for efficiency.
+    deltaP = pR - pL
+    deltaU = uR - uL
+    deltaRho = rhoR - rhoL
+    a2 = aAVG**2
+    alpha0 = 0.5 / a2 * (deltaP + rhoAVG * aAVG * deltaU)
+    alpha1 = 0.5 / a2 * (deltaP - rhoAVG * aAVG * deltaU)
+    alpha2 = deltaRho - deltaP / a2
+
+    # compute the eigenvalues of the Roe-averaged Jacobian. 
+    eigs = np.column_stack((uAVG + aAVG, uAVG - aAVG, uAVG))
+    if entropyFixActive:
+        absEig = applyEntropyFix(eigs, aAVG, fixCoefficient)
+    else:
+        absEig = np.abs(eigs)
+
+    # Euler fluxes from the left and right MUSCL-reconstructed states.
+    fluxL = np.column_stack((
+        rhoL * uL,
+        rhoL * uL**2 + pL,
+        uL * (rhoL * (eL + 0.5 * uL**2) + pL),
+    ))
+    fluxR = np.column_stack((
+        rhoR * uR,
+        rhoR * uR**2 + pR,
+        uR * (rhoR * (eR + 0.5 * uR**2) + pR),
+    ))
+
+    # compute the dissipation terms for the Roe fluxes.
+    deltaF = np.zeros_like(fluxL)
+    deltaF[:, 0] = (
+        absEig[:, 0] * alpha0
+        + absEig[:, 1] * alpha1
+        + absEig[:, 2] * alpha2
+    )
+    deltaF[:, 1] = (
+        (uAVG + aAVG) * absEig[:, 0] * alpha0
+        + (uAVG - aAVG) * absEig[:, 1] * alpha1
+        + uAVG * absEig[:, 2] * alpha2
+    )
+    X = (
+        (rhoR * uR * htR)
+        - (rhoL * uL * htL)
+        - (hAVG + uAVG * aAVG) * (uAVG + aAVG) * (0.5 / a2 * (deltaP + rhoAVG * aAVG * deltaU))
+        - (hAVG - uAVG * aAVG) * (uAVG - aAVG) * (0.5 / a2 * (deltaP - rhoAVG * aAVG * deltaU))
+    )
+    X = np.where(uAVG >= 0.0, X, -X)
+    deltaF[:, 2] = (
+        (hAVG + uAVG * aAVG) * absEig[:, 0] * alpha0
+        + (hAVG - uAVG * aAVG) * absEig[:, 1] * alpha1
+        + X
+    )
+
+    return 0.5 * (fluxL + fluxR) - 0.5 * deltaF
 
 
-    def computeWaveStrengths(self):
-        self.alphas = np.zeros(3)
-        self.alphas[0] = 1/2/self.aAVG**2*(self.deltaP+self.rhoAVG*self.aAVG*self.deltaU)
-        self.alphas[1] = 1/2/self.aAVG**2*(self.deltaP-self.rhoAVG*self.aAVG*self.deltaU)
-        self.alphas[2] = self.deltaRho-self.deltaP/self.aAVG**2
+def computeFluxRoeArabiNoMUSCL(rhoL, rhoR, uL, uR, pL, pR, fluidState, entropyFixActive, fixCoefficient):
+    """Generalised Roe Scheme for real gases, taken from the article 
+    'A simple extension of Roe scheme for real gases', Arabi et al. 
+    Journal of Computational Physics 2017. Formulation based on 1D problem.
+        
+    Fluid states are not MUSCL-reconstructed. In this scenario, 
+    the left and right fluid state arrays contain N-1 similar values, 
+    with N being the total amount of elements in the array. The internal energy 
+    values computed at the start of every iteration in the Driver.solve() 
+    method _can_ be reused."""
+    # unpack the fluid state dictionary for easier access to the variables
+    # and reducing the amount of dictionary lookups.
+    e = fluidState["internalEnergy"]
+    u = fluidState["Velocity"]
+    p = fluidState["Pressure"]
+    rho = fluidState["Density"]
+
+    # Internal energy not computed since it has already been 
+    # pre-computed in the Driver.solve() method.
+
+    # compute the total enthalpy from its definition.
+    ht = 0.5 * u**2 + e + p / rho
+
+    # Sound Speed not computed since it has already been 
+    # pre-computed in the Driver.solve() method.
+    aL = fluidState["soundSpeed"][:-1]
+    aR = fluidState["soundSpeed"][1:]
+
+    # precompute often reused terms for the Roe average state.
+    sqrtRhoL = np.sqrt(rhoL)
+    sqrtRhoR = np.sqrt(rhoR)
+    denom = sqrtRhoL + sqrtRhoR
+
+    # compute the Roe averaged variables for the 1D Euler equations
+    rhoAVG = np.sqrt(rhoL * rhoR)
+    uAVG = (sqrtRhoL * uL + sqrtRhoR * uR) / denom
+    hAVG = (sqrtRhoL * ht[:-1] + sqrtRhoR * ht[1:]) / denom
+    aAVG = (sqrtRhoL * aL + sqrtRhoR * aR) / denom
+
+    # compute the characteristic jumps due to initial conditions. Some delta's
+    # are precomputed for efficiency.
+    deltaP = pR - pL
+    deltaU = uR - uL
+    deltaRho = rhoR - rhoL
+    a2 = aAVG**2
+    alpha0 = 0.5 / a2 * (deltaP + rhoAVG * aAVG * deltaU)
+    alpha1 = 0.5 / a2 * (deltaP - rhoAVG * aAVG * deltaU)
+    alpha2 = deltaRho - deltaP / a2
+
+    # compute the eigenvalues of the Roe-averaged Jacobian.
+    eigs = np.column_stack((uAVG + aAVG, uAVG - aAVG, uAVG))
+    if entropyFixActive:
+        absEig = applyEntropyFix(eigs, aAVG, fixCoefficient)
+    else:
+        absEig = np.abs(eigs)
+
+    # euler fluxes from the left and right fluid states.
+    flux = np.column_stack((
+        rho * u,
+        rho * u**2 + p,
+        u * (rho * (e + 0.5 * u**2) + p),
+    ))
+
+    deltaF = np.zeros_like(flux[:-1])
+    deltaF[:, 0] = (
+        absEig[:, 0] * alpha0
+        + absEig[:, 1] * alpha1
+        + absEig[:, 2] * alpha2
+    )
+    deltaF[:, 1] = (
+        (uAVG + aAVG) * absEig[:, 0] * alpha0
+        + (uAVG - aAVG) * absEig[:, 1] * alpha1
+        + uAVG * absEig[:, 2] * alpha2
+    )
+    X = (
+        (rhoR * uR * ht[1:])
+        - (rhoL * uL * ht[:-1])
+        - (hAVG + uAVG * aAVG) * (uAVG + aAVG) * (0.5 / a2 * (deltaP + rhoAVG * aAVG * deltaU))
+        - (hAVG - uAVG * aAVG) * (uAVG - aAVG) * (0.5 / a2 * (deltaP - rhoAVG * aAVG * deltaU))
+    )
+    X = np.where(uAVG >= 0.0, X, -X)
+    deltaF[:, 2] = (
+        (hAVG + uAVG * aAVG) * absEig[:, 0] * alpha0
+        + (hAVG - uAVG * aAVG) * absEig[:, 1] * alpha1
+        + X
+    )
+
+    return 0.5 * (flux[:-1] + flux[1:]) - 0.5 * deltaF
     
 
-    def computeAveragedEigenvalues(self):
-        self.lambda_vec = np.array([self.uAVG+self.aAVG, 
-                                    self.uAVG-self.aAVG,
-                                    self.uAVG])
-    
 
-    def computeFlux(self, entropyFixActive, fixCoefficient):
-        """
-        Assemble the global flux, average + dissipation, following the approach of the article
-        """
-        self.computeAveragedVariables()
-        self.computeAveragedEigenvalues()
-        self.computeAveragedEigenvectors()
-        self.computeWaveStrengths()
-        
-        fluxL = self.EulerFlux(self.u1L, self.u2L, self.u3L)
-        fluxR = self.EulerFlux(self.u1R, self.u2R, self.u3R)
 
-        # compute the entropy fixed abs eigenvalues
-        if entropyFixActive==False:
-            absEig = np.abs(self.lambda_vec)
-        else:
-            absEig = applyEntropyFix(self.lambda_vec, self.aAVG, fixCoefficient)
+def computeFluxRoeVinokurMUSCL(rhoL, rhoR, uL, uR, pL, pR, fluid, entropyFixActive, fixCoefficient):
+    """Generalised Roe Scheme for real gases, 
+    where the Roe avg state is taken from the article 
+    'Generalized flux-vector splitting and Roe average for an equilibrium real gas', 
+    Vinokur and Montagnè Journal of Computational Physics 1990.
+    Formulation based on 1D problem.
 
-        deltaF = np.zeros(3)
-        deltaF[0] = absEig[0]*self.alphas[0] + absEig[1]*self.alphas[1] + absEig[2]*self.alphas[2]
-        deltaF[1] = (self.uAVG+self.aAVG)*absEig[0]*self.alphas[0] + (self.uAVG-self.aAVG)*absEig[1]*self.alphas[1] + self.uAVG*absEig[2]*self.alphas[2]
+    Fluid states are MUSCL-reconstructed. In this scenario, 
+    the left and right fluid state arrays are compltely different,
+    and the internal energy values computed at the start of every iteration
+    in the Driver.solve() method cannot be reused. """
+    # compute left and right internal energy from the left and right
+    # MUSCL-reconstructed pressure and density.
+    eL = fluid.computeInternalEnergy_p_rho(pL, rhoL)
+    eR = fluid.computeInternalEnergy_p_rho(pR, rhoR)
 
-        X = (self.rhoR*self.uR*self.htR)-(self.rhoL*self.uL*self.htL)- \
-            (self.hAVG+self.uAVG*self.aAVG)*(self.uAVG+self.aAVG)*(1/2/self.aAVG**2*(self.deltaP+self.rhoAVG*self.aAVG*self.deltaU)) - \
-            (self.hAVG-self.uAVG*self.aAVG)*(self.uAVG-self.aAVG)*(1/2/self.aAVG**2*(self.deltaP-self.rhoAVG*self.aAVG*self.deltaU))
-        
-        if (self.uAVG>=0):
-            pass
-        else:
-            X *= -1
-        
-        deltaF[2] = (self.hAVG+self.uAVG*self.aAVG)*absEig[0]*(self.alphas[0]) + \
-                         (self.hAVG-self.uAVG*self.aAVG)*absEig[1]*(self.alphas[1]) + X
-                         
-        fluxRoe = 0.5*(fluxL+fluxR) - 0.5*deltaF
-        return fluxRoe
-    
-    
+    # compute the total enthalpy from its definition.
+    htL = 0.5 * uL**2 + eL + pL / rhoL
+    htR = 0.5 * uR**2 + eR + pR / rhoR
 
-class AdvectionRoeVinokur(AdvectionRoeBase):
-    """
-    Generalised Roe Scheme for real gases, 
-    where the Roe avg state is taken from the article 'Generalized flux-vector splitting and Roe average for an equilibrium real gas', Vinokur and Montagnè 
-    Journal of Computational Physics 1990. Formulation based on 1D problem.
-    """
-    def __init__(self, rhoL, rhoR, uL, uR, pL, pR, fluid):
-        super().__init__(rhoL, rhoR, uL, uR, pL, pR, fluid)
-        self.deltaP = (self.pR-self.pL)
-        self.deltaU = (self.uR - self.uL)
-        self.deltaRho = (self.rhoR - self.rhoL)
-    
-    
-    def computeAveragedVariables(self):
-        """
-        compute the Roe averaged state following the approach described in the articleof Vinokur
-        """
-        alpha = np.sqrt(self.rhoL) / (np.sqrt(self.rhoL)+np.sqrt(self.rhoR))
-        self.uAVG = alpha*self.uL + (1-alpha)*self.uR
-        self.htAVG = alpha*self.htL + (1-alpha)*self.htR
-        self.hL = self.htL - 0.5*self.uL**2
-        self.hR = self.htR - 0.5*self.uR**2
-        self.hAVG = alpha*self.hL + (1-alpha)*self.hR + 0.5*alpha*(1.0-alpha)*self.deltaU**2
-        
-        # compute mean initial guess state
-        p_mean = 0.5*(self.pL+self.pR)
-        eL = self.fluid.computeInternalEnergy_p_rho(self.pL, self.rhoL)
-        rho_mean = 0.5*(self.rhoL+self.rhoR)
-        rhoeL = self.rhoL*eL
-        eR = self.fluid.computeInternalEnergy_p_rho(self.pR, self.rhoR)
-        rhoeR = self.rhoR*eR
-        rhoe_mean = 0.5*(rhoeL+rhoeR)
-        e_mean = rhoe_mean/rho_mean
-        
-        chiL, kappaL = self.fluid.computeChiKappa_VinokurScheme_p_rho(self.pL, self.rhoL)
-        chiR, kappaR = self.fluid.computeChiKappa_VinokurScheme_p_rho(self.pR, self.rhoR)
-        chiM, kappaM = self.fluid.computeChiKappa_VinokurScheme_p_rho(p_mean, rho_mean)
-        chiHat = (chiL + chiR + 4.0*chiM) / 6.0
-        kappaHat = (kappaL + kappaR + 4.0*kappaM) / 6.0
-        delta_rhoe = (rhoeR - rhoeL)
-        
-        # projection procedure to compute the average state starting fro the initial guess (hat values)
-        error_term = self.deltaP - chiHat*self.deltaRho - kappaHat*delta_rhoe
-        hM = 0.5*(self.hL+self.hR)
-        kappah_hat = (kappaL*self.hL + kappaR*self.hR + 4.0*kappaM*hM) / 6.0
-        csquare_L = chiL + kappaL*self.hL
-        csquare_R = chiR + kappaR*self.hR
-        csquare_M = chiM + kappaM*hM
-        sHat = (csquare_L + csquare_R + 4.0*csquare_M) / 6.0
-        D_term = (sHat*self.deltaRho)**2 + (self.deltaP)**2
-        if self.deltaRho==0:
-            self.chiAVG = chiHat
-        else:
-            self.chiAVG = (D_term * chiHat + sHat**2 * self.deltaRho * error_term) / (D_term - self.deltaP*error_term)
-        
-        if self.deltaP==0:
-            self.kappaAVG = kappaHat
-        else:
-            self.kappaAVG = (D_term * kappaHat) / (D_term - self.deltaP*error_term)
-        
-        self.aAVG = np.sqrt(self.chiAVG + self.kappaAVG*self.hAVG)
-    
-    
-    def computeFlux(self, entropyFixActive, fixCoefficient):
-        """
-        compute the global flux, average + dissipation
-        """
-        fluxL = self.EulerFlux(self.u1L, self.u2L, self.u3L)
-        fluxR = self.EulerFlux(self.u1R, self.u2R, self.u3R)
+    # precompute often reused terms for the Roe average state.
+    deltaP = pR - pL
+    deltaU = uR - uL
+    deltaRho = rhoR - rhoL
+    sqrtRhoL = np.sqrt(rhoL)
+    sqrtRhoR = np.sqrt(rhoR)
+    alpha = sqrtRhoL / (sqrtRhoL + sqrtRhoR)
 
-        # compute the Eigenvectors matrices
-        k1 = 0.5*self.kappaAVG*self.uAVG**2 + self.kappaAVG
-        k2 = 0.5*self.uAVG**2 - self.chiAVG/self.kappaAVG
-        
-        # right eigenvectors matrix
-        matrixR = np.array([[1, 1, 1],
-                            [self.uAVG, self.uAVG+self.aAVG, self.uAVG-self.aAVG],
-                            [k2, self.htAVG + self.aAVG*self.uAVG, self.htAVG - self.aAVG*self.uAVG]])
-        
-        # left eigenvectors matrix
-        matrixRinv = np.array([[1-k1/self.aAVG**2, self.kappaAVG*self.uAVG/self.aAVG**2, -self.kappaAVG/self.aAVG**2],
-                               [0.5*(k1/self.aAVG**2-self.uAVG/self.aAVG), -0.5*(self.kappaAVG*self.uAVG/self.aAVG**2-1/self.aAVG), 0.5*self.kappaAVG/self.aAVG**2],
-                               [0.5*(k1/self.aAVG**2+self.uAVG/self.aAVG), -0.5*(self.kappaAVG*self.uAVG/self.aAVG**2+1/self.aAVG), 0.5*self.kappaAVG/self.aAVG**2]])
-                
-        # eigenvalues, to fix
-        eigsAVG = np.array([self.uAVG, self.uAVG+self.aAVG, self.uAVG-self.aAVG])
-        if entropyFixActive==False:
-            absEig = np.abs(eigsAVG)
-        else:
-            absEig = applyEntropyFix(eigsAVG, self.aAVG, fixCoefficient)
-        
-        # eigenvalues matrix
-        matrixLambda = np.diag(absEig)
-        
-        # compute the Flux
-        deltaU = np.array([self.u1R-self.u1L, self.u2R-self.u2L, self.u3R-self.u3L]).reshape(3,1)
-        deltaFlux = matrixR @ matrixLambda @ matrixRinv @ deltaU
-        fluxRoe = 0.5*(fluxL+fluxR) - 0.5*deltaFlux.flatten()
-        return fluxRoe
+    # compute the Roe averaged variables for the 1D Euler equations
+    uAVG = alpha * uL + (1.0 - alpha) * uR
+    htAVG = alpha * htL + (1.0 - alpha) * htR
+    hL = htL - 0.5 * uL**2
+    hR = htR - 0.5 * uR**2
+    hAVG = alpha * hL + (1.0 - alpha) * hR + 0.5 * alpha * (1.0 - alpha) * deltaU**2
+
+    # compute mean initial guess state
+    p_mean = 0.5 * (pL + pR)
+    rho_mean = 0.5 * (rhoL + rhoR)
+    rhoeL = rhoL * eL
+    rhoeR = rhoR * eR
+
+    def _compute_chi_kappa_array(fluid, p, rho):
+        """Evaluate Vinokur chi/kappa arrays."""
+        p = np.asarray(p, dtype=float)
+        rho = np.asarray(rho, dtype=float)
+        chi, kappa = fluid.computeChiKappa_VinokurScheme_p_rho(p, rho)
+        return np.asarray(chi, dtype=float), np.asarray(kappa, dtype=float)
+    chiL, kappaL = _compute_chi_kappa_array(fluid, pL, rhoL)
+    chiR, kappaR = _compute_chi_kappa_array(fluid, pR, rhoR)
+    chiM, kappaM = _compute_chi_kappa_array(fluid, p_mean, rho_mean)
+
+    chiHat = (chiL + chiR + 4.0 * chiM) / 6.0
+    kappaHat = (kappaL + kappaR + 4.0 * kappaM) / 6.0
+    delta_rhoe = rhoeR - rhoeL
+
+    # projection procedure to compute the average state starting fro the initial guess (hat values)
+    error_term = deltaP - chiHat * deltaRho - kappaHat * delta_rhoe
+    hM = 0.5 * (hL + hR)
+    csquare_L = chiL + kappaL * hL
+    csquare_R = chiR + kappaR * hR
+    csquare_M = chiM + kappaM * hM
+    sHat = (csquare_L + csquare_R + 4.0 * csquare_M) / 6.0
+    D_term = (sHat * deltaRho) ** 2 + deltaP**2
+
+    denom = D_term - deltaP * error_term
+    chiAVG = np.where(
+        deltaRho == 0.0,
+        chiHat,
+        (D_term * chiHat + sHat**2 * deltaRho * error_term) / denom,
+    )
+    kappaAVG = np.where(
+        deltaP == 0.0,
+        kappaHat,
+        (D_term * kappaHat) / denom,
+    )
+    aAVG = np.sqrt(chiAVG + kappaAVG * hAVG)
+
+    # Euler fluxes from the MUSCL-reconstructed fluid states
+    fluxL = np.column_stack((
+        rhoL * uL,
+        rhoL * uL**2 + pL,
+        uL * (rhoL * (eL + 0.5 * uL**2) + pL),
+    ))
+    fluxR = np.column_stack((
+        rhoR * uR,
+        rhoR * uR**2 + pR,
+        uR * (rhoR * (eR + 0.5 * uR**2) + pR),
+    ))
+
+    # compute the Eigenvectors matrices
+    k1 = 0.5 * kappaAVG * uAVG**2 + kappaAVG
+    k2 = 0.5 * uAVG**2 - chiAVG / kappaAVG
+
+    # right eigenvectors matrix
+    matrixR = np.zeros((rhoL.size, 3, 3), dtype=float)
+    matrixR[:, 0, 0] = 1.0
+    matrixR[:, 0, 1] = 1.0
+    matrixR[:, 0, 2] = 1.0
+    matrixR[:, 1, 0] = uAVG
+    matrixR[:, 1, 1] = uAVG + aAVG
+    matrixR[:, 1, 2] = uAVG - aAVG
+    matrixR[:, 2, 0] = k2
+    matrixR[:, 2, 1] = htAVG + aAVG * uAVG
+    matrixR[:, 2, 2] = htAVG - aAVG * uAVG
+
+    # left eigenvectors matrix
+    matrixRinv = np.zeros((rhoL.size, 3, 3), dtype=float)
+    matrixRinv[:, 0, 0] = 1.0 - k1 / aAVG**2
+    matrixRinv[:, 0, 1] = kappaAVG * uAVG / aAVG**2
+    matrixRinv[:, 0, 2] = -kappaAVG / aAVG**2
+    matrixRinv[:, 1, 0] = 0.5 * (k1 / aAVG**2 - uAVG / aAVG)
+    matrixRinv[:, 1, 1] = -0.5 * (kappaAVG * uAVG / aAVG**2 - 1.0 / aAVG)
+    matrixRinv[:, 1, 2] = 0.5 * kappaAVG / aAVG**2
+    matrixRinv[:, 2, 0] = 0.5 * (k1 / aAVG**2 + uAVG / aAVG)
+    matrixRinv[:, 2, 1] = -0.5 * (kappaAVG * uAVG / aAVG**2 + 1.0 / aAVG)
+    matrixRinv[:, 2, 2] = 0.5 * kappaAVG / aAVG**2
+
+    # eigenvalues, to fix
+    eigs = np.column_stack((uAVG, uAVG + aAVG, uAVG - aAVG))
+    if entropyFixActive:
+        absEig = applyEntropyFix(eigs, aAVG, fixCoefficient)
+    else:
+        absEig = np.abs(eigs)
+
+    # compute the Flux
+    u1L = rhoL
+    u2L = rhoL * uL
+    u3L = rhoL * (0.5 * uL**2 + eL)
+    u1R = rhoR
+    u2R = rhoR * uR
+    u3R = rhoR * (0.5 * uR**2 + eR)
+    deltaCons = np.column_stack((u1R - u1L, u2R - u2L, u3R - u3L))
+
+    projected = np.einsum("nij,nj->ni", matrixRinv, deltaCons)
+    projected *= absEig
+    deltaFlux = np.einsum("nij,nj->ni", matrixR, projected)
+
+    return 0.5 * (fluxL + fluxR) - 0.5 * deltaFlux
+
+
+
+
+def computeFluxRoeVinokurNoMUSCL(rhoL, rhoR, uL, uR, pL, pR, fluidState, fluid, entropyFixActive, fixCoefficient):
+    """Generalised Roe Scheme for real gases, 
+    where the Roe avg state is taken from the article 
+    'Generalized flux-vector splitting and Roe average for an equilibrium real gas', 
+    Vinokur and Montagnè Journal of Computational Physics 1990.
+    Formulation based on 1D problem.
+    
+    Fluid states are not MUSCL-reconstructed. In this scenario, 
+    the left and right fluid state arrays contain N-1 similar values, 
+    with N being the total amount of elements in the array. The internal energy 
+    values computed at the start of every iteration in the Driver.solve() 
+    method _can_ be reused."""
+    # unpack the fluid state dictionary for easier access to the variables
+    # and reducing the amount of dictionary lookups.
+    e = fluidState["internalEnergy"]
+    u = fluidState["Velocity"]
+    p = fluidState["Pressure"]
+    rho = fluidState["Density"]
+
+    # Internal energy not computed since it has already been
+    # pre-computed in the Driver.solve() method.
+
+    # compute the total enthalpy from its definition.
+    ht = 0.5 * u**2 + e + p / rho
+
+    # precompute often reused terms for the Roe average state.
+    deltaP = pR - pL
+    deltaU = uR - uL
+    deltaRho = rhoR - rhoL
+    sqrtRhoL = np.sqrt(rhoL)
+    sqrtRhoR = np.sqrt(rhoR)
+    alpha = sqrtRhoL / (sqrtRhoL + sqrtRhoR)
+
+    # compute the Roe averaged variables for the 1D Euler equations
+    uAVG = alpha * uL + (1.0 - alpha) * uR
+    htAVG = alpha * ht[:-1] + (1.0 - alpha) * ht[1:]
+    hL = ht[:-1] - 0.5 * uL**2
+    hR = ht[1:] - 0.5 * uR**2
+    hAVG = alpha * hL + (1.0 - alpha) * hR + 0.5 * alpha * (1.0 - alpha) * deltaU**2
+
+    # compute mean initial guess state
+    p_mean = 0.5 * (pL + pR)
+    rho_mean = 0.5 * (rhoL + rhoR)
+    rhoeL = rhoL * e[:-1]
+    rhoeR = rhoR * e[1:]
+
+    def _compute_chi_kappa_array(fluid, p, rho):
+        """Evaluate Vinokur chi/kappa arrays."""
+        p = np.asarray(p, dtype=float)
+        rho = np.asarray(rho, dtype=float)
+        chi, kappa = fluid.computeChiKappa_VinokurScheme_p_rho(p, rho)
+        return np.asarray(chi, dtype=float), np.asarray(kappa, dtype=float)
+
+    chi, kappa = _compute_chi_kappa_array(fluid, p, rho)
+    chiM, kappaM = _compute_chi_kappa_array(fluid, p_mean, rho_mean)
+
+    chiHat = (chi[:-1] + chi[1:] + 4.0 * chiM) / 6.0
+    kappaHat = (kappa[:-1] + kappa[1:] + 4.0 * kappaM) / 6.0
+    delta_rhoe = rhoeR - rhoeL
+
+    # projection procedure to compute the average state starting fro the 
+    # initial guess (hat values)
+    error_term = deltaP - chiHat * deltaRho - kappaHat * delta_rhoe
+    hM = 0.5 * (hL + hR)
+    csquare_L = chi[:-1] + kappa[:-1] * hL
+    csquare_R = chi[1:] + kappa[1:] * hR
+    csquare_M = chiM + kappaM * hM
+    sHat = (csquare_L + csquare_R + 4.0 * csquare_M) / 6.0
+    D_term = (sHat * deltaRho) ** 2 + deltaP**2
+
+    denom = D_term - deltaP * error_term
+    chiAVG = np.where(
+        deltaRho == 0.0,
+        chiHat,
+        (D_term * chiHat + sHat**2 * deltaRho * error_term) / denom,
+    )
+    kappaAVG = np.where(
+        deltaP == 0.0,
+        kappaHat,
+        (D_term * kappaHat) / denom,
+    )
+    aAVG = np.sqrt(chiAVG + kappaAVG * hAVG)
+
+    # Euler fluxes from the non-MUSCL-reconstructed fluid states
+    flux = np.column_stack((
+            rho * u,
+            rho * u**2 + p,
+            u * (rho * (e + 0.5 * u**2) + p),
+        ))
+
+    # compute the Eigenvectors matrices
+    k1 = 0.5 * kappaAVG * uAVG**2 + kappaAVG
+    k2 = 0.5 * uAVG**2 - chiAVG / kappaAVG
+
+    # right eigenvectors matrix
+    matrixR = np.zeros((rhoL.size, 3, 3), dtype=float)
+    matrixR[:, 0, 0] = 1.0
+    matrixR[:, 0, 1] = 1.0
+    matrixR[:, 0, 2] = 1.0
+    matrixR[:, 1, 0] = uAVG
+    matrixR[:, 1, 1] = uAVG + aAVG
+    matrixR[:, 1, 2] = uAVG - aAVG
+    matrixR[:, 2, 0] = k2
+    matrixR[:, 2, 1] = htAVG + aAVG * uAVG
+    matrixR[:, 2, 2] = htAVG - aAVG * uAVG
+
+    # left eigenvectors matrix
+    matrixRinv = np.zeros((rhoL.size, 3, 3), dtype=float)
+    matrixRinv[:, 0, 0] = 1.0 - k1 / aAVG**2
+    matrixRinv[:, 0, 1] = kappaAVG * uAVG / aAVG**2
+    matrixRinv[:, 0, 2] = -kappaAVG / aAVG**2
+    matrixRinv[:, 1, 0] = 0.5 * (k1 / aAVG**2 - uAVG / aAVG)
+    matrixRinv[:, 1, 1] = -0.5 * (kappaAVG * uAVG / aAVG**2 - 1.0 / aAVG)
+    matrixRinv[:, 1, 2] = 0.5 * kappaAVG / aAVG**2
+    matrixRinv[:, 2, 0] = 0.5 * (k1 / aAVG**2 + uAVG / aAVG)
+    matrixRinv[:, 2, 1] = -0.5 * (kappaAVG * uAVG / aAVG**2 + 1.0 / aAVG)
+    matrixRinv[:, 2, 2] = 0.5 * kappaAVG / aAVG**2
+
+
+    # eigenvalues, to fix
+    eigs = np.column_stack((uAVG, uAVG + aAVG, uAVG - aAVG))
+    if entropyFixActive:
+        absEig = applyEntropyFix(eigs, aAVG, fixCoefficient)
+    else:
+        absEig = np.abs(eigs)
+
+    # compute the flux
+    u1L = rhoL
+    u2L = rhoL * uL
+    u3L = rhoL * (0.5 * uL**2 + e[:-1])
+    u1R = rhoR
+    u2R = rhoR * uR
+    u3R = rhoR * (0.5 * uR**2 + e[1:])
+    deltaCons = np.column_stack((u1R - u1L, u2R - u2L, u3R - u3L))
+
+    projected = np.einsum("nij,nj->ni", matrixRinv, deltaCons)
+    projected *= absEig
+    deltaFlux = np.einsum("nij,nj->ni", matrixR, projected)
+
+    return 0.5 * (flux[:-1] + flux[1:]) - 0.5 * deltaFlux
+
+
+
         
 
 def applyEntropyFix(eigs, aAVG, kappa):
     """
     Apply Harten entropy fix to eigenvalues.
-    
-    eigs : ndarray of shape (3,)
-        Raw Roe eigenvalues [u, u+a, u-a].
-    aAVG : float
+
+    eigs : ndarray of shape (3,) or (nFaces, 3)
+        Raw Roe eigenvalues.
+    aAVG : float or ndarray of shape (nFaces,)
         Roe-averaged sound speed.
     kappa : float
         Fix coefficient (default 0.2).
     """
-    delta = kappa * aAVG
-    fixed = np.zeros_like(eigs)
-    for i, lam in enumerate(eigs):
-        if abs(lam) < delta:
-            fixed[i] = 0.5 * (lam**2 / delta + delta)
-        else:
-            fixed[i] = abs(lam)
-    return fixed
+    eigs = np.asarray(eigs, dtype=float)
+    delta = kappa * np.asarray(aAVG, dtype=float)
 
+    if eigs.ndim == 1:
+        delta_eff = np.maximum(delta, 1e-14)
+    else:
+        delta_eff = np.maximum(delta[..., None], 1e-14)
+
+    abs_eigs = np.abs(eigs)
+    fixed_small = 0.5 * (eigs**2 / delta_eff + delta_eff)
+    return np.where(abs_eigs < delta_eff, fixed_small, abs_eigs)
 
 
 
