@@ -1841,6 +1841,7 @@ def computeFluxVector(iLeft, iRight, fluidState, meshData, fluidModel, dt,
 
         # Exact-Riemann sampling remains face-wise; this keeps solver behavior
         # unchanged while retaining batched data preparation and return shape.
+        
         dx_left  = meshData["meshNodeSpacing"][iLeft]
         dx_right = meshData["meshNodeSpacing"][iRight]
         flux = np.zeros((nFaces, 3))
@@ -2028,6 +2029,7 @@ def computeFluxLimiter(r_vec, limiter):
     raise ValueError(f"Limiter '{limiter}' not recognized!")
 
 
+
 @lru_cache(maxsize=200000)
 def _computeGodunovFluxCached(rhoL, rhoR, uL, uR, pL, pR, dxLeft, dxRight, dt, fluidModel):
     """Compute one Godunov interface flux and cache by interface state."""
@@ -2044,6 +2046,9 @@ def _computeGodunovFluxCached(rhoL, rhoR, uL, uR, pL, pR, dxLeft, dxRight, dt, f
     flux = computeAdvectionFluxFromConservatives(
         np.mean(u1), np.mean(u2), np.mean(u3), fluidModel
     )
+    # coputeAdvectionFluxFromConservatives is refactored for vectorized 
+    # evaluations, must umpack the returned array to a tuple for the single interface case.
+    flux = flux[0]  # unpack the single interface flux from the returned array
     return tuple(np.asarray(flux, dtype=float))
 
 # -----------------------------------------------------------------------------
