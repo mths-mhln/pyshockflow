@@ -13,6 +13,7 @@ import pickle
 import sys
 import copy
 import shutil
+from functools import lru_cache
 
 import numpy as np
 import pandas as pd
@@ -28,6 +29,7 @@ from pyshockflow.math_utils import (
     getFluidStateFromConservatives,
     computeAdvectionFluxFromConservatives
 )
+
 
 
 class Driver:
@@ -1677,11 +1679,8 @@ def computeTimeStep(fluidState, meshData, fluidModel, cflMax):
     density   = fluidState["Density"][1:-1]
     dx        = meshData["meshNodeSpacing"][1:-1]
 
-    # Vectorised sound speed evaluation.
-    soundSpeed = np.array([
-        fluidModel.computeSoundSpeed_p_rho(pressure[i], density[i])
-        for i in range(len(velocity))
-    ])
+    # Sound speed for all interior nodes in one call.
+    soundSpeed = fluidModel.computeSoundSpeed_p_rho(pressure, density)
 
     dtMax = np.min(dx * cflMax / (np.abs(velocity) + soundSpeed))
     return dtMax
@@ -1720,7 +1719,7 @@ def computeResiduals(config, meshData, fluidState,
     isMusclActive : bool
         Whether MUSCL second-order reconstruction is enabled.
     limiter : str
-        Name of the flux limiter (e.g. 'van leer', 'min-mod', 'superbee').
+        Name of the flux limiter (e.g. 'van_leer', 'min_mod', 'superbee').
     entropyFixActive : bool
     entropyFixCoefficient : float
     expansionDeviceType : str
@@ -1738,16 +1737,15 @@ def computeResiduals(config, meshData, fluidState,
 
     # Compute advection fluxes on every internal interface (between node i and i+1
     # for i in [0, nPhysicalNodes], using halo nodes for the boundary interfaces).
+    # All faces are assembled in one call so the scheme can operate on batched arrays.
     nFaces = nPhysicalNodes + 1
-    flux   = np.zeros((nFaces, 3))
-    for iFace in range(nFaces):
-        iLeft  = iFace          # index into the full (halo-included) array
-        iRight = iFace + 1
-        flux[iFace, :] = computeFluxVector(
-            iLeft, iRight, fluidState, meshData, fluidModel, dt,
-            advectionScheme, isMusclActive, limiter,
-            entropyFixActive, entropyFixCoefficient,
-        )
+    iLeft = np.arange(nFaces, dtype=int)
+    iRight = iLeft + 1
+    flux = computeFluxVector(
+        iLeft, iRight, fluidState, meshData, fluidModel, dt,
+        advectionScheme, isMusclActive, limiter,
+        entropyFixActive, entropyFixCoefficient,
+    )
 
     # Compute quasi-1D source terms for nozzle geometries; zero for constant area.
     if expansionDeviceType == "nozzle":
@@ -1772,8 +1770,7 @@ def computeFluxVector(iLeft, iRight, fluidState, meshData, fluidModel, dt,
                       advectionScheme, isMusclActive, limiter,
                       entropyFixActive, entropyFixCoefficient):
     """
-    Compute the numerical flux vector at the interface between mesh nodes iLeft
-    and iRight.
+    Compute numerical flux vectors at interfaces between mesh nodes iLeft and iRight.
 
     If MUSCL reconstruction is active and the stencil is fully interior (at
     least one layer of real nodes on each side beyond the immediate neighbours),
@@ -1782,9 +1779,9 @@ def computeFluxVector(iLeft, iRight, fluidState, meshData, fluidModel, dt,
 
     Arguments
     ---------
-    iLeft, iRight : int
+    iLeft, iRight : int or np.ndarray
         Indices (into the full halo-included arrays) of the nodes on either side
-        of the face.
+        of the face(s).
     fluidState : dict
         Current fluid state variable arrays.
     meshData : dict
@@ -1800,90 +1797,89 @@ def computeFluxVector(iLeft, iRight, fluidState, meshData, fluidModel, dt,
 
     Returns
     -------
-    flux : np.ndarray, shape (3,)
-        Numerical flux [F_mass, F_momentum, F_energy] at this face.
+    flux : np.ndarray
+        Numerical flux [F_mass, F_momentum, F_energy] at each face.
+        Shape is (3,) for scalar input and (nFaces, 3) for batched input.
     """
     numMeshNodes = meshData["numMeshNodes"]
+    nFaces = iLeft.size
 
-    # MUSCL reconstruction requires a two-cell stencil on each side of the face
-    # (nodes iLeft-1 and iRight+1 must be valid array indices).
-    musclApplicable = (
-        isMusclActive
-        and iLeft  >= 2
-        and iRight <= numMeshNodes - 3
-    )
+    if iLeft.shape != iRight.shape:
+        raise ValueError("iLeft and iRight must have the same shape.")
 
-    if musclApplicable:
-        availableLimiters = ["van albada", "van leer", "min-mod", "superbee", "none"]
-        if limiter not in availableLimiters:
-            raise ValueError(
-                f"Limiter '{limiter}' not recognized! Available ones are: {availableLimiters}"
+    # Start from first-order face states, then overwrite the subset of faces
+    # where MUSCL reconstruction is valid.
+    rhoL = fluidState["Density"][iLeft].astype(float, copy=True)
+    rhoR = fluidState["Density"][iRight].astype(float, copy=True)
+    uL   = fluidState["Velocity"][iLeft].astype(float, copy=True)
+    uR   = fluidState["Velocity"][iRight].astype(float, copy=True)
+    pL   = fluidState["Pressure"][iLeft].astype(float, copy=True)
+    pR   = fluidState["Pressure"][iRight].astype(float, copy=True)
+
+    if isMusclActive:
+        # MUSCL reconstruction requires a two-cell stencil on each side of the face
+        # (nodes iLeft-1 and iRight+1 must be valid array indices). Faces 
+        # touching boundary halos cannot use the full MUSCL stencil and must hence 
+        # be excluded from the reconstruction procedure.
+        musclMask = (iLeft >= 2) & (iRight <= numMeshNodes - 3)
+        if np.any(musclMask):
+            rhoL_m, uL_m, pL_m, rhoR_m, uR_m, pR_m = computeMusclReconstruction(
+                iLeft[musclMask], iRight[musclMask], fluidState, meshData, limiter
             )
-        rhoL, uL, pL, rhoR, uR, pR = computeMusclReconstruction(
-            iLeft, iRight, fluidState, meshData, limiter
-        )
-    else:
-        rhoL = fluidState["Density"][iLeft]
-        rhoR = fluidState["Density"][iRight]
-        uL   = fluidState["Velocity"][iLeft]
-        uR   = fluidState["Velocity"][iRight]
-        pL   = fluidState["Pressure"][iLeft]
-        pR   = fluidState["Pressure"][iRight]
+            rhoL[musclMask] = rhoL_m
+            uL[musclMask] = uL_m
+            pL[musclMask] = pL_m
+            rhoR[musclMask] = rhoR_m
+            uR[musclMask] = uR_m
+            pR[musclMask] = pR_m
 
     # Dispatch to the chosen flux scheme.
-    if advectionScheme.lower() == "godunov":
+    scheme = advectionScheme.lower()
+    if scheme == "godunov":
         if not isinstance(fluidModel, FluidIdeal):
             raise ValueError("Godunov scheme is available only for the ideal gas model.")
+
+        # Exact-Riemann sampling remains face-wise; this keeps solver behavior
+        # unchanged while retaining batched data preparation and return shape.
         dx_left  = meshData["meshNodeSpacing"][iLeft]
         dx_right = meshData["meshNodeSpacing"][iRight]
-        nx, nt = 51, 51
-        x = np.linspace(-dx_left / 2, dx_right / 2, nx)
-        t = np.linspace(0, dt, nt)
-        riem = RiemannProblem(x, t)
-        riem.initializeState([rhoL, rhoR, uL, uR, pL, pR])
-        riem.initializeSolutionArrays()
-        riem.computeStarRegion()
-        riem.solve(space_domain="interface", time_domain="global")
-        rho, u, p = riem.getSolutionInTime()
-        u1, u2, u3 = getConservativesFromFluidState(rho, u, p, fluidModel)
-        u1AVG = np.mean(u1)
-        u2AVG = np.mean(u2)
-        u3AVG = np.mean(u3)
-        flux = computeAdvectionFluxFromConservatives(u1AVG, u2AVG, u3AVG, fluidModel)
+        flux = np.zeros((nFaces, 3))
+        for iFace in range(nFaces):
+            flux[iFace, :] = _computeGodunovFluxCached(
+                float(rhoL[iFace]), float(rhoR[iFace]),
+                float(uL[iFace]), float(uR[iFace]),
+                float(pL[iFace]), float(pR[iFace]),
+                float(dx_left[iFace]), float(dx_right[iFace]),
+                float(dt), fluidModel,
+            )
 
-    elif advectionScheme.lower() == "roe":
+    elif scheme == "roe":
         if isinstance(fluidModel, FluidReal):
             raise ValueError(
                 "Basic Roe scheme is not available for the real gas model. "
                 "Select 'roe_arabi' or 'roe_vinokur' instead."
             )
-        roe  = AdvectionRoeBase(rhoL, rhoR, uL, uR, pL, pR, fluidModel)
-        flux = roe.computeFlux(
-            entropyFixActive=entropyFixActive, fixCoefficient=entropyFixCoefficient
-        )
+        roe = AdvectionRoeBase(rhoL, rhoR, uL, uR, pL, pR, fluidModel)
+        flux = roe.computeFlux(entropyFixActive=entropyFixActive, fixCoefficient=entropyFixCoefficient)
 
-    elif advectionScheme.lower() == "roe_arabi":
+    elif scheme == "roe_arabi":
         if isinstance(fluidModel, FluidIdeal):
             raise ValueError(
                 "Roe_Arabi scheme is not available for the ideal gas model. "
                 "Use the standard 'roe' scheme instead."
             )
-        roe  = AdvectionRoeArabi(rhoL, rhoR, uL, uR, pL, pR, fluidModel)
-        flux = roe.computeFlux(
-            entropyFixActive=entropyFixActive, fixCoefficient=entropyFixCoefficient
-        )
+        roe = AdvectionRoeArabi(rhoL, rhoR, uL, uR, pL, pR, fluidModel)
+        flux = roe.computeFlux(entropyFixActive=entropyFixActive, fixCoefficient=entropyFixCoefficient)
 
-    elif advectionScheme.lower() == "roe_vinokur":
+    elif scheme == "roe_vinokur":
         roe = AdvectionRoeVinokur(rhoL, rhoR, uL, uR, pL, pR, fluidModel)
-        roe.computeAveragedVariables()
-        flux = roe.computeFlux(
-            entropyFixActive=entropyFixActive, fixCoefficient=entropyFixCoefficient
-        )
+        flux = roe.computeFlux(entropyFixActive=entropyFixActive, fixCoefficient=entropyFixCoefficient)
 
     else:
         raise ValueError(f"Unknown flux method '{advectionScheme}'.")
 
     return flux
+
 
 
 def computeMusclReconstruction(iLeft, iRight, fluidState, meshData, limiter):
@@ -1915,48 +1911,51 @@ def computeMusclReconstruction(iLeft, iRight, fluidState, meshData, limiter):
     rhoL, uL, pL, rhoR, uR, pR : float
         Reconstructed fluid states at the left and right sides of the face.
     """
+    iLeft = np.asarray(iLeft, dtype=int)
+    iRight = np.asarray(iRight, dtype=int)
     xMeshNodes = meshData["xMeshNodes"]
 
-    # Four-point stencil: [iLeft-1, iLeft, iRight, iRight+1].
-    U_lm = np.array([
+    # Four-point stencil arrays: [iLeft-1, iLeft, iRight, iRight+1].
+    U_lm = np.column_stack((
         fluidState["Density"][iLeft - 1],
         fluidState["Velocity"][iLeft - 1],
         fluidState["Pressure"][iLeft - 1],
-    ])
-    U_l = np.array([
+    ))
+
+    U_l = np.column_stack((
         fluidState["Density"][iLeft],
         fluidState["Velocity"][iLeft],
         fluidState["Pressure"][iLeft],
-    ])
-    U_r = np.array([
+    ))
+    U_r = np.column_stack((
         fluidState["Density"][iRight],
         fluidState["Velocity"][iRight],
         fluidState["Pressure"][iRight],
-    ])
-    U_rp = np.array([
+    ))
+    U_rp = np.column_stack((
         fluidState["Density"][iRight + 1],
         fluidState["Velocity"][iRight + 1],
         fluidState["Pressure"][iRight + 1],
-    ])
+    ))
 
-    # Cell spacings for the smoothness indicator computation.
-    dx_lm_l  = xMeshNodes[iLeft]      - xMeshNodes[iLeft  - 1]
-    dx_l_r   = xMeshNodes[iRight]     - xMeshNodes[iLeft]
-    dx_r_rp  = xMeshNodes[iRight + 1] - xMeshNodes[iRight]
+    dx_lm_l = xMeshNodes[iLeft] - xMeshNodes[iLeft - 1]
+    dx_l_r = xMeshNodes[iRight] - xMeshNodes[iLeft]
+    dx_r_rp = xMeshNodes[iRight + 1] - xMeshNodes[iRight]
 
-    # Smoothness indicators (ratio of consecutive gradients).
-    r_left  = computeSmoothnessIndicators(U_lm, U_l,  U_r,  dx_lm_l, dx_l_r)
-    r_right = computeSmoothnessIndicators(U_l,  U_r,  U_rp, dx_l_r,  dx_r_rp)
+    r_left = computeSmoothnessIndicators(U_lm, U_l, U_r, dx_lm_l[:, None], dx_l_r[:, None])
+    r_right = computeSmoothnessIndicators(U_l, U_r, U_rp, dx_l_r[:, None], dx_r_rp[:, None])
 
-    # Flux limiters evaluated from the smoothness indicators.
-    psi_left  = computeFluxLimiter(r_left,  limiter)
+    psi_left = computeFluxLimiter(r_left, limiter)
     psi_right = computeFluxLimiter(r_right, limiter)
 
-    # Reconstruct left and right interface states.
-    U_l_rec = U_l + 0.5 * psi_left  * (U_r  - U_l)
+    U_l_rec = U_l + 0.5 * psi_left * (U_r - U_l)
     U_r_rec = U_r - 0.5 * psi_right * (U_rp - U_r)
 
-    return U_l_rec[0], U_l_rec[1], U_l_rec[2], U_r_rec[0], U_r_rec[1], U_r_rec[2]
+    return (
+        U_l_rec[:, 0], U_l_rec[:, 1], U_l_rec[:, 2],
+        U_r_rec[:, 0], U_r_rec[:, 1], U_r_rec[:, 2],
+    )
+
 
 
 def computeSmoothnessIndicators(U_left, U_central, U_right, dx_left, dx_right):
@@ -1997,9 +1996,9 @@ def computeFluxLimiter(r_vec, limiter):
         Smoothness indicator vector (one entry per fluid state variable).
     limiter : str
         Name of the limiter.  One of:
-        - 'van albada' : smooth, differentiable
-        - 'van leer'   : TVD, continuous
-        - 'min-mod'    : most diffusive TVD limiter
+        - 'van_albada' : smooth, differentiable
+        - 'van_leer'   : TVD, continuous
+        - 'min_mod'    : most diffusive TVD limiter
         - 'superbee'   : least diffusive TVD limiter
         - 'none'       : no limiting (equivalent to psi = 1 everywhere)
 
@@ -2008,22 +2007,44 @@ def computeFluxLimiter(r_vec, limiter):
     psi : np.ndarray, shape (3,)
         Limiter values.
     """
-    psi = np.zeros(3)
-    for i, r in enumerate(r_vec):
-        if limiter.lower() == "van albada":
-            psi[i] = (r**2 + r) / (1 + r**2)
-        elif limiter.lower() == "van leer":
-            psi[i] = (r + np.abs(r)) / (1 + np.abs(r))
-        elif limiter.lower() == "min-mod":
-            psi[i] = np.maximum(0, np.minimum(1, r))
-        elif limiter.lower() == "superbee":
-            psi[i] = np.max([0, np.minimum(2 * r, 1), np.minimum(r, 2)])
-        elif limiter.lower() == "none":
-            psi[i] = 1
-        else:
-            raise ValueError(f"Limiter '{limiter}' not recognized!")
-    return psi
+    r_arr = np.asarray(r_vec, dtype=float)
+    limiter_l = limiter.lower()
 
+    if limiter_l == "van_albada":
+        return (r_arr**2 + r_arr) / (1 + r_arr**2)
+    if limiter_l == "van_leer":
+        return (r_arr + np.abs(r_arr)) / (1 + np.abs(r_arr))
+    if limiter_l == "min_mod":
+        return np.maximum(0, np.minimum(1, r_arr))
+    if limiter_l == "superbee":
+        return np.maximum.reduce([
+            np.zeros_like(r_arr),
+            np.minimum(2 * r_arr, 1),
+            np.minimum(r_arr, 2),
+        ])
+    if limiter_l == "none":
+        return np.ones_like(r_arr)
+
+    raise ValueError(f"Limiter '{limiter}' not recognized!")
+
+
+@lru_cache(maxsize=200000)
+def _computeGodunovFluxCached(rhoL, rhoR, uL, uR, pL, pR, dxLeft, dxRight, dt, fluidModel):
+    """Compute one Godunov interface flux and cache by interface state."""
+    nx, nt = 51, 51
+    x = np.linspace(-dxLeft / 2, dxRight / 2, nx)
+    t = np.linspace(0, dt, nt)
+    riem = RiemannProblem(x, t)
+    riem.initializeState([rhoL, rhoR, uL, uR, pL, pR])
+    riem.initializeSolutionArrays()
+    riem.computeStarRegion()
+    riem.solve(space_domain="interface", time_domain="global")
+    rho, u, p = riem.getSolutionInTime()
+    u1, u2, u3 = getConservativesFromFluidState(rho, u, p, fluidModel)
+    flux = computeAdvectionFluxFromConservatives(
+        np.mean(u1), np.mean(u2), np.mean(u3), fluidModel
+    )
+    return tuple(np.asarray(flux, dtype=float))
 
 # -----------------------------------------------------------------------------
 #  Solution update
@@ -2256,10 +2277,7 @@ def _computeCFLField(fluidState, meshData, fluidModel, dt):
     velocity = fluidState["Velocity"][1:-1]
     dx       = meshData["meshNodeSpacing"][1:-1]
 
-    soundSpeed = np.array([
-        fluidModel.computeSoundSpeed_p_rho(pressure[i], density[i])
-        for i in range(len(velocity))
-    ])
+    soundSpeed = fluidModel.computeSoundSpeed_p_rho(pressure, density)
 
     cfl = (np.abs(velocity) + soundSpeed) * dt / dx
     return cfl

@@ -222,10 +222,13 @@ class Config:
                 {"MESH": ["X_START_REFINEMENT", "X_END_REFINEMENT", "NUM_REFINEMENT_MESH_NODES"]}),
 
             ("NUMERICS", "INTERCELL_FLUX_SCHEME", ["roe", "roe_arabi", "roe_vinokur"],
-                {"NUMERICS": ["ENTROPY_FIX_ACTIVE_BOOL", "ENTROPY_FIX_COEFFICIENT"]}),
+                {"NUMERICS": ["ENTROPY_FIX_ACTIVE_BOOL"]}),
+
+            ("NUMERICS", "ENTROPY_FIX_ACTIVE_BOOL", [True],
+                {"NUMERICS": ["ENTROPY_FIX_COEFFICIENT"]}),
 
             ("NUMERICS", "MUSCL_RECONSTRUCTION_BOOL", [True],
-                {"NUMERICS": ["MUSCL_RECONSTR_FLUX_LIMITER"]}),
+                {"NUMERICS": ["MUSCL_RECONSTRUCTION_FLUX_LIMITER"]}),
 
             ("BOUNDARY CONDITIONS", "BOUNDARY_CONDITION_LEFT", ["inlet"],
                 {"BOUNDARY CONDITIONS": ["INLET_CONDITIONS_TYPE", "INLET_CONDITIONS_VALUES"]}),
@@ -332,9 +335,9 @@ class Config:
                 {"MESH": ["X_START_REFINEMENT", "X_END_REFINEMENT", "NUM_REFINEMENT_MESH_NODES"]},
                 "MESH_REFINEMENT_BOOL is False"),
 
-            ("NUMERICS", "INTERCELL_FLUX_SCHEME", ["hll", "hllc"],   # or whatever your non-Roe schemes are
+            ("NUMERICS", "INTERCELL_FLUX_SCHEME", ["godunov"], 
                 {"NUMERICS": ["ENTROPY_FIX_ACTIVE_BOOL", "ENTROPY_FIX_COEFFICIENT",
-                            "MUSCL_RECONSTRUCTION_BOOL", "MUSCL_RECONSTR_FLUX_LIMITER"]},
+                            "MUSCL_RECONSTRUCTION_BOOL", "MUSCL_RECONSTRUCTION_FLUX_LIMITER"]},
                 "INTERCELL_FLUX_SCHEME is not a Roe-family scheme"),
 
             ("FLUID", "FLUID_MODEL_TYPE", ["ideal"],
@@ -347,11 +350,7 @@ class Config:
 
             ("NUMERICS", "WALL_FRICTION_MODELLING_BOOL", [False],
                 {"NUMERICS": ["FLUID_VISCOSITY"]},
-                "WALL_FRICTION_MODELLING_BOOL is False"),
-
-            ("INITIAL CONDITIONS", "ENFORCE_UNIFORM_INIT_NOZZLE_BOOL", [False],
-                {"INITIAL CONDITIONS": ["PRESSURE", "VELOCITY", "DENSITY", "TEMPERATURE"]},
-                "ENFORCE_UNIFORM_INIT_NOZZLE_BOOL is False"),
+                "WALL_FRICTION_MODELLING_BOOL is False")
         ]
         for section, key, trigger_values, prohibited, reason in condProhibitedCommon:
             if self._get_raw(section, key) in trigger_values:
@@ -369,6 +368,14 @@ class Config:
             check_prohibited_keys(_inlet_keys,  "Neither BOUNDARY_CONDITION_LEFT nor BOUNDARY_CONDITION_RIGHT is 'inlet'")
         elif bc_left != "outlet" and bc_right != "outlet":
             check_prohibited_keys(_outlet_keys,  "Neither BOUNDARY_CONDITION_LEFT nor BOUNDARY_CONDITION_RIGHT is 'outlet'")
+
+        # in case of nozzle expansions, enforce_uniform_init_nozzle = False prohibits specification of the 
+        # initial conditions PRESSURE, VELOCITY, DENSITY or TEMPERATURE
+        if expansion_device_type == "nozzle" and not self.enforceUniformInitNozzleBool():
+            check_prohibited_keys(
+                {"INITIAL CONDITIONS": ["PRESSURE", "VELOCITY", "DENSITY", "TEMPERATURE"]},
+                "ENFORCE_UNIFORM_INIT_NOZZLE_BOOL is False"
+            )
 
         return None
 
@@ -478,8 +485,8 @@ class Config:
     def MUSCLReconstructionBool(self) -> bool:
         return self._get_bool("NUMERICS", "MUSCL_RECONSTRUCTION_BOOL")
 
-    def MUSCLReconstrFluxLimiter(self) -> str:
-        return self._get_str("NUMERICS", "MUSCL_RECONSTR_FLUX_LIMITER", inputOptions=["van albada", "van leer", "min-mod", "superbee", "none"])
+    def MUSCLReconstructionFluxLimiter(self) -> str:
+        return self._get_str("NUMERICS", "MUSCL_RECONSTRUCTION_FLUX_LIMITER", inputOptions=["van_albada", "van_leer", "min_mod", "superbee", "none"])
 
     def CFLMax(self) -> float:
             return self._get_float("NUMERICS", "CFL_MAX", positive=True)

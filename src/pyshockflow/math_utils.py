@@ -76,10 +76,10 @@ def computeAdvectionFluxFromConservatives(u1, u2, u3, fluid):
         """
         rho, u, p, e = getFluidStateFromConservatives(u1, u2, u3, fluid)
         et = e+0.5*u**2
-        flux = np.zeros(3)
-        flux[0] = rho*u
-        flux[1] = rho*u**2+p
-        flux[2] = u*(rho*et+p)
+        flux = np.zeros((u1.size, 3))
+        flux[:, 0] = rho*u
+        flux[:, 1] = rho*u**2+p
+        flux[:, 2] = u*(rho*et+p)
         return flux
 
 
