@@ -1844,10 +1844,8 @@ def computeFluxVector(iLeft, iRight, fluidState, meshData, fluidModel, dt,
         # touching boundary halos cannot use the full MUSCL stencil and must hence 
         # be excluded from the reconstruction procedure.
         musclMask = (iLeft >= 2) & (iRight <= numMeshNodes - 3)
-        print("applied muscle mask", musclMask)
         if np.any(musclMask):
-            print("MUSCL reconstruction applied to faces:", np.where(musclMask)[0])
-            rhoL_m, uL_m, pL_m, rhoR_m, uR_m, pR_m = computeMusclReconstructionBatch(
+            rhoL_m, uL_m, pL_m, rhoR_m, uR_m, pR_m = computeMusclReconstruction(
                 iLeft[musclMask], iRight[musclMask], fluidState, meshData, limiter
             )
             rhoL[musclMask] = rhoL_m
@@ -1892,16 +1890,8 @@ def computeFluxVector(iLeft, iRight, fluidState, meshData, fluidModel, dt,
                 "Roe_Arabi scheme is not available for the ideal gas model. "
                 "Use the standard 'roe' scheme instead."
             )
-        from benchmarking_tools.timing import Timer
-        t = Timer()
-        t.start()
         roe = AdvectionRoeArabi(rhoL, rhoR, uL, uR, pL, pR, fluidModel)
         flux = roe.computeFlux(entropyFixActive=entropyFixActive, fixCoefficient=entropyFixCoefficient)
-        # flux = AdvectionRoeArabi.computeFluxBatch(
-        #     rhoL, rhoR, uL, uR, pL, pR, fluidModel,
-        #     entropyFixActive=entropyFixActive, fixCoefficient=entropyFixCoefficient,
-        # )
-        t.stop()
 
     elif scheme == "roe_vinokur":
         roe = AdvectionRoeVinokur(rhoL, rhoR, uL, uR, pL, pR, fluidModel)
@@ -1915,7 +1905,8 @@ def computeFluxVector(iLeft, iRight, fluidState, meshData, fluidModel, dt,
     return flux
 
 
-def computeMusclReconstruction(iLeft, iRight, fluidState, meshData, limiter):
+
+def computeMusclReconstructionBatch(iLeft, iRight, fluidState, meshData, limiter):
     """
     Perform MUSCL (Monotone Upstream-centred Schemes for Conservation Laws)
     reconstruction at the face between nodes iLeft and iRight.
@@ -1944,52 +1935,6 @@ def computeMusclReconstruction(iLeft, iRight, fluidState, meshData, limiter):
     rhoL, uL, pL, rhoR, uR, pR : float
         Reconstructed fluid states at the left and right sides of the face.
     """
-    xMeshNodes = meshData["xMeshNodes"]
-
-    # Four-point stencil: [iLeft-1, iLeft, iRight, iRight+1].
-    U_lm = np.array([
-        fluidState["Density"][iLeft - 1],
-        fluidState["Velocity"][iLeft - 1],
-        fluidState["Pressure"][iLeft - 1],
-    ])
-    U_l = np.array([
-        fluidState["Density"][iLeft],
-        fluidState["Velocity"][iLeft],
-        fluidState["Pressure"][iLeft],
-    ])
-    U_r = np.array([
-        fluidState["Density"][iRight],
-        fluidState["Velocity"][iRight],
-        fluidState["Pressure"][iRight],
-    ])
-    U_rp = np.array([
-        fluidState["Density"][iRight + 1],
-        fluidState["Velocity"][iRight + 1],
-        fluidState["Pressure"][iRight + 1],
-    ])
-
-    # Cell spacings for the smoothness indicator computation.
-    dx_lm_l  = xMeshNodes[iLeft]      - xMeshNodes[iLeft  - 1]
-    dx_l_r   = xMeshNodes[iRight]     - xMeshNodes[iLeft]
-    dx_r_rp  = xMeshNodes[iRight + 1] - xMeshNodes[iRight]
-
-    # Smoothness indicators (ratio of consecutive gradients).
-    r_left  = computeSmoothnessIndicators(U_lm, U_l,  U_r,  dx_lm_l, dx_l_r)
-    r_right = computeSmoothnessIndicators(U_l,  U_r,  U_rp, dx_l_r,  dx_r_rp)
-
-    # Flux limiters evaluated from the smoothness indicators.
-    psi_left  = computeFluxLimiter(r_left,  limiter)
-    psi_right = computeFluxLimiter(r_right, limiter)
-
-    # Reconstruct left and right interface states.
-    U_l_rec = U_l + 0.5 * psi_left  * (U_r  - U_l)
-    U_r_rec = U_r - 0.5 * psi_right * (U_rp - U_r)
-
-    return U_l_rec[0], U_l_rec[1], U_l_rec[2], U_r_rec[0], U_r_rec[1], U_r_rec[2]
-
-
-def computeMusclReconstructionBatch(iLeft, iRight, fluidState, meshData, limiter):
-    """Vectorized MUSCL reconstruction for a batch of interface indices."""
     iLeft = np.asarray(iLeft, dtype=int)
     iRight = np.asarray(iRight, dtype=int)
     xMeshNodes = meshData["xMeshNodes"]
@@ -2034,6 +1979,7 @@ def computeMusclReconstructionBatch(iLeft, iRight, fluidState, meshData, limiter
         U_l_rec[:, 0], U_l_rec[:, 1], U_l_rec[:, 2],
         U_r_rec[:, 0], U_r_rec[:, 1], U_r_rec[:, 2],
     )
+
 
 
 def computeSmoothnessIndicators(U_left, U_central, U_right, dx_left, dx_right):
