@@ -1737,7 +1737,7 @@ def computeResiduals(config, meshData, fluidState,
     isMusclActive : bool
         Whether MUSCL second-order reconstruction is enabled.
     limiter : str
-        Name of the flux limiter (e.g. 'van leer', 'min-mod', 'superbee').
+        Name of the flux limiter (e.g. 'van_leer', 'min_mod', 'superbee').
     entropyFixActive : bool
     entropyFixCoefficient : float
     expansionDeviceType : str
@@ -1826,14 +1826,6 @@ def computeFluxVector(iLeft, iRight, fluidState, meshData, fluidModel, dt,
     numMeshNodes = meshData["numMeshNodes"]
     nFaces = iLeft.size
 
-    # MUSCL reconstruction requires a two-cell stencil on each side of the face
-    # (nodes iLeft-1 and iRight+1 must be valid array indices).
-    musclApplicable = (
-        isMusclActive
-        and np.all(iLeft >= 0)
-        and np.all(iRight <= numMeshNodes - 1)
-    )
-
     if iLeft.shape != iRight.shape:
         raise ValueError("iLeft and iRight must have the same shape.")
 
@@ -1846,15 +1838,15 @@ def computeFluxVector(iLeft, iRight, fluidState, meshData, fluidModel, dt,
     pL   = fluidState["Pressure"][iLeft].astype(float, copy=True)
     pR   = fluidState["Pressure"][iRight].astype(float, copy=True)
 
-    if musclApplicable:
-        availableLimiters = ["van albada", "van leer", "min-mod", "superbee", "none"]
-        if limiter not in availableLimiters:
-            raise ValueError(
-                f"Limiter '{limiter}' not recognized! Available ones are: {availableLimiters}"
-            )
-        # Faces touching boundary halos cannot use the full MUSCL stencil.
+    if isMusclActive:
+        # MUSCL reconstruction requires a two-cell stencil on each side of the face
+        # (nodes iLeft-1 and iRight+1 must be valid array indices). Faces 
+        # touching boundary halos cannot use the full MUSCL stencil and must hence 
+        # be excluded from the reconstruction procedure.
         musclMask = (iLeft >= 2) & (iRight <= numMeshNodes - 3)
+        print("applied muscle mask", musclMask)
         if np.any(musclMask):
+            print("MUSCL reconstruction applied to faces:", np.where(musclMask)[0])
             rhoL_m, uL_m, pL_m, rhoR_m, uR_m, pR_m = computeMusclReconstructionBatch(
                 iLeft[musclMask], iRight[musclMask], fluidState, meshData, limiter
             )
@@ -1891,10 +1883,8 @@ def computeFluxVector(iLeft, iRight, fluidState, meshData, fluidModel, dt,
                 "Basic Roe scheme is not available for the real gas model. "
                 "Select 'roe_arabi' or 'roe_vinokur' instead."
             )
-        flux = AdvectionRoeBase.computeFluxBatch(
-            rhoL, rhoR, uL, uR, pL, pR, fluidModel,
-            entropyFixActive=entropyFixActive, fixCoefficient=entropyFixCoefficient,
-        )
+        roe = AdvectionRoeBase(rhoL, rhoR, uL, uR, pL, pR, fluidModel)
+        flux = roe.computeFlux(entropyFixActive=entropyFixActive, fixCoefficient=entropyFixCoefficient)
 
     elif scheme == "roe_arabi":
         if isinstance(fluidModel, FluidIdeal):
@@ -1902,16 +1892,20 @@ def computeFluxVector(iLeft, iRight, fluidState, meshData, fluidModel, dt,
                 "Roe_Arabi scheme is not available for the ideal gas model. "
                 "Use the standard 'roe' scheme instead."
             )
-        flux = AdvectionRoeArabi.computeFluxBatch(
-            rhoL, rhoR, uL, uR, pL, pR, fluidModel,
-            entropyFixActive=entropyFixActive, fixCoefficient=entropyFixCoefficient,
-        )
+        from benchmarking_tools.timing import Timer
+        t = Timer()
+        t.start()
+        roe = AdvectionRoeArabi(rhoL, rhoR, uL, uR, pL, pR, fluidModel)
+        flux = roe.computeFlux(entropyFixActive=entropyFixActive, fixCoefficient=entropyFixCoefficient)
+        # flux = AdvectionRoeArabi.computeFluxBatch(
+        #     rhoL, rhoR, uL, uR, pL, pR, fluidModel,
+        #     entropyFixActive=entropyFixActive, fixCoefficient=entropyFixCoefficient,
+        # )
+        t.stop()
 
     elif scheme == "roe_vinokur":
-        flux = AdvectionRoeVinokur.computeFluxBatch(
-            rhoL, rhoR, uL, uR, pL, pR, fluidModel,
-            entropyFixActive=entropyFixActive, fixCoefficient=entropyFixCoefficient,
-        )
+        roe = AdvectionRoeVinokur(rhoL, rhoR, uL, uR, pL, pR, fluidModel)
+        flux = roe.computeFlux(entropyFixActive=entropyFixActive, fixCoefficient=entropyFixCoefficient)
 
     else:
         raise ValueError(f"Unknown flux method '{advectionScheme}'.")
@@ -2006,6 +2000,7 @@ def computeMusclReconstructionBatch(iLeft, iRight, fluidState, meshData, limiter
         fluidState["Velocity"][iLeft - 1],
         fluidState["Pressure"][iLeft - 1],
     ))
+
     U_l = np.column_stack((
         fluidState["Density"][iLeft],
         fluidState["Velocity"][iLeft],
@@ -2079,9 +2074,9 @@ def computeFluxLimiter(r_vec, limiter):
         Smoothness indicator vector (one entry per fluid state variable).
     limiter : str
         Name of the limiter.  One of:
-        - 'van albada' : smooth, differentiable
-        - 'van leer'   : TVD, continuous
-        - 'min-mod'    : most diffusive TVD limiter
+        - 'van_albada' : smooth, differentiable
+        - 'van_leer'   : TVD, continuous
+        - 'min_mod'    : most diffusive TVD limiter
         - 'superbee'   : least diffusive TVD limiter
         - 'none'       : no limiting (equivalent to psi = 1 everywhere)
 
@@ -2093,11 +2088,11 @@ def computeFluxLimiter(r_vec, limiter):
     r_arr = np.asarray(r_vec, dtype=float)
     limiter_l = limiter.lower()
 
-    if limiter_l == "van albada":
+    if limiter_l == "van_albada":
         return (r_arr**2 + r_arr) / (1 + r_arr**2)
-    if limiter_l == "van leer":
+    if limiter_l == "van_leer":
         return (r_arr + np.abs(r_arr)) / (1 + np.abs(r_arr))
-    if limiter_l == "min-mod":
+    if limiter_l == "min_mod":
         return np.maximum(0, np.minimum(1, r_arr))
     if limiter_l == "superbee":
         return np.maximum.reduce([
