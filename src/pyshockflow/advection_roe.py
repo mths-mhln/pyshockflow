@@ -260,6 +260,13 @@ class AdvectionRoeVinokur(AdvectionRoeBase):
             self.kappaAVG = (D_term * kappaHat) / (D_term - self.deltaP*error_term)
         
         self.aAVG = np.sqrt(self.chiAVG + self.kappaAVG*self.hAVG)
+        # print(self.pL, self.uL)
+        # print(self.pR, self.uR)
+        # print("aAVG", self.aAVG)
+        # print(self.chiAVG + self.kappaAVG*self.hAVG)
+        # print("chiAVG", self.chiAVG)
+        # print("kappaAVG", self.kappaAVG)
+        # print("hAVG", self.hAVG)
     
     
     def computeFlux(self, entropyFixActive, fixCoefficient):
@@ -277,7 +284,6 @@ class AdvectionRoeVinokur(AdvectionRoeBase):
         matrixR = np.array([[1, 1, 1],
                             [self.uAVG, self.uAVG+self.aAVG, self.uAVG-self.aAVG],
                             [k2, self.htAVG + self.aAVG*self.uAVG, self.htAVG - self.aAVG*self.uAVG]])
-        
         # left eigenvectors matrix
         matrixRinv = np.array([[1-k1/self.aAVG**2, self.kappaAVG*self.uAVG/self.aAVG**2, -self.kappaAVG/self.aAVG**2],
                                [0.5*(k1/self.aAVG**2-self.uAVG/self.aAVG), -0.5*(self.kappaAVG*self.uAVG/self.aAVG**2-1/self.aAVG), 0.5*self.kappaAVG/self.aAVG**2],

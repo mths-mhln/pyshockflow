@@ -11,7 +11,7 @@ from pyshockflow import Driver, Config
 
 # files whose data to extract:
 configFiles = [
-    "inputs/config_files/lettieri/L1_smooth.ini"
+    "inputs/config_files/CM-15.3/godunov/single_phase_gas.ini"
 ]
 
 # perform verification on the simulation

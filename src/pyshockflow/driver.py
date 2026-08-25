@@ -1207,7 +1207,7 @@ class Driver:
         fluidModelType        = config.fluidModelType()
         fluidLibrary          = config.fluidLibrary() if fluidModelType.lower() == "real" else None
         if isMusclActive:
-            limiter = config.MUSCLReconstrFluxLimiter()
+            limiter = config.MUSCLReconstructionFluxLimiter()
         else:
             limiter = None
 
@@ -1291,8 +1291,6 @@ class Driver:
                     config, deviceGeometryData, meshData, fluidState, resultsSubdirPath, iterationIndex, time
                 )
 
-                
-
             # Check for NaNs / Infs and abort with a diagnostic if found.
             checkSimulationStatus(fluidState, meshData, fluidModel, dt)
 
@@ -1304,21 +1302,23 @@ class Driver:
             # ------------------------------------------------------------------
             # Convergence check: if all fluid state variables have changed by less
             # than convergenceTolerance (relative) for 20 consecutive iterations,
-            # jump straight to timeMax to finalise the run.
+            # jump straight to timeMax to finalise the run. this is only allowed 
+            # for nozzle goemetries
             # ------------------------------------------------------------------
-            convergenceTolerance = 1e-5
-            converged = all(
-                np.max(
-                    np.abs(fluidState[var] - fluidStateOld[var])
-                    / (np.max(np.abs(fluidStateOld[var])) + 1e-300)
-                ) < convergenceTolerance
-                for var in ("Density", "Velocity", "Pressure", 'staticInternalEnergy')
-            )
-            convergenceHist = convergenceHist + [True] if converged else []
-            if len(convergenceHist) >= 20:
-                # Force the loop to end at timeMax on the next iteration.
-                newTime = timeMax
-                convergedSimulation = True
+            if expansionDeviceType == "nozzle":
+                convergenceTolerance = 1e-5
+                converged = all(
+                    np.max(
+                        np.abs(fluidState[var] - fluidStateOld[var])
+                        / (np.max(np.abs(fluidStateOld[var])) + 1e-300)
+                    ) < convergenceTolerance
+                    for var in ("Density", "Velocity", "Pressure", 'staticInternalEnergy')
+                )
+                convergenceHist = convergenceHist + [True] if converged else []
+                if len(convergenceHist) >= 20:
+                    # Force the loop to end at timeMax on the next iteration.
+                    newTime = timeMax
+                    convergedSimulation = True
 
             # Advance physical time.
             time          = newTime
@@ -1764,6 +1764,7 @@ def computeResiduals(config, meshData, fluidState,
             dt / dx[1:-1]
             * ((flux[:-1, iDim] - flux[1:, iDim]) + source[1:-1, iDim] * dx[1:-1])
         )
+        # print("residuals", residuals)
 
     return residuals
 
@@ -1814,11 +1815,6 @@ def computeFluxVector(iLeft, iRight, fluidState, meshData, fluidModel, dt,
     )
 
     if musclApplicable:
-        availableLimiters = ["van albada", "van leer", "min-mod", "superbee", "none"]
-        if limiter not in availableLimiters:
-            raise ValueError(
-                f"Limiter '{limiter}' not recognized! Available ones are: {availableLimiters}"
-            )
         rhoL, uL, pL, rhoR, uR, pR = computeMusclReconstruction(
             iLeft, iRight, fluidState, meshData, limiter
         )
@@ -1872,6 +1868,7 @@ def computeFluxVector(iLeft, iRight, fluidState, meshData, fluidModel, dt,
         flux = roe.computeFlux(
             entropyFixActive=entropyFixActive, fixCoefficient=entropyFixCoefficient
         )
+        # print("flux", flux)
 
     elif advectionScheme.lower() == "roe_vinokur":
         roe = AdvectionRoeVinokur(rhoL, rhoR, uL, uR, pL, pR, fluidModel)
@@ -2010,11 +2007,11 @@ def computeFluxLimiter(r_vec, limiter):
     """
     psi = np.zeros(3)
     for i, r in enumerate(r_vec):
-        if limiter.lower() == "van albada":
+        if limiter.lower() == "van_albada":
             psi[i] = (r**2 + r) / (1 + r**2)
-        elif limiter.lower() == "van leer":
+        elif limiter.lower() == "van_leer":
             psi[i] = (r + np.abs(r)) / (1 + np.abs(r))
-        elif limiter.lower() == "min-mod":
+        elif limiter.lower() == "min_mod":
             psi[i] = np.maximum(0, np.minimum(1, r))
         elif limiter.lower() == "superbee":
             psi[i] = np.max([0, np.minimum(2 * r, 1), np.minimum(r, 2)])

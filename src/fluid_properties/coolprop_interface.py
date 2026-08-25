@@ -366,8 +366,8 @@ class CoolPropAbstractState_v2():
             return getattr(CP, y_str + x_str + "_INPUTS"), reorder
         
     @staticmethod # necessary to allow for vectorization of the method
-    @np.vectorize(otypes=[float])
-    def _update_and_get(AS: AbstractState, input_spec: CP.PQ_INPUTS, x_str: str, x: float, y_str: str, y: float, output: str, critical_point_vals: tuple, reorder: bool, verbose: bool = False) -> float:
+    @np.vectorize(otypes=[float], excluded=["critical_point_vals"])
+    def _update_and_get(AS: AbstractState, input_spec: CP.PQ_INPUTS, x_str: str, x: float, y_str: str, y: float, output: str, reorder: bool, verbose: bool = False, critical_point_vals: tuple = None) -> float:
         """
         Vectorized method to update the AbstractState with the specified input specification and input variables, and return the specified output variable. 
         The method returns nan for points that are not valid for the AbstractState (e.g. points outside the phase envelope).
@@ -415,8 +415,12 @@ class CoolPropAbstractState_v2():
             skip_update = CoolPropAbstractState_v2._update_wrapper(AS, input_spec, x, y, verbose)
         if skip_update:
             return np.nan
-        if output == 'drhomassdPcT':
+        if output == 'dPdrhomasscT':
             return AS.first_partial_deriv(CP.iP, CP.iDmass, CP.iT)
+        if output == "dUdrhomasscU":
+            return AS.first_partial_deriv(CP.iUmass, CP.iDmass, CP.iUmass)
+        if output == "dPduUmasscD":
+            return AS.first_partial_deriv(CP.iP, CP.iUmass, CP.iDmass)
         return getattr(AS, output)()    
 
     def _critical_value(AS: AbstractState, prop_str_AS: str, prop_val: float, critical_point_vals: tuple) -> bool:
@@ -443,7 +447,8 @@ class CoolPropAbstractState_v2():
             True if the specified input pair is close to the critical point, False otherwise.
         """
         Tcrit, Dcrit, Pcrit = critical_point_vals
-        AS.update(CP.DmassT_INPUTS, Dcrit, Tcrit)
+        # print("critical_vals", critical_point_vals)
+        AS.update(CP.PT_INPUTS, Pcrit, Tcrit)
         S = AS.smass()
         if prop_str_AS == 'Q':
             AS.update(CP.SmassT_INPUTS, S, Tcrit)
@@ -463,7 +468,9 @@ class CoolPropAbstractState_v2():
                 "Smass": "smass",
                 "Cpmass": "cpmass",
                 "Cvmass": "cvmass",
-                "d(P)/d(D)|T": "drhomassdPcT",
+                "d(P)/d(D)|T": "dPdrhomasscT",
+                "d(P)/d(D)|U": "dUdrhomasscU",
+                "d(P)/d(U)|D": "dPduUmasscD",
                 "Phase": "phase",
                 "V": "viscosity"
             }
@@ -473,6 +480,7 @@ class CoolPropAbstractState_v2():
             return True
         else:
             return False   
+        
 
     def PropsSI(self, prop: str, x_str: str = None, x: float | np.ndarray = None, y_str: str = None, y: float | np.ndarray = None, verbose: bool = False) -> float | np.ndarray:
         """
@@ -518,7 +526,7 @@ class CoolPropAbstractState_v2():
         y_str_AS = self._PropsSI_syntax_to_AbstractState_syntax(y_str)
         input_spec, reorder = self._get_input_spec(x_str_AS, y_str_AS)
         if prop_AS == 'Q':
-            out = self._update_and_get(AS, input_spec, x_str_AS, x, y_str_AS, y, prop_AS, self.critical_point_vals, reorder, verbose)
+            out = self._update_and_get(AS, input_spec, x_str_AS, x, y_str_AS, y, prop_AS, reorder, critical_point_vals = critical_point_vals, verbose = verbose)
             out[out < 0] = 0
             out[out > 1] = 1
             return out
@@ -535,11 +543,10 @@ class CoolPropAbstractState_v2():
                 "Smass": "smass",
                 "Cpmass": "cpmass",
                 "Cvmass": "cvmass",
-                "d(P)/d(D)|T": "drhomassdPcT",
+                "d(P)/d(D)|T": "dPdrhomasscT",
+                "d(P)/d(D)|U": "dUdrhomasscU",
+                "d(P)/d(U)|D": "dPduUmasscD",
                 "Phase": "phase",
                 "V": "viscosity"
             }
-            return self._update_and_get(AS, input_spec, x_str_AS, x, y_str_AS, y, translator[prop_AS], self.critical_point_vals, reorder, verbose)
-
-
-
+            return self._update_and_get(AS, input_spec, x_str_AS, x, y_str_AS, y, translator[prop_AS], reorder, critical_point_vals = critical_point_vals, verbose = verbose)
