@@ -431,412 +431,572 @@
 <text id="matched" x="1090.00" y="341" > </text>
 <g id="frames">
 <g >
-<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\src\pyshockflow\driver.py:2053:updateSolution (444,487,302 samples, 13.03%)</title><rect x="1036.2" y="245" width="153.8" height="15.0" fill="rgb(228,108,25)" rx="2" ry="2" />
-<text  x="1039.23" y="255.5" >D:\nexus\02_learnin..</text>
+<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\.venv\Lib\site-packages\numpy\lib\_function_base_impl.py:2517:__call__ (350,788,775 samples, 28.25%)</title><rect x="62.6" y="213" width="333.4" height="15.0" fill="rgb(230,115,27)" rx="2" ry="2" />
+<text  x="65.58" y="223.5" >D:\nexus\02_learning\00_university_education\..</text>
 </g>
 <g >
-<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\src\pyshockflow\fluid.py:169:computePressure_rho_e (444,434,916 samples, 13.03%)</title><rect x="1036.2" y="213" width="153.8" height="15.0" fill="rgb(207,12,2)" rx="2" ry="2" />
-<text  x="1039.25" y="223.5" >D:\nexus\02_learnin..</text>
+<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\src\fluid_properties\coolprop_interface.py:485:PropsSI (1,174,611 samples, 0.09%)</title><rect x="446.8" y="37" width="1.1" height="15.0" fill="rgb(233,132,31)" rx="2" ry="2" />
+<text  x="449.81" y="47.5" ></text>
 </g>
 <g >
-<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\src\pyshockflow\advection_roe.py:142:__init__ (2,564,516,298 samples, 75.18%)</title><rect x="149.0" y="213" width="887.2" height="15.0" fill="rgb(212,34,8)" rx="2" ry="2" />
-<text  x="152.05" y="223.5" >D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\..</text>
+<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\src\fluid_properties\coolprop_interface.py:333:_PropsSI_syntax_to_AbstractState_syntax (3,039,755 samples, 0.24%)</title><rect x="1077.2" y="53" width="2.9" height="15.0" fill="rgb(217,55,13)" rx="2" ry="2" />
+<text  x="1080.21" y="63.5" ></text>
 </g>
 <g >
-<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\src\pyshockflow\fluid.py:253:_computeSoundSpeed_p_rho_two_phase (357,430 samples, 0.01%)</title><rect x="32.0" y="101" width="0.1" height="15.0" fill="rgb(241,169,40)" rx="2" ry="2" />
-<text  x="34.98" y="111.5" ></text>
+<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\src\fluid_properties\coolprop_interface.py:343:_get_input_spec (2,480,944 samples, 0.20%)</title><rect x="381.8" y="101" width="2.3" height="15.0" fill="rgb(239,157,37)" rx="2" ry="2" />
+<text  x="384.75" y="111.5" ></text>
 </g>
 <g >
-<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\.venv\Lib\site-packages\numpy\lib\_function_base_impl.py:2506:func (379,755,184 samples, 11.13%)</title><rect x="1054.4" y="117" width="131.4" height="15.0" fill="rgb(244,181,43)" rx="2" ry="2" />
-<text  x="1057.38" y="127.5" >D:\nexus\02_lear..</text>
+<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\src\pyshockflow\fluid.py:253:_computeSoundSpeed_p_rho_two_phase (3,199,284 samples, 0.26%)</title><rect x="1182.4" y="101" width="3.1" height="15.0" fill="rgb(241,169,40)" rx="2" ry="2" />
+<text  x="1185.42" y="111.5" ></text>
 </g>
 <g >
-<title>~:0:&lt;built-in method builtins.exec&gt; (3,410,944,346 samples, 100.00%)</title><rect x="10.0" y="293" width="1180.0" height="15.0" fill="rgb(241,167,40)" rx="2" ry="2" />
-<text  x="13.00" y="303.5" >~:0:&lt;built-in method builtins.exec&gt;</text>
+<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\.venv\Lib\site-packages\numpy\lib\_function_base_impl.py:2593:_vectorize_call (65,381,228 samples, 5.27%)</title><rect x="1125.9" y="133" width="62.1" height="15.0" fill="rgb(205,3,0)" rx="2" ry="2" />
+<text  x="1128.86" y="143.5" >D:\nex..</text>
 </g>
 <g >
-<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\src\pyshockflow\fluid.py:235:_computeSoundSpeed_p_rho_single (97,624,686 samples, 2.86%)</title><rect x="990.9" y="117" width="33.8" height="15.0" fill="rgb(210,26,6)" rx="2" ry="2" />
-<text  x="993.94" y="127.5" >D:..</text>
+<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\.venv\Lib\site-packages\numpy\lib\_function_base_impl.py:2517:__call__ (1,043,242 samples, 0.08%)</title><rect x="1025.0" y="53" width="1.0" height="15.0" fill="rgb(230,115,27)" rx="2" ry="2" />
+<text  x="1028.01" y="63.5" ></text>
 </g>
 <g >
-<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\.venv\Lib\site-packages\numpy\lib\_function_base_impl.py:2593:_vectorize_call (21,926,248 samples, 0.64%)</title><rect x="24.5" y="133" width="7.6" height="15.0" fill="rgb(205,3,0)" rx="2" ry="2" />
-<text  x="27.52" y="143.5" ></text>
+<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\src\fluid_properties\coolprop_interface.py:485:PropsSI (48,926,473 samples, 3.94%)</title><rect x="1038.3" y="69" width="46.5" height="15.0" fill="rgb(233,132,31)" rx="2" ry="2" />
+<text  x="1041.29" y="79.5" >D:\n..</text>
 </g>
 <g >
-<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\src\pyshockflow\math_utils.py:4:getFluidStateFromConservatives (444,453,678 samples, 13.03%)</title><rect x="1036.2" y="229" width="153.8" height="15.0" fill="rgb(248,199,47)" rx="2" ry="2" />
-<text  x="1039.24" y="239.5" >D:\nexus\02_learnin..</text>
+<title>~:0:&lt;built-in method numpy.asanyarray&gt; (12,491,797 samples, 1.01%)</title><rect x="384.1" y="165" width="11.9" height="15.0" fill="rgb(235,139,33)" rx="2" ry="2" />
+<text  x="387.11" y="175.5" ></text>
 </g>
 <g >
-<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\.venv\Lib\site-packages\numpy\lib\_function_base_impl.py:2487:_call_as_normal (2,956,008 samples, 0.09%)</title><rect x="147.7" y="85" width="1.0" height="15.0" fill="rgb(243,175,41)" rx="2" ry="2" />
-<text  x="150.71" y="95.5" ></text>
+<title>~:0:&lt;built-in method numpy.asanyarray&gt; (2,669,495 samples, 0.22%)</title><rect x="1185.5" y="117" width="2.5" height="15.0" fill="rgb(235,139,33)" rx="2" ry="2" />
+<text  x="1188.46" y="127.5" ></text>
 </g>
 <g >
-<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\src\fluid_properties\coolprop_interface.py:368:_update_and_get (374,824,572 samples, 10.99%)</title><rect x="1056.1" y="101" width="129.7" height="15.0" fill="rgb(233,129,30)" rx="2" ry="2" />
-<text  x="1059.09" y="111.5" >D:\nexus\02_lear..</text>
+<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\.venv\Lib\site-packages\numpy\lib\_function_base_impl.py:2524:_get_ufunc_and_otypes (19,527,002 samples, 1.57%)</title><rect x="995.1" y="117" width="18.6" height="15.0" fill="rgb(216,53,12)" rx="2" ry="2" />
+<text  x="998.14" y="127.5" ></text>
 </g>
 <g >
-<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\src\pyshockflow\fluid.py:235:_computeSoundSpeed_p_rho_single (2,473,569 samples, 0.07%)</title><rect x="163.9" y="85" width="0.8" height="15.0" fill="rgb(210,26,6)" rx="2" ry="2" />
-<text  x="166.86" y="95.5" ></text>
+<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\src\fluid_properties\fluid_properties.py:68:PropsSI (3,485,915 samples, 0.28%)</title><rect x="350.1" y="149" width="3.3" height="15.0" fill="rgb(240,163,39)" rx="2" ry="2" />
+<text  x="353.09" y="159.5" ></text>
 </g>
 <g >
-<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\.venv\Lib\site-packages\numpy\lib\_function_base_impl.py:2517:__call__ (22,705,502 samples, 0.67%)</title><rect x="24.3" y="165" width="7.8" height="15.0" fill="rgb(230,115,27)" rx="2" ry="2" />
-<text  x="27.25" y="175.5" ></text>
+<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\.venv\Lib\site-packages\numpy\lib\_function_base_impl.py:2487:_call_as_normal (697,876,599 samples, 56.21%)</title><rect x="448.1" y="149" width="663.3" height="15.0" fill="rgb(243,175,41)" rx="2" ry="2" />
+<text  x="451.10" y="159.5" >D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computationa..</text>
 </g>
 <g >
-<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\src\pyshockflow\fluid.py:235:_computeSoundSpeed_p_rho_single (14,207,385 samples, 0.42%)</title><rect x="143.8" y="165" width="4.9" height="15.0" fill="rgb(210,26,6)" rx="2" ry="2" />
-<text  x="146.82" y="175.5" ></text>
+<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\src\fluid_properties\coolprop_interface.py:426:_critical_value (160,563,055 samples, 12.93%)</title><rect x="186.4" y="133" width="152.6" height="15.0" fill="rgb(242,173,41)" rx="2" ry="2" />
+<text  x="189.44" y="143.5" >D:\nexus\02_learnin..</text>
 </g>
 <g >
-<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\src\fluid_properties\coolprop_interface.py:422:_critical_value (208,966,218 samples, 6.13%)</title><rect x="71.5" y="133" width="72.3" height="15.0" fill="rgb(218,61,14)" rx="2" ry="2" />
-<text  x="74.53" y="143.5" >D:\nexus..</text>
+<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\.venv\Lib\site-packages\numpy\lib\_function_base_impl.py:2487:_call_as_normal (1,117,726 samples, 0.09%)</title><rect x="352.3" y="101" width="1.1" height="15.0" fill="rgb(243,175,41)" rx="2" ry="2" />
+<text  x="355.34" y="111.5" ></text>
 </g>
 <g >
-<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\.venv\Lib\site-packages\numpy\lib\_function_base_impl.py:2517:__call__ (4,077,265 samples, 0.12%)</title><rect x="147.3" y="101" width="1.4" height="15.0" fill="rgb(230,115,27)" rx="2" ry="2" />
-<text  x="150.32" y="111.5" ></text>
+<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\.venv\Lib\site-packages\numpy\lib\_function_base_impl.py:2517:__call__ (3,136,636 samples, 0.25%)</title><rect x="1020.7" y="69" width="3.0" height="15.0" fill="rgb(230,115,27)" rx="2" ry="2" />
+<text  x="1023.72" y="79.5" ></text>
 </g>
 <g >
-<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\.venv\Lib\site-packages\numpy\lib\_function_base_impl.py:2517:__call__ (440,895 samples, 0.01%)</title><rect x="994.0" y="53" width="0.1" height="15.0" fill="rgb(230,115,27)" rx="2" ry="2" />
-<text  x="996.97" y="63.5" ></text>
-</g>
-<g >
-<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\src\fluid_properties\coolprop_interface.py:422:_critical_value (304,699,909 samples, 8.93%)</title><rect x="1080.3" y="85" width="105.5" height="15.0" fill="rgb(218,61,14)" rx="2" ry="2" />
-<text  x="1083.35" y="95.5" >D:\nexus\02_..</text>
-</g>
-<g >
-<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\.venv\Lib\site-packages\numpy\_core\numeric.py:2337:isclose (15,198,602 samples, 0.45%)</title><rect x="138.6" y="117" width="5.2" height="15.0" fill="rgb(218,59,14)" rx="2" ry="2" />
-<text  x="141.56" y="127.5" ></text>
-</g>
-<g >
-<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\.venv\Lib\site-packages\numpy\lib\_function_base_impl.py:2593:_vectorize_call (290,037,110 samples, 8.50%)</title><rect x="48.4" y="181" width="100.3" height="15.0" fill="rgb(205,3,0)" rx="2" ry="2" />
-<text  x="51.40" y="191.5" >D:\nexus\02_..</text>
-</g>
-<g >
-<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\src\pyshockflow\driver.py:1361:groupSingleIterResults (39,201,465 samples, 1.15%)</title><rect x="32.1" y="245" width="13.6" height="15.0" fill="rgb(218,62,14)" rx="2" ry="2" />
-<text  x="35.11" y="255.5" ></text>
-</g>
-<g >
-<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\src\fluid_properties\fluid_properties.py:68:PropsSI (23,468,601 samples, 0.69%)</title><rect x="24.0" y="197" width="8.1" height="15.0" fill="rgb(240,163,39)" rx="2" ry="2" />
-<text  x="26.99" y="207.5" ></text>
-</g>
-<g >
-<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\src\pyshockflow\fluid.py:173:computeInternalEnergy_p_rho (23,471,715 samples, 0.69%)</title><rect x="24.0" y="213" width="8.1" height="15.0" fill="rgb(207,11,2)" rx="2" ry="2" />
-<text  x="26.99" y="223.5" ></text>
-</g>
-<g >
-<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\src\pyshockflow\driver.py:1112:_conservativesFromFluidState (23,527,806 samples, 0.69%)</title><rect x="24.0" y="245" width="8.1" height="15.0" fill="rgb(236,143,34)" rx="2" ry="2" />
-<text  x="26.97" y="255.5" ></text>
-</g>
-<g >
-<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\.venv\Lib\site-packages\numpy\_core\numeric.py:2337:isclose (129,770,836 samples, 3.80%)</title><rect x="937.3" y="69" width="44.9" height="15.0" fill="rgb(218,59,14)" rx="2" ry="2" />
-<text  x="940.31" y="79.5" >D:\n..</text>
-</g>
-<g >
-<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\.venv\Lib\site-packages\numpy\lib\_function_base_impl.py:2487:_call_as_normal (22,506,911 samples, 0.66%)</title><rect x="24.3" y="149" width="7.8" height="15.0" fill="rgb(243,175,41)" rx="2" ry="2" />
-<text  x="27.32" y="159.5" ></text>
-</g>
-<g >
-<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\src\fluid_properties\coolprop_interface.py:343:_get_input_spec (7,364,078 samples, 0.22%)</title><rect x="1022.2" y="53" width="2.5" height="15.0" fill="rgb(239,157,37)" rx="2" ry="2" />
-<text  x="1025.17" y="63.5" ></text>
-</g>
-<g >
-<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\src\fluid_properties\coolprop_interface.py:422:_critical_value (1,784,224,627 samples, 52.31%)</title><rect x="365.0" y="85" width="617.2" height="15.0" fill="rgb(218,61,14)" rx="2" ry="2" />
-<text  x="367.96" y="95.5" >D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_comput..</text>
-</g>
-<g >
-<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\src\fluid_properties\coolprop_interface.py:422:_critical_value (30,098,002 samples, 0.88%)</title><rect x="153.4" y="53" width="10.5" height="15.0" fill="rgb(218,61,14)" rx="2" ry="2" />
-<text  x="156.45" y="63.5" ></text>
-</g>
-<g >
-<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\src\fluid_properties\fluid_properties.py:68:PropsSI (444,430,888 samples, 13.03%)</title><rect x="1036.3" y="197" width="153.7" height="15.0" fill="rgb(240,163,39)" rx="2" ry="2" />
-<text  x="1039.25" y="207.5" >D:\nexus\02_learnin..</text>
-</g>
-<g >
-<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\.venv\Lib\site-packages\numpy\_core\numeric.py:2429:&lt;genexpr&gt; (16,563,280 samples, 0.49%)</title><rect x="976.5" y="53" width="5.7" height="15.0" fill="rgb(221,77,18)" rx="2" ry="2" />
-<text  x="979.47" y="63.5" ></text>
-</g>
-<g >
-<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\src\pyshockflow\fluid.py:253:_computeSoundSpeed_p_rho_two_phase (10,355,281 samples, 0.30%)</title><rect x="145.2" y="149" width="3.5" height="15.0" fill="rgb(241,169,40)" rx="2" ry="2" />
-<text  x="148.15" y="159.5" ></text>
-</g>
-<g >
-<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\src\fluid_properties\fluid_properties.py:68:PropsSI (389,746 samples, 0.01%)</title><rect x="145.0" y="149" width="0.2" height="15.0" fill="rgb(240,163,39)" rx="2" ry="2" />
-<text  x="148.02" y="159.5" ></text>
-</g>
-<g >
-<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\src\pyshockflow\driver.py:1693:computeResiduals (2,565,428,191 samples, 75.21%)</title><rect x="148.7" y="245" width="887.5" height="15.0" fill="rgb(221,78,18)" rx="2" ry="2" />
-<text  x="151.73" y="255.5" >D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\..</text>
-</g>
-<g >
-<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\.venv\Lib\site-packages\numpy\lib\_function_base_impl.py:2524:_get_ufunc_and_otypes (25,257,211 samples, 0.74%)</title><rect x="982.2" y="117" width="8.7" height="15.0" fill="rgb(216,53,12)" rx="2" ry="2" />
-<text  x="985.20" y="127.5" ></text>
-</g>
-<g >
-<title>all (3,410,944,346 samples, 100%)</title><rect x="10.0" y="309" width="1180.0" height="15.0" fill="rgb(213,39,9)" rx="2" ry="2" />
+<title>all (1,241,556,542 samples, 100%)</title><rect x="10.0" y="309" width="1180.0" height="15.0" fill="rgb(213,39,9)" rx="2" ry="2" />
 <text  x="13.00" y="319.5" ></text>
 </g>
 <g >
-<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\src\pyshockflow\fluid.py:253:_computeSoundSpeed_p_rho_two_phase (6,964,582 samples, 0.20%)</title><rect x="1187.6" y="101" width="2.4" height="15.0" fill="rgb(241,169,40)" rx="2" ry="2" />
-<text  x="1190.59" y="111.5" ></text>
+<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\src\fluid_properties\coolprop_interface.py:306:_update_wrapper (59,142,046 samples, 4.76%)</title><rect x="130.2" y="133" width="56.2" height="15.0" fill="rgb(231,120,28)" rx="2" ry="2" />
+<text  x="133.23" y="143.5" >D:\ne..</text>
 </g>
 <g >
-<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\src\fluid_properties\fluid_properties.py:68:PropsSI (3,327,782 samples, 0.10%)</title><rect x="992.5" y="101" width="1.2" height="15.0" fill="rgb(240,163,39)" rx="2" ry="2" />
-<text  x="995.55" y="111.5" ></text>
+<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\src\fluid_properties\coolprop_interface.py:426:_critical_value (34,312,303 samples, 2.76%)</title><rect x="1147.1" y="85" width="32.6" height="15.0" fill="rgb(242,173,41)" rx="2" ry="2" />
+<text  x="1150.08" y="95.5" >D:..</text>
 </g>
 <g >
-<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\src\fluid_properties\coolprop_interface.py:477:PropsSI (326,217 samples, 0.01%)</title><rect x="145.0" y="133" width="0.2" height="15.0" fill="rgb(227,102,24)" rx="2" ry="2" />
-<text  x="148.04" y="143.5" ></text>
+<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\src\pyshockflow\fluid.py:235:_computeSoundSpeed_p_rho_single (74,801,964 samples, 6.02%)</title><rect x="1013.7" y="117" width="71.1" height="15.0" fill="rgb(210,26,6)" rx="2" ry="2" />
+<text  x="1016.70" y="127.5" >D:\nexus..</text>
 </g>
 <g >
-<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\.venv\Lib\site-packages\numpy\lib\_function_base_impl.py:2487:_call_as_normal (297,796,590 samples, 8.73%)</title><rect x="45.7" y="197" width="103.0" height="15.0" fill="rgb(243,175,41)" rx="2" ry="2" />
-<text  x="48.71" y="207.5" >D:\nexus\02_..</text>
+<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\src\fluid_properties\fluid_properties.py:68:PropsSI (6,935,167 samples, 0.56%)</title><rect x="1017.1" y="101" width="6.6" height="15.0" fill="rgb(240,163,39)" rx="2" ry="2" />
+<text  x="1020.11" y="111.5" ></text>
 </g>
 <g >
-<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\.venv\Lib\site-packages\numpy\lib\_function_base_impl.py:2517:__call__ (297,798,349 samples, 8.73%)</title><rect x="45.7" y="213" width="103.0" height="15.0" fill="rgb(230,115,27)" rx="2" ry="2" />
-<text  x="48.71" y="223.5" >D:\nexus\02_..</text>
+<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\src\pyshockflow\fluid.py:235:_computeSoundSpeed_p_rho_single (37,598,700 samples, 3.03%)</title><rect x="348.4" y="165" width="35.7" height="15.0" fill="rgb(210,26,6)" rx="2" ry="2" />
+<text  x="351.37" y="175.5" >D:\..</text>
 </g>
 <g >
-<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\.venv\Lib\site-packages\numpy\lib\_function_base_impl.py:2506:func (19,489,432 samples, 0.57%)</title><rect x="24.9" y="117" width="6.8" height="15.0" fill="rgb(244,181,43)" rx="2" ry="2" />
-<text  x="27.92" y="127.5" ></text>
+<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\src\pyshockflow\fluid.py:173:computeInternalEnergy_p_rho (26,805,247 samples, 2.16%)</title><rect x="36.9" y="213" width="25.5" height="15.0" fill="rgb(207,11,2)" rx="2" ry="2" />
+<text  x="39.95" y="223.5" >D..</text>
 </g>
 <g >
-<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\src\fluid_properties\coolprop_interface.py:477:PropsSI (444,426,764 samples, 13.03%)</title><rect x="1036.3" y="181" width="153.7" height="15.0" fill="rgb(227,102,24)" rx="2" ry="2" />
-<text  x="1039.25" y="191.5" >D:\nexus\02_learnin..</text>
+<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\src\fluid_properties\fluid_properties.py:68:PropsSI (2,306,485 samples, 0.19%)</title><rect x="1023.8" y="85" width="2.2" height="15.0" fill="rgb(240,163,39)" rx="2" ry="2" />
+<text  x="1026.81" y="95.5" ></text>
 </g>
 <g >
-<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\src\fluid_properties\coolprop_interface.py:477:PropsSI (45,162,241 samples, 1.32%)</title><rect x="149.1" y="149" width="15.6" height="15.0" fill="rgb(227,102,24)" rx="2" ry="2" />
-<text  x="152.09" y="159.5" ></text>
+<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\.venv\Lib\site-packages\numpy\lib\_function_base_impl.py:2593:_vectorize_call (646,454,869 samples, 52.07%)</title><rect x="494.0" y="133" width="614.4" height="15.0" fill="rgb(205,3,0)" rx="2" ry="2" />
+<text  x="497.01" y="143.5" >D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_compu..</text>
 </g>
 <g >
-<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\src\fluid_properties\coolprop_interface.py:306:_update_wrapper (21,390,794 samples, 0.63%)</title><rect x="1072.9" y="85" width="7.4" height="15.0" fill="rgb(231,120,28)" rx="2" ry="2" />
-<text  x="1075.95" y="95.5" ></text>
+<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\src\fluid_properties\fluid_properties.py:68:PropsSI (2,120,455 samples, 0.17%)</title><rect x="1183.4" y="85" width="2.1" height="15.0" fill="rgb(240,163,39)" rx="2" ry="2" />
+<text  x="1186.45" y="95.5" ></text>
 </g>
 <g >
-<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\.venv\Lib\site-packages\numpy\lib\_function_base_impl.py:2517:__call__ (43,701,968 samples, 1.28%)</title><rect x="149.6" y="133" width="15.1" height="15.0" fill="rgb(230,115,27)" rx="2" ry="2" />
-<text  x="152.60" y="143.5" ></text>
+<title>~:0:&lt;built-in method builtins.exec&gt; (1,241,556,542 samples, 100.00%)</title><rect x="10.0" y="293" width="1180.0" height="15.0" fill="rgb(241,167,40)" rx="2" ry="2" />
+<text  x="13.00" y="303.5" >~:0:&lt;built-in method builtins.exec&gt;</text>
 </g>
 <g >
-<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\.venv\Lib\site-packages\numpy\lib\_function_base_impl.py:2517:__call__ (2,519,020,757 samples, 73.85%)</title><rect x="164.8" y="165" width="871.4" height="15.0" fill="rgb(230,115,27)" rx="2" ry="2" />
-<text  x="167.79" y="175.5" >D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_for..</text>
+<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\.venv\Lib\site-packages\numpy\lib\_function_base_impl.py:2506:func (50,770,024 samples, 4.09%)</title><rect x="1131.4" y="117" width="48.3" height="15.0" fill="rgb(244,181,43)" rx="2" ry="2" />
+<text  x="1134.43" y="127.5" >D:\n..</text>
 </g>
 <g >
-<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\src\fluid_properties\coolprop_interface.py:368:_update_and_get (19,236,388 samples, 0.56%)</title><rect x="25.0" y="101" width="6.7" height="15.0" fill="rgb(233,129,30)" rx="2" ry="2" />
-<text  x="28.01" y="111.5" ></text>
+<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\src\pyshockflow\fluid.py:235:_computeSoundSpeed_p_rho_single (1,965,214 samples, 0.16%)</title><rect x="60.6" y="117" width="1.8" height="15.0" fill="rgb(210,26,6)" rx="2" ry="2" />
+<text  x="63.55" y="127.5" ></text>
 </g>
 <g >
-<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\src\pyshockflow\driver.py:1166:solve (3,378,080,802 samples, 99.04%)</title><rect x="21.4" y="261" width="1168.6" height="15.0" fill="rgb(246,188,45)" rx="2" ry="2" />
-<text  x="24.37" y="271.5" >D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\src\pyshockflow\driver.py:1166:solve</text>
+<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\.venv\Lib\site-packages\numpy\lib\_function_base_impl.py:2487:_call_as_normal (8,373,382 samples, 0.67%)</title><rect x="373.8" y="85" width="8.0" height="15.0" fill="rgb(243,175,41)" rx="2" ry="2" />
+<text  x="376.79" y="95.5" ></text>
 </g>
 <g >
-<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\src\fluid_properties\coolprop_interface.py:477:PropsSI (2,785,346 samples, 0.08%)</title><rect x="992.7" y="85" width="1.0" height="15.0" fill="rgb(227,102,24)" rx="2" ry="2" />
-<text  x="995.74" y="95.5" ></text>
+<title>~:0:&lt;built-in method numpy.asanyarray&gt; (24,852,214 samples, 2.00%)</title><rect x="1084.8" y="117" width="23.6" height="15.0" fill="rgb(235,139,33)" rx="2" ry="2" />
+<text  x="1087.79" y="127.5" >~..</text>
 </g>
 <g >
-<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\src\fluid_properties\fluid_properties.py:68:PropsSI (465,143 samples, 0.01%)</title><rect x="164.6" y="53" width="0.1" height="15.0" fill="rgb(240,163,39)" rx="2" ry="2" />
-<text  x="167.56" y="63.5" ></text>
+<title>&lt;frozen importlib._bootstrap&gt;:1304:_find_and_load_unlocked (2,840,855 samples, 0.23%)</title><rect x="30.5" y="245" width="2.7" height="15.0" fill="rgb(210,26,6)" rx="2" ry="2" />
+<text  x="33.47" y="255.5" ></text>
 </g>
 <g >
-<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\src\pyshockflow\driver.py:1769:computeFluxVector (2,565,192,324 samples, 75.20%)</title><rect x="148.8" y="229" width="887.4" height="15.0" fill="rgb(237,148,35)" rx="2" ry="2" />
-<text  x="151.82" y="239.5" >D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\..</text>
+<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\src\pyshockflow\driver.py:1166:solve (1,214,209,111 samples, 97.80%)</title><rect x="36.0" y="261" width="1154.0" height="15.0" fill="rgb(246,188,45)" rx="2" ry="2" />
+<text  x="38.99" y="271.5" >D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\src\pyshockflow\driver.py:1166:solve</text>
 </g>
 <g >
-<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\src\pyshockflow\fluid.py:253:_computeSoundSpeed_p_rho_two_phase (687,956 samples, 0.02%)</title><rect x="164.5" y="69" width="0.2" height="15.0" fill="rgb(241,169,40)" rx="2" ry="2" />
-<text  x="167.48" y="79.5" ></text>
+<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\src\pyshockflow\fluid.py:253:_computeSoundSpeed_p_rho_two_phase (31,090,788 samples, 2.50%)</title><rect x="354.6" y="149" width="29.5" height="15.0" fill="rgb(241,169,40)" rx="2" ry="2" />
+<text  x="357.56" y="159.5" >D:..</text>
 </g>
 <g >
-<title>main.py:1:&lt;module&gt; (3,381,732,333 samples, 99.14%)</title><rect x="20.1" y="277" width="1169.9" height="15.0" fill="rgb(214,43,10)" rx="2" ry="2" />
-<text  x="23.11" y="287.5" >main.py:1:&lt;module&gt;</text>
+<title>main.py:1:&lt;module&gt; (1,217,178,962 samples, 98.04%)</title><rect x="33.2" y="277" width="1156.8" height="15.0" fill="rgb(214,43,10)" rx="2" ry="2" />
+<text  x="36.17" y="287.5" >main.py:1:&lt;module&gt;</text>
 </g>
 <g >
-<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\.venv\Lib\site-packages\numpy\_core\numeric.py:2337:isclose (22,161,538 samples, 0.65%)</title><rect x="1178.1" y="69" width="7.7" height="15.0" fill="rgb(218,59,14)" rx="2" ry="2" />
-<text  x="1181.09" y="79.5" ></text>
+<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\src\pyshockflow\driver.py:927:setBoundaryConditions (2,106,738 samples, 0.17%)</title><rect x="1188.0" y="245" width="2.0" height="15.0" fill="rgb(224,90,21)" rx="2" ry="2" />
+<text  x="1191.00" y="255.5" ></text>
 </g>
 <g >
-<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\src\pyshockflow\fluid.py:220:computeSoundSpeed_p_rho (297,842,580 samples, 8.73%)</title><rect x="45.7" y="229" width="103.0" height="15.0" fill="rgb(224,87,20)" rx="2" ry="2" />
-<text  x="48.70" y="239.5" >D:\nexus\02_..</text>
+<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\.venv\Lib\site-packages\numpy\lib\_function_base_impl.py:2517:__call__ (48,678,470 samples, 3.92%)</title><rect x="401.7" y="133" width="46.2" height="15.0" fill="rgb(230,115,27)" rx="2" ry="2" />
+<text  x="404.66" y="143.5" >D:\n..</text>
 </g>
 <g >
-<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\.venv\Lib\site-packages\numpy\lib\_function_base_impl.py:2487:_call_as_normal (2,519,005,738 samples, 73.85%)</title><rect x="164.8" y="149" width="871.4" height="15.0" fill="rgb(243,175,41)" rx="2" ry="2" />
-<text  x="167.79" y="159.5" >D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_for..</text>
+<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\src\fluid_properties\coolprop_interface.py:485:PropsSI (1,810,613 samples, 0.15%)</title><rect x="1183.7" y="69" width="1.8" height="15.0" fill="rgb(233,132,31)" rx="2" ry="2" />
+<text  x="1186.74" y="79.5" ></text>
 </g>
 <g >
-<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\src\fluid_properties\fluid_properties.py:68:PropsSI (75,208,460 samples, 2.20%)</title><rect x="998.7" y="85" width="26.0" height="15.0" fill="rgb(240,163,39)" rx="2" ry="2" />
-<text  x="1001.70" y="95.5" >D..</text>
+<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\.venv\Lib\site-packages\numpy\lib\_function_base_impl.py:2517:__call__ (697,888,206 samples, 56.21%)</title><rect x="448.1" y="165" width="663.3" height="15.0" fill="rgb(230,115,27)" rx="2" ry="2" />
+<text  x="451.09" y="175.5" >D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computationa..</text>
 </g>
 <g >
-<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\.venv\Lib\site-packages\numpy\lib\_function_base_impl.py:2517:__call__ (34,813,075 samples, 1.02%)</title><rect x="1010.1" y="53" width="12.1" height="15.0" fill="rgb(230,115,27)" rx="2" ry="2" />
-<text  x="1013.12" y="63.5" ></text>
+<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\.venv\Lib\site-packages\numpy\_core\numeric.py:2337:isclose (99,492,680 samples, 8.01%)</title><rect x="897.6" y="69" width="94.6" height="15.0" fill="rgb(218,59,14)" rx="2" ry="2" />
+<text  x="900.60" y="79.5" >D:\nexus\02..</text>
 </g>
 <g >
-<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\.venv\Lib\site-packages\numpy\lib\_function_base_impl.py:2487:_call_as_normal (425,773,978 samples, 12.48%)</title><rect x="1042.7" y="149" width="147.3" height="15.0" fill="rgb(243,175,41)" rx="2" ry="2" />
-<text  x="1045.71" y="159.5" >D:\nexus\02_learni..</text>
+<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\src\pyshockflow\driver.py:1653:computeTimeStep (350,959,526 samples, 28.27%)</title><rect x="62.4" y="245" width="333.6" height="15.0" fill="rgb(231,120,28)" rx="2" ry="2" />
+<text  x="65.42" y="255.5" >D:\nexus\02_learning\00_university_education\..</text>
 </g>
 <g >
-<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\src\fluid_properties\coolprop_interface.py:422:_critical_value (15,637,517 samples, 0.46%)</title><rect x="26.3" y="85" width="5.4" height="15.0" fill="rgb(218,61,14)" rx="2" ry="2" />
-<text  x="29.25" y="95.5" ></text>
+<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\src\fluid_properties\fluid_properties.py:68:PropsSI (26,042,452 samples, 2.10%)</title><rect x="359.4" y="133" width="24.7" height="15.0" fill="rgb(240,163,39)" rx="2" ry="2" />
+<text  x="362.36" y="143.5" >D..</text>
 </g>
 <g >
-<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\src\pyshockflow\fluid.py:235:_computeSoundSpeed_p_rho_single (12,264,056 samples, 0.36%)</title><rect x="1185.8" y="117" width="4.2" height="15.0" fill="rgb(210,26,6)" rx="2" ry="2" />
-<text  x="1188.76" y="127.5" ></text>
+<title>~:0:&lt;method 'extend' of 'list' objects&gt; (3,114,658 samples, 0.25%)</title><rect x="1108.4" y="133" width="3.0" height="15.0" fill="rgb(227,103,24)" rx="2" ry="2" />
+<text  x="1111.41" y="143.5" ></text>
 </g>
 <g >
-<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\src\fluid_properties\coolprop_interface.py:477:PropsSI (4,056,480 samples, 0.12%)</title><rect x="1188.6" y="69" width="1.4" height="15.0" fill="rgb(227,102,24)" rx="2" ry="2" />
-<text  x="1191.60" y="79.5" ></text>
+<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\.venv\Lib\site-packages\numpy\_core\numeric.py:2337:isclose (50,009,322 samples, 4.03%)</title><rect x="291.5" y="117" width="47.5" height="15.0" fill="rgb(218,59,14)" rx="2" ry="2" />
+<text  x="294.52" y="127.5" >D:\n..</text>
 </g>
 <g >
-<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\.venv\Lib\site-packages\numpy\lib\_function_base_impl.py:2593:_vectorize_call (414,459,648 samples, 12.15%)</title><rect x="1046.6" y="133" width="143.4" height="15.0" fill="rgb(205,3,0)" rx="2" ry="2" />
-<text  x="1049.62" y="143.5" >D:\nexus\02_learni..</text>
+<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\.venv\Lib\site-packages\numpy\_core\_ufunc_config.py:440:__enter__ (11,548,673 samples, 0.93%)</title><rect x="963.7" y="53" width="11.0" height="15.0" fill="rgb(247,195,46)" rx="2" ry="2" />
+<text  x="966.68" y="63.5" ></text>
 </g>
 <g >
-<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\.venv\Lib\site-packages\numpy\_core\_ufunc_config.py:456:__exit__ (7,779,670 samples, 0.23%)</title><rect x="973.8" y="53" width="2.7" height="15.0" fill="rgb(248,199,47)" rx="2" ry="2" />
-<text  x="976.78" y="63.5" ></text>
+<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\src\fluid_properties\coolprop_interface.py:343:_get_input_spec (4,935,794 samples, 0.40%)</title><rect x="1080.1" y="53" width="4.7" height="15.0" fill="rgb(239,157,37)" rx="2" ry="2" />
+<text  x="1083.10" y="63.5" ></text>
 </g>
 <g >
-<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\src\pyshockflow\fluid.py:220:computeSoundSpeed_p_rho (2,519,226,935 samples, 73.86%)</title><rect x="164.7" y="181" width="871.5" height="15.0" fill="rgb(224,87,20)" rx="2" ry="2" />
-<text  x="167.72" y="191.5" >D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_for..</text>
+<title>&lt;frozen importlib._bootstrap&gt;:911:_load_unlocked (2,286,192 samples, 0.18%)</title><rect x="33.8" y="229" width="2.2" height="15.0" fill="rgb(205,3,0)" rx="2" ry="2" />
+<text  x="36.82" y="239.5" ></text>
 </g>
 <g >
-<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\.venv\Lib\site-packages\numpy\lib\_function_base_impl.py:2487:_call_as_normal (984,766 samples, 0.03%)</title><rect x="993.4" y="53" width="0.3" height="15.0" fill="rgb(243,175,41)" rx="2" ry="2" />
-<text  x="996.36" y="63.5" ></text>
+<title>~:0:&lt;method 'set' of '_contextvars.ContextVar' objects&gt; (3,125,587 samples, 0.25%)</title><rect x="971.7" y="37" width="3.0" height="15.0" fill="rgb(209,18,4)" rx="2" ry="2" />
+<text  x="974.69" y="47.5" ></text>
 </g>
 <g >
-<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\src\fluid_properties\fluid_properties.py:68:PropsSI (8,808,323 samples, 0.26%)</title><rect x="145.7" y="133" width="3.0" height="15.0" fill="rgb(240,163,39)" rx="2" ry="2" />
-<text  x="148.69" y="143.5" ></text>
+<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\.venv\Lib\site-packages\numpy\_core\_ufunc_config.py:440:__enter__ (5,804,862 samples, 0.47%)</title><rect x="324.7" y="101" width="5.5" height="15.0" fill="rgb(247,195,46)" rx="2" ry="2" />
+<text  x="327.73" y="111.5" ></text>
 </g>
 <g >
-<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\src\fluid_properties\coolprop_interface.py:477:PropsSI (8,360,876 samples, 0.25%)</title><rect x="145.8" y="117" width="2.9" height="15.0" fill="rgb(227,102,24)" rx="2" ry="2" />
-<text  x="148.84" y="127.5" ></text>
+<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\src\pyshockflow\fluid.py:235:_computeSoundSpeed_p_rho_single (3,977,252 samples, 0.32%)</title><rect x="1181.7" y="117" width="3.8" height="15.0" fill="rgb(210,26,6)" rx="2" ry="2" />
+<text  x="1184.68" y="127.5" ></text>
 </g>
 <g >
-<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\src\fluid_properties\coolprop_interface.py:306:_update_wrapper (125,257,606 samples, 3.67%)</title><rect x="321.6" y="85" width="43.4" height="15.0" fill="rgb(231,120,28)" rx="2" ry="2" />
-<text  x="324.63" y="95.5" >D:\n..</text>
+<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\.venv\Lib\site-packages\numpy\_core\numeric.py:2429:&lt;genexpr&gt; (12,495,916 samples, 1.01%)</title><rect x="980.3" y="53" width="11.9" height="15.0" fill="rgb(221,77,18)" rx="2" ry="2" />
+<text  x="983.29" y="63.5" ></text>
 </g>
 <g >
-<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\.venv\Lib\site-packages\numpy\_core\_ufunc_config.py:440:__enter__ (15,046,769 samples, 0.44%)</title><rect x="968.6" y="53" width="5.2" height="15.0" fill="rgb(247,195,46)" rx="2" ry="2" />
-<text  x="971.58" y="63.5" ></text>
+<title>&lt;frozen importlib._bootstrap&gt;:1349:_find_and_load (2,888,283 samples, 0.23%)</title><rect x="30.4" y="261" width="2.8" height="15.0" fill="rgb(226,98,23)" rx="2" ry="2" />
+<text  x="33.42" y="271.5" ></text>
 </g>
 <g >
-<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\.venv\Lib\site-packages\numpy\lib\_function_base_impl.py:2517:__call__ (1,358,302 samples, 0.04%)</title><rect x="993.2" y="69" width="0.5" height="15.0" fill="rgb(230,115,27)" rx="2" ry="2" />
-<text  x="996.23" y="79.5" ></text>
+<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\src\pyshockflow\math_utils.py:37:getConservativesFromFluidState (26,842,137 samples, 2.16%)</title><rect x="36.9" y="229" width="25.5" height="15.0" fill="rgb(249,204,48)" rx="2" ry="2" />
+<text  x="39.91" y="239.5" >D..</text>
 </g>
 <g >
-<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\.venv\Lib\site-packages\numpy\lib\_function_base_impl.py:2517:__call__ (429,643,557 samples, 12.60%)</title><rect x="1041.4" y="165" width="148.6" height="15.0" fill="rgb(230,115,27)" rx="2" ry="2" />
-<text  x="1044.37" y="175.5" >D:\nexus\02_learni..</text>
+<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\src\fluid_properties\coolprop_interface.py:368:_update_and_get (48,374,457 samples, 3.90%)</title><rect x="1133.7" y="101" width="46.0" height="15.0" fill="rgb(233,129,30)" rx="2" ry="2" />
+<text  x="1136.71" y="111.5" >D:\n..</text>
 </g>
 <g >
-<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\src\fluid_properties\coolprop_interface.py:477:PropsSI (904,104 samples, 0.03%)</title><rect x="993.8" y="69" width="0.3" height="15.0" fill="rgb(227,102,24)" rx="2" ry="2" />
-<text  x="996.81" y="79.5" ></text>
+<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\src\pyshockflow\fluid.py:249:_computeSoundSpeed_p_rho_single_phase (2,421,735 samples, 0.20%)</title><rect x="1023.7" y="101" width="2.3" height="15.0" fill="rgb(247,195,46)" rx="2" ry="2" />
+<text  x="1026.70" y="111.5" ></text>
 </g>
 <g >
-<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\src\fluid_properties\coolprop_interface.py:306:_update_wrapper (14,670,019 samples, 0.43%)</title><rect x="66.5" y="133" width="5.0" height="15.0" fill="rgb(231,120,28)" rx="2" ry="2" />
-<text  x="69.45" y="143.5" ></text>
+<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\.venv\Lib\site-packages\numpy\lib\_function_base_impl.py:2524:_get_ufunc_and_otypes (9,815,115 samples, 0.79%)</title><rect x="339.0" y="165" width="9.4" height="15.0" fill="rgb(216,53,12)" rx="2" ry="2" />
+<text  x="342.05" y="175.5" ></text>
 </g>
 <g >
-<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\src\pyshockflow\fluid.py:173:computeInternalEnergy_p_rho (45,177,328 samples, 1.32%)</title><rect x="149.1" y="181" width="15.6" height="15.0" fill="rgb(207,11,2)" rx="2" ry="2" />
-<text  x="152.09" y="191.5" ></text>
+<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\src\fluid_properties\fluid_properties.py:68:PropsSI (285,107 samples, 0.02%)</title><rect x="1182.0" y="101" width="0.3" height="15.0" fill="rgb(240,163,39)" rx="2" ry="2" />
+<text  x="1185.05" y="111.5" ></text>
 </g>
 <g >
-<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\.venv\Lib\site-packages\numpy\lib\_function_base_impl.py:2506:func (37,511,900 samples, 1.10%)</title><rect x="150.9" y="85" width="13.0" height="15.0" fill="rgb(244,181,43)" rx="2" ry="2" />
-<text  x="153.88" y="95.5" ></text>
+<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\src\pyshockflow\driver.py:2058:updateSolution (80,622,904 samples, 6.49%)</title><rect x="1111.4" y="245" width="76.6" height="15.0" fill="rgb(246,189,45)" rx="2" ry="2" />
+<text  x="1114.37" y="255.5" >D:\nexus..</text>
 </g>
 <g >
-<title>~:0:&lt;built-in method numpy.frompyfunc&gt; (17,371,358 samples, 0.51%)</title><rect x="984.9" y="101" width="6.0" height="15.0" fill="rgb(244,182,43)" rx="2" ry="2" />
-<text  x="987.93" y="111.5" ></text>
+<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\.venv\Lib\site-packages\numpy\_core\numeric.py:2337:isclose (10,686,985 samples, 0.86%)</title><rect x="1169.5" y="69" width="10.2" height="15.0" fill="rgb(218,59,14)" rx="2" ry="2" />
+<text  x="1172.53" y="79.5" ></text>
 </g>
 <g >
-<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\.venv\Lib\site-packages\numpy\lib\_function_base_impl.py:2593:_vectorize_call (2,452,752,663 samples, 71.91%)</title><rect x="187.7" y="133" width="848.5" height="15.0" fill="rgb(205,3,0)" rx="2" ry="2" />
-<text  x="190.71" y="143.5" >D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow..</text>
+<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\src\fluid_properties\fluid_properties.py:68:PropsSI (80,568,599 samples, 6.49%)</title><rect x="1111.4" y="197" width="76.6" height="15.0" fill="rgb(240,163,39)" rx="2" ry="2" />
+<text  x="1114.42" y="207.5" >D:\nexus..</text>
 </g>
 <g >
-<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\src\fluid_properties\coolprop_interface.py:477:PropsSI (400,696 samples, 0.01%)</title><rect x="164.6" y="37" width="0.1" height="15.0" fill="rgb(227,102,24)" rx="2" ry="2" />
-<text  x="167.58" y="47.5" ></text>
+<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\.venv\Lib\site-packages\numpy\lib\_function_base_impl.py:2487:_call_as_normal (47,350,270 samples, 3.81%)</title><rect x="402.9" y="117" width="45.0" height="15.0" fill="rgb(243,175,41)" rx="2" ry="2" />
+<text  x="405.92" y="127.5" >D:\n..</text>
 </g>
 <g >
-<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\src\fluid_properties\fluid_properties.py:68:PropsSI (45,170,727 samples, 1.32%)</title><rect x="149.1" y="165" width="15.6" height="15.0" fill="rgb(240,163,39)" rx="2" ry="2" />
-<text  x="152.09" y="175.5" ></text>
+<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\src\fluid_properties\coolprop_interface.py:426:_critical_value (319,437,422 samples, 25.73%)</title><rect x="688.6" y="85" width="303.6" height="15.0" fill="rgb(242,173,41)" rx="2" ry="2" />
+<text  x="691.56" y="95.5" >D:\nexus\02_learning\00_university_educa..</text>
 </g>
 <g >
-<title>~:0:&lt;built-in method numpy.asanyarray&gt; (33,292,438 samples, 0.98%)</title><rect x="1024.7" y="117" width="11.5" height="15.0" fill="rgb(235,139,33)" rx="2" ry="2" />
-<text  x="1027.71" y="127.5" ></text>
+<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\.venv\Lib\site-packages\numpy\lib\_function_base_impl.py:2506:func (237,576,304 samples, 19.14%)</title><rect x="113.2" y="165" width="225.8" height="15.0" fill="rgb(244,181,43)" rx="2" ry="2" />
+<text  x="116.25" y="175.5" >D:\nexus\02_learning\00_unive..</text>
 </g>
 <g >
-<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\src\pyshockflow\driver.py:1653:computeTimeStep (297,926,416 samples, 8.73%)</title><rect x="45.7" y="245" width="103.0" height="15.0" fill="rgb(231,120,28)" rx="2" ry="2" />
-<text  x="48.67" y="255.5" >D:\nexus\02_..</text>
+<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\src\fluid_properties\coolprop_interface.py:426:_critical_value (11,125,412 samples, 0.90%)</title><rect x="50.0" y="85" width="10.6" height="15.0" fill="rgb(242,173,41)" rx="2" ry="2" />
+<text  x="52.98" y="95.5" ></text>
 </g>
 <g >
-<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\.venv\Lib\site-packages\numpy\lib\_function_base_impl.py:2593:_vectorize_call (42,202,114 samples, 1.24%)</title><rect x="150.1" y="101" width="14.6" height="15.0" fill="rgb(205,3,0)" rx="2" ry="2" />
-<text  x="153.12" y="111.5" ></text>
+<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\src\fluid_properties\fluid_properties.py:68:PropsSI (26,802,465 samples, 2.16%)</title><rect x="36.9" y="197" width="25.5" height="15.0" fill="rgb(240,163,39)" rx="2" ry="2" />
+<text  x="39.95" y="207.5" >D..</text>
 </g>
 <g >
-<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\src\pyshockflow\fluid.py:235:_computeSoundSpeed_p_rho_single (1,285,151 samples, 0.04%)</title><rect x="31.7" y="117" width="0.4" height="15.0" fill="rgb(210,26,6)" rx="2" ry="2" />
-<text  x="34.66" y="127.5" ></text>
+<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\.venv\Lib\site-packages\numpy\_core\_ufunc_config.py:456:__exit__ (2,976,294 samples, 0.24%)</title><rect x="330.2" y="101" width="2.9" height="15.0" fill="rgb(248,199,47)" rx="2" ry="2" />
+<text  x="333.25" y="111.5" ></text>
 </g>
 <g >
-<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\src\pyshockflow\fluid.py:253:_computeSoundSpeed_p_rho_two_phase (88,416,917 samples, 2.59%)</title><rect x="994.1" y="101" width="30.6" height="15.0" fill="rgb(241,169,40)" rx="2" ry="2" />
-<text  x="997.13" y="111.5" >D:..</text>
+<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\src\pyshockflow\driver.py:1693:computeResiduals (752,710,915 samples, 60.63%)</title><rect x="396.0" y="245" width="715.4" height="15.0" fill="rgb(221,78,18)" rx="2" ry="2" />
+<text  x="398.98" y="255.5" >D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modell..</text>
 </g>
 <g >
-<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\src\fluid_properties\fluid_properties.py:68:PropsSI (1,078,333 samples, 0.03%)</title><rect x="993.8" y="85" width="0.3" height="15.0" fill="rgb(240,163,39)" rx="2" ry="2" />
-<text  x="996.75" y="95.5" ></text>
+<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\.venv\Lib\site-packages\numpy\_core\numeric.py:2429:&lt;genexpr&gt; (6,280,988 samples, 0.51%)</title><rect x="333.1" y="101" width="5.9" height="15.0" fill="rgb(221,77,18)" rx="2" ry="2" />
+<text  x="336.08" y="111.5" ></text>
 </g>
 <g >
-<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\src\fluid_properties\coolprop_interface.py:477:PropsSI (23,464,192 samples, 0.69%)</title><rect x="24.0" y="181" width="8.1" height="15.0" fill="rgb(227,102,24)" rx="2" ry="2" />
-<text  x="26.99" y="191.5" ></text>
+<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\src\fluid_properties\fluid_properties.py:68:PropsSI (184,959 samples, 0.01%)</title><rect x="445.8" y="69" width="0.2" height="15.0" fill="rgb(240,163,39)" rx="2" ry="2" />
+<text  x="448.78" y="79.5" ></text>
 </g>
 <g >
-<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\src\fluid_properties\fluid_properties.py:68:PropsSI (4,708,916 samples, 0.14%)</title><rect x="1188.4" y="85" width="1.6" height="15.0" fill="rgb(240,163,39)" rx="2" ry="2" />
-<text  x="1191.37" y="95.5" ></text>
+<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\.venv\Lib\site-packages\numpy\lib\_function_base_impl.py:2517:__call__ (1,576,609 samples, 0.13%)</title><rect x="351.9" y="117" width="1.5" height="15.0" fill="rgb(230,115,27)" rx="2" ry="2" />
+<text  x="354.90" y="127.5" ></text>
 </g>
 <g >
-<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\.venv\Lib\site-packages\numpy\lib\_function_base_impl.py:2506:func (2,223,724,168 samples, 65.19%)</title><rect x="212.9" y="117" width="769.3" height="15.0" fill="rgb(244,181,43)" rx="2" ry="2" />
-<text  x="215.92" y="127.5" >D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_..</text>
+<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\src\fluid_properties\coolprop_interface.py:306:_update_wrapper (4,097,952 samples, 0.33%)</title><rect x="46.1" y="85" width="3.9" height="15.0" fill="rgb(231,120,28)" rx="2" ry="2" />
+<text  x="49.09" y="95.5" ></text>
 </g>
 <g >
-<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\.venv\Lib\site-packages\numpy\lib\_function_base_impl.py:2506:func (260,439,871 samples, 7.64%)</title><rect x="53.7" y="165" width="90.1" height="15.0" fill="rgb(244,181,43)" rx="2" ry="2" />
-<text  x="56.72" y="175.5" >D:\nexus\0..</text>
+<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\src\fluid_properties\coolprop_interface.py:368:_update_and_get (226,366,343 samples, 18.23%)</title><rect x="123.9" y="149" width="215.1" height="15.0" fill="rgb(233,129,30)" rx="2" ry="2" />
+<text  x="126.90" y="159.5" >D:\nexus\02_learning\00_univ..</text>
 </g>
 <g >
-<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\src\fluid_properties\coolprop_interface.py:368:_update_and_get (37,024,858 samples, 1.09%)</title><rect x="151.1" y="69" width="12.8" height="15.0" fill="rgb(233,129,30)" rx="2" ry="2" />
-<text  x="154.05" y="79.5" ></text>
+<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\src\fluid_properties\coolprop_interface.py:485:PropsSI (2,172,197 samples, 0.17%)</title><rect x="1023.9" y="69" width="2.1" height="15.0" fill="rgb(233,132,31)" rx="2" ry="2" />
+<text  x="1026.94" y="79.5" ></text>
 </g>
 <g >
-<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\src\fluid_properties\coolprop_interface.py:368:_update_and_get (2,194,852,090 samples, 64.35%)</title><rect x="222.9" y="101" width="759.3" height="15.0" fill="rgb(233,129,30)" rx="2" ry="2" />
-<text  x="225.91" y="111.5" >D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00..</text>
+<title>&lt;frozen importlib._bootstrap&gt;:911:_load_unlocked (2,283,581 samples, 0.18%)</title><rect x="31.0" y="229" width="2.2" height="15.0" fill="rgb(205,3,0)" rx="2" ry="2" />
+<text  x="34.00" y="239.5" ></text>
 </g>
 <g >
-<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\src\fluid_properties\coolprop_interface.py:477:PropsSI (71,388,002 samples, 2.09%)</title><rect x="1000.0" y="69" width="24.7" height="15.0" fill="rgb(227,102,24)" rx="2" ry="2" />
-<text  x="1003.02" y="79.5" >D..</text>
+<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\src\fluid_properties\fluid_properties.py:68:PropsSI (687,536 samples, 0.06%)</title><rect x="61.8" y="85" width="0.6" height="15.0" fill="rgb(240,163,39)" rx="2" ry="2" />
+<text  x="64.77" y="95.5" ></text>
 </g>
 <g >
-<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\.venv\Lib\site-packages\numpy\lib\_function_base_impl.py:2487:_call_as_normal (43,319,734 samples, 1.27%)</title><rect x="149.7" y="117" width="15.0" height="15.0" fill="rgb(243,175,41)" rx="2" ry="2" />
-<text  x="152.73" y="127.5" ></text>
+<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\.venv\Lib\site-packages\numpy\lib\_function_base_impl.py:2517:__call__ (23,497,940 samples, 1.89%)</title><rect x="1054.9" y="53" width="22.3" height="15.0" fill="rgb(230,115,27)" rx="2" ry="2" />
+<text  x="1057.88" y="63.5" >D..</text>
 </g>
 <g >
-<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\src\fluid_properties\coolprop_interface.py:368:_update_and_get (257,058,408 samples, 7.54%)</title><rect x="54.9" y="149" width="88.9" height="15.0" fill="rgb(233,129,30)" rx="2" ry="2" />
-<text  x="57.89" y="159.5" >D:\nexus\0..</text>
+<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\src\fluid_properties\fluid_properties.py:68:PropsSI (1,375,617 samples, 0.11%)</title><rect x="446.6" y="53" width="1.3" height="15.0" fill="rgb(240,163,39)" rx="2" ry="2" />
+<text  x="449.62" y="63.5" ></text>
 </g>
 <g >
-<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\.venv\Lib\site-packages\numpy\lib\_function_base_impl.py:2487:_call_as_normal (319,648 samples, 0.01%)</title><rect x="994.0" y="37" width="0.1" height="15.0" fill="rgb(243,175,41)" rx="2" ry="2" />
-<text  x="997.02" y="47.5" ></text>
+<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\src\fluid_properties\fluid_properties.py:68:PropsSI (51,811,008 samples, 4.17%)</title><rect x="1035.5" y="85" width="49.3" height="15.0" fill="rgb(240,163,39)" rx="2" ry="2" />
+<text  x="1038.55" y="95.5" >D:\n..</text>
 </g>
 <g >
-<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\src\pyshockflow\advection_roe.py:10:__init__ (2,564,499,558 samples, 75.18%)</title><rect x="149.1" y="197" width="887.1" height="15.0" fill="rgb(211,29,6)" rx="2" ry="2" />
-<text  x="152.06" y="207.5" >D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\..</text>
+<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\.venv\Lib\site-packages\numpy\lib\_function_base_impl.py:2487:_call_as_normal (16,658,699 samples, 1.34%)</title><rect x="1061.4" y="37" width="15.8" height="15.0" fill="rgb(243,175,41)" rx="2" ry="2" />
+<text  x="1064.38" y="47.5" ></text>
 </g>
 <g >
-<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\.venv\Lib\site-packages\numpy\lib\_function_base_impl.py:2487:_call_as_normal (25,239,403 samples, 0.74%)</title><rect x="1013.4" y="37" width="8.8" height="15.0" fill="rgb(243,175,41)" rx="2" ry="2" />
-<text  x="1016.44" y="47.5" ></text>
+<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\src\fluid_properties\coolprop_interface.py:368:_update_and_get (31,382,288 samples, 2.53%)</title><rect x="414.4" y="69" width="29.8" height="15.0" fill="rgb(233,129,30)" rx="2" ry="2" />
+<text  x="417.36" y="79.5" >D:..</text>
 </g>
 <g >
-<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\src\pyshockflow\math_utils.py:37:getConservativesFromFluidState (23,509,781 samples, 0.69%)</title><rect x="24.0" y="229" width="8.1" height="15.0" fill="rgb(249,204,48)" rx="2" ry="2" />
-<text  x="26.97" y="239.5" ></text>
+<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\src\pyshockflow\__init__.py:1:&lt;module&gt; (2,888,311 samples, 0.23%)</title><rect x="30.4" y="277" width="2.8" height="15.0" fill="rgb(211,32,7)" rx="2" ry="2" />
+<text  x="33.42" y="287.5" ></text>
 </g>
 <g >
-<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\src\pyshockflow\fluid.py:249:_computeSoundSpeed_p_rho_single_phase (1,236,313 samples, 0.04%)</title><rect x="993.7" y="101" width="0.4" height="15.0" fill="rgb(247,195,46)" rx="2" ry="2" />
-<text  x="996.70" y="111.5" ></text>
+<title>&lt;frozen importlib._bootstrap&gt;:1349:_find_and_load (2,891,565 samples, 0.23%)</title><rect x="33.2" y="261" width="2.8" height="15.0" fill="rgb(226,98,23)" rx="2" ry="2" />
+<text  x="36.24" y="271.5" ></text>
 </g>
 <g >
-<title>~:0:&lt;built-in method _io.open&gt; (37,733,734 samples, 1.11%)</title><rect x="32.6" y="229" width="13.1" height="15.0" fill="rgb(244,180,43)" rx="2" ry="2" />
-<text  x="35.61" y="239.5" ></text>
+<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\.venv\Lib\site-packages\numpy\lib\_function_base_impl.py:2487:_call_as_normal (739,599 samples, 0.06%)</title><rect x="1025.3" y="37" width="0.7" height="15.0" fill="rgb(243,175,41)" rx="2" ry="2" />
+<text  x="1028.30" y="47.5" ></text>
+</g>
+<g >
+<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\.venv\Lib\site-packages\numpy\lib\_function_base_impl.py:2593:_vectorize_call (21,874,823 samples, 1.76%)</title><rect x="41.6" y="133" width="20.8" height="15.0" fill="rgb(205,3,0)" rx="2" ry="2" />
+<text  x="44.63" y="143.5" ></text>
+</g>
+<g >
+<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\src\pyshockflow\fluid.py:249:_computeSoundSpeed_p_rho_single_phase (107,191 samples, 0.01%)</title><rect x="1182.3" y="101" width="0.1" height="15.0" fill="rgb(247,195,46)" rx="2" ry="2" />
+<text  x="1185.32" y="111.5" ></text>
+</g>
+<g >
+<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\src\pyshockflow\fluid.py:173:computeInternalEnergy_p_rho (53,633,359 samples, 4.32%)</title><rect x="397.0" y="181" width="50.9" height="15.0" fill="rgb(207,11,2)" rx="2" ry="2" />
+<text  x="399.95" y="191.5" >D:\ne..</text>
+</g>
+<g >
+<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\src\fluid_properties\coolprop_interface.py:368:_update_and_get (15,684,921 samples, 1.26%)</title><rect x="45.6" y="101" width="15.0" height="15.0" fill="rgb(233,129,30)" rx="2" ry="2" />
+<text  x="48.65" y="111.5" ></text>
+</g>
+<g >
+<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\src\fluid_properties\fluid_properties.py:68:PropsSI (53,626,195 samples, 4.32%)</title><rect x="397.0" y="165" width="50.9" height="15.0" fill="rgb(240,163,39)" rx="2" ry="2" />
+<text  x="399.96" y="175.5" >D:\ne..</text>
+</g>
+<g >
+<title>&lt;frozen importlib._bootstrap&gt;:1304:_find_and_load_unlocked (2,844,103 samples, 0.23%)</title><rect x="33.3" y="245" width="2.7" height="15.0" fill="rgb(210,26,6)" rx="2" ry="2" />
+<text  x="36.29" y="255.5" ></text>
+</g>
+<g >
+<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\src\fluid_properties\fluid_properties.py:68:PropsSI (1,159,338 samples, 0.09%)</title><rect x="353.5" y="133" width="1.1" height="15.0" fill="rgb(240,163,39)" rx="2" ry="2" />
+<text  x="356.46" y="143.5" ></text>
+</g>
+<g >
+<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\src\fluid_properties\coolprop_interface.py:485:PropsSI (156,794 samples, 0.01%)</title><rect x="445.8" y="53" width="0.2" height="15.0" fill="rgb(233,132,31)" rx="2" ry="2" />
+<text  x="448.80" y="63.5" ></text>
+</g>
+<g >
+<title>~:0:&lt;method 'reset' of '_contextvars.ContextVar' objects&gt; (3,284,431 samples, 0.26%)</title><rect x="977.2" y="37" width="3.1" height="15.0" fill="rgb(220,69,16)" rx="2" ry="2" />
+<text  x="980.17" y="47.5" ></text>
+</g>
+<g >
+<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\src\fluid_properties\coolprop_interface.py:485:PropsSI (241,691 samples, 0.02%)</title><rect x="1182.1" y="85" width="0.2" height="15.0" fill="rgb(233,132,31)" rx="2" ry="2" />
+<text  x="1185.09" y="95.5" ></text>
+</g>
+<g >
+<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\src\pyshockflow\fluid.py:253:_computeSoundSpeed_p_rho_two_phase (1,037,335 samples, 0.08%)</title><rect x="61.4" y="101" width="1.0" height="15.0" fill="rgb(241,169,40)" rx="2" ry="2" />
+<text  x="64.44" y="111.5" ></text>
+</g>
+<g >
+<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\.venv\Lib\site-packages\numpy\lib\_function_base_impl.py:2506:func (16,461,659 samples, 1.33%)</title><rect x="44.9" y="117" width="15.7" height="15.0" fill="rgb(244,181,43)" rx="2" ry="2" />
+<text  x="47.91" y="127.5" ></text>
+</g>
+<g >
+<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\src\pyshockflow\fluid.py:235:_computeSoundSpeed_p_rho_single (3,931,987 samples, 0.32%)</title><rect x="444.2" y="85" width="3.7" height="15.0" fill="rgb(210,26,6)" rx="2" ry="2" />
+<text  x="447.19" y="95.5" ></text>
+</g>
+<g >
+<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\src\fluid_properties\coolprop_interface.py:306:_update_wrapper (12,638,647 samples, 1.02%)</title><rect x="1135.1" y="85" width="12.0" height="15.0" fill="rgb(231,120,28)" rx="2" ry="2" />
+<text  x="1138.06" y="95.5" ></text>
+</g>
+<g >
+<title>~:0:&lt;built-in method numpy.frompyfunc&gt; (6,795,996 samples, 0.55%)</title><rect x="341.9" y="149" width="6.5" height="15.0" fill="rgb(244,182,43)" rx="2" ry="2" />
+<text  x="344.91" y="159.5" ></text>
+</g>
+<g >
+<title>~:0:&lt;built-in method numpy.frompyfunc&gt; (13,520,517 samples, 1.09%)</title><rect x="1000.8" y="101" width="12.9" height="15.0" fill="rgb(244,182,43)" rx="2" ry="2" />
+<text  x="1003.85" y="111.5" ></text>
+</g>
+<g >
+<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\.venv\Lib\site-packages\numpy\lib\_function_base_impl.py:2506:func (472,653,951 samples, 38.07%)</title><rect x="545.9" y="117" width="449.2" height="15.0" fill="rgb(244,181,43)" rx="2" ry="2" />
+<text  x="548.92" y="127.5" >D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\0..</text>
+</g>
+<g >
+<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\src\fluid_properties\coolprop_interface.py:485:PropsSI (1,091,839 samples, 0.09%)</title><rect x="353.5" y="117" width="1.1" height="15.0" fill="rgb(233,132,31)" rx="2" ry="2" />
+<text  x="356.52" y="127.5" ></text>
+</g>
+<g >
+<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\src\fluid_properties\coolprop_interface.py:485:PropsSI (24,592,560 samples, 1.98%)</title><rect x="360.7" y="117" width="23.4" height="15.0" fill="rgb(233,132,31)" rx="2" ry="2" />
+<text  x="363.73" y="127.5" >D..</text>
+</g>
+<g >
+<title>~:0:&lt;built-in method numpy._core._multiarray_umath._make_extobj&gt; (3,546,880 samples, 0.29%)</title><rect x="968.3" y="37" width="3.4" height="15.0" fill="rgb(236,143,34)" rx="2" ry="2" />
+<text  x="971.32" y="47.5" ></text>
+</g>
+<g >
+<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\src\pyshockflow\fluid.py:220:computeSoundSpeed_p_rho (698,056,601 samples, 56.22%)</title><rect x="447.9" y="181" width="663.5" height="15.0" fill="rgb(224,87,20)" rx="2" ry="2" />
+<text  x="450.93" y="191.5" >D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computationa..</text>
+</g>
+<g >
+<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\src\fluid_properties\coolprop_interface.py:485:PropsSI (6,530,978 samples, 0.53%)</title><rect x="1017.5" y="85" width="6.2" height="15.0" fill="rgb(233,132,31)" rx="2" ry="2" />
+<text  x="1020.50" y="95.5" ></text>
+</g>
+<g >
+<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\src\pyshockflow\driver.py:1769:computeFluxVector (752,483,968 samples, 60.61%)</title><rect x="396.2" y="229" width="715.2" height="15.0" fill="rgb(237,148,35)" rx="2" ry="2" />
+<text  x="399.20" y="239.5" >D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modell..</text>
+</g>
+<g >
+<title>~:0:&lt;built-in method builtins.isinstance&gt; (3,821,043 samples, 0.31%)</title><rect x="988.5" y="37" width="3.7" height="15.0" fill="rgb(229,112,27)" rx="2" ry="2" />
+<text  x="991.53" y="47.5" ></text>
+</g>
+<g >
+<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\src\fluid_properties\coolprop_interface.py:368:_update_and_get (450,351,927 samples, 36.27%)</title><rect x="564.1" y="101" width="428.1" height="15.0" fill="rgb(233,129,30)" rx="2" ry="2" />
+<text  x="567.14" y="111.5" >D:\nexus\02_learning\00_university_education\04_MSc_TUDelf..</text>
+</g>
+<g >
+<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\.venv\Lib\site-packages\numpy\lib\_function_base_impl.py:2593:_vectorize_call (43,767,002 samples, 3.53%)</title><rect x="406.3" y="101" width="41.6" height="15.0" fill="rgb(205,3,0)" rx="2" ry="2" />
+<text  x="409.33" y="111.5" >D:\..</text>
+</g>
+<g >
+<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\.venv\Lib\site-packages\numpy\lib\_function_base_impl.py:2517:__call__ (11,811,080 samples, 0.95%)</title><rect x="370.5" y="101" width="11.3" height="15.0" fill="rgb(230,115,27)" rx="2" ry="2" />
+<text  x="373.52" y="111.5" ></text>
+</g>
+<g >
+<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\.venv\Lib\site-packages\numpy\lib\_function_base_impl.py:2517:__call__ (524,378 samples, 0.04%)</title><rect x="354.1" y="101" width="0.5" height="15.0" fill="rgb(230,115,27)" rx="2" ry="2" />
+<text  x="357.06" y="111.5" ></text>
+</g>
+<g >
+<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\.venv\Lib\site-packages\numpy\lib\_function_base_impl.py:2487:_call_as_normal (350,782,941 samples, 28.25%)</title><rect x="62.6" y="197" width="333.4" height="15.0" fill="rgb(243,175,41)" rx="2" ry="2" />
+<text  x="65.59" y="207.5" >D:\nexus\02_learning\00_university_education\..</text>
+</g>
+<g >
+<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\src\pyshockflow\advection_roe.py:10:__init__ (751,790,658 samples, 60.55%)</title><rect x="396.9" y="197" width="714.5" height="15.0" fill="rgb(211,29,6)" rx="2" ry="2" />
+<text  x="399.86" y="207.5" >D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_model..</text>
+</g>
+<g >
+<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\.venv\Lib\site-packages\numpy\lib\_function_base_impl.py:2487:_call_as_normal (23,665,746 samples, 1.91%)</title><rect x="39.9" y="149" width="22.5" height="15.0" fill="rgb(243,175,41)" rx="2" ry="2" />
+<text  x="42.93" y="159.5" >D..</text>
+</g>
+<g >
+<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\.venv\Lib\site-packages\numpy\lib\_function_base_impl.py:2593:_vectorize_call (324,936,157 samples, 26.17%)</title><rect x="87.2" y="181" width="308.8" height="15.0" fill="rgb(205,3,0)" rx="2" ry="2" />
+<text  x="90.15" y="191.5" >D:\nexus\02_learning\00_university_educat..</text>
+</g>
+<g >
+<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\src\pyshockflow\fluid.py:253:_computeSoundSpeed_p_rho_two_phase (61,854,586 samples, 4.98%)</title><rect x="1026.0" y="101" width="58.8" height="15.0" fill="rgb(241,169,40)" rx="2" ry="2" />
+<text  x="1029.00" y="111.5" >D:\nex..</text>
+</g>
+<g >
+<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\src\fluid_properties\coolprop_interface.py:485:PropsSI (53,616,762 samples, 4.32%)</title><rect x="397.0" y="149" width="50.9" height="15.0" fill="rgb(233,132,31)" rx="2" ry="2" />
+<text  x="399.97" y="159.5" >D:\ne..</text>
+</g>
+<g >
+<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\.venv\Lib\site-packages\numpy\_core\numeric.py:2337:isclose (6,933,040 samples, 0.56%)</title><rect x="437.6" y="37" width="6.6" height="15.0" fill="rgb(218,59,14)" rx="2" ry="2" />
+<text  x="440.60" y="47.5" ></text>
+</g>
+<g >
+<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\src\pyshockflow\advection_roe.py:142:__init__ (751,807,625 samples, 60.55%)</title><rect x="396.8" y="213" width="714.6" height="15.0" fill="rgb(212,34,8)" rx="2" ry="2" />
+<text  x="399.84" y="223.5" >D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_model..</text>
+</g>
+<g >
+<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\.venv\Lib\site-packages\numpy\lib\_function_base_impl.py:2506:func (32,936,380 samples, 2.65%)</title><rect x="412.9" y="85" width="31.3" height="15.0" fill="rgb(244,181,43)" rx="2" ry="2" />
+<text  x="415.88" y="95.5" >D:..</text>
+</g>
+<g >
+<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\.venv\Lib\site-packages\numpy\lib\_function_base_impl.py:2487:_call_as_normal (371,754 samples, 0.03%)</title><rect x="354.2" y="85" width="0.4" height="15.0" fill="rgb(243,175,41)" rx="2" ry="2" />
+<text  x="357.21" y="95.5" ></text>
+</g>
+<g >
+<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\src\pyshockflow\math_utils.py:4:getFluidStateFromConservatives (80,589,259 samples, 6.49%)</title><rect x="1111.4" y="229" width="76.6" height="15.0" fill="rgb(248,199,47)" rx="2" ry="2" />
+<text  x="1114.40" y="239.5" >D:\nexus..</text>
+</g>
+<g >
+<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\src\fluid_properties\coolprop_interface.py:485:PropsSI (3,282,752 samples, 0.26%)</title><rect x="350.3" y="133" width="3.1" height="15.0" fill="rgb(233,132,31)" rx="2" ry="2" />
+<text  x="353.28" y="143.5" ></text>
+</g>
+<g >
+<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\.venv\Lib\site-packages\numpy\lib\_function_base_impl.py:2487:_call_as_normal (2,223,696 samples, 0.18%)</title><rect x="1021.6" y="53" width="2.1" height="15.0" fill="rgb(243,175,41)" rx="2" ry="2" />
+<text  x="1024.59" y="63.5" ></text>
+</g>
+<g >
+<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\src\fluid_properties\coolprop_interface.py:306:_update_wrapper (8,199,155 samples, 0.66%)</title><rect x="415.2" y="53" width="7.8" height="15.0" fill="rgb(231,120,28)" rx="2" ry="2" />
+<text  x="418.24" y="63.5" ></text>
+</g>
+<g >
+<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\src\pyshockflow\driver.py:1112:_conservativesFromFluidState (26,847,363 samples, 2.16%)</title><rect x="36.9" y="245" width="25.5" height="15.0" fill="rgb(236,143,34)" rx="2" ry="2" />
+<text  x="39.91" y="255.5" >D..</text>
+</g>
+<g >
+<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\src\pyshockflow\fluid.py:220:computeSoundSpeed_p_rho (350,873,959 samples, 28.26%)</title><rect x="62.5" y="229" width="333.5" height="15.0" fill="rgb(224,87,20)" rx="2" ry="2" />
+<text  x="65.50" y="239.5" >D:\nexus\02_learning\00_university_education\..</text>
+</g>
+<g >
+<title>~:0:&lt;method 'update' of 'dict' objects&gt; (3,131,090 samples, 0.25%)</title><rect x="992.2" y="101" width="2.9" height="15.0" fill="rgb(214,45,10)" rx="2" ry="2" />
+<text  x="995.16" y="111.5" ></text>
+</g>
+<g >
+<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\.venv\Lib\site-packages\numpy\_core\_ufunc_config.py:456:__exit__ (5,921,285 samples, 0.48%)</title><rect x="974.7" y="53" width="5.6" height="15.0" fill="rgb(248,199,47)" rx="2" ry="2" />
+<text  x="977.66" y="63.5" ></text>
+</g>
+<g >
+<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\src\fluid_properties\coolprop_interface.py:306:_update_wrapper (117,662,079 samples, 9.48%)</title><rect x="576.7" y="85" width="111.9" height="15.0" fill="rgb(231,120,28)" rx="2" ry="2" />
+<text  x="579.74" y="95.5" >D:\nexus\02_l..</text>
+</g>
+<g >
+<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\src\pyshockflow\fluid.py:253:_computeSoundSpeed_p_rho_two_phase (2,075,493 samples, 0.17%)</title><rect x="446.0" y="69" width="1.9" height="15.0" fill="rgb(241,169,40)" rx="2" ry="2" />
+<text  x="448.95" y="79.5" ></text>
+</g>
+<g >
+<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\src\fluid_properties\coolprop_interface.py:485:PropsSI (80,564,212 samples, 6.49%)</title><rect x="1111.4" y="181" width="76.6" height="15.0" fill="rgb(233,132,31)" rx="2" ry="2" />
+<text  x="1114.43" y="191.5" >D:\nexus..</text>
+</g>
+<g >
+<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\.venv\Lib\site-packages\numpy\lib\_function_base_impl.py:2487:_call_as_normal (70,904,682 samples, 5.71%)</title><rect x="1120.6" y="149" width="67.4" height="15.0" fill="rgb(243,175,41)" rx="2" ry="2" />
+<text  x="1123.61" y="159.5" >D:\nexu..</text>
+</g>
+<g >
+<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\.venv\Lib\site-packages\numpy\lib\_function_base_impl.py:2517:__call__ (72,952,045 samples, 5.88%)</title><rect x="1118.7" y="165" width="69.3" height="15.0" fill="rgb(230,115,27)" rx="2" ry="2" />
+<text  x="1121.66" y="175.5" >D:\nexu..</text>
+</g>
+<g >
+<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\src\fluid_properties\coolprop_interface.py:485:PropsSI (587,073 samples, 0.05%)</title><rect x="61.9" y="69" width="0.5" height="15.0" fill="rgb(233,132,31)" rx="2" ry="2" />
+<text  x="64.86" y="79.5" ></text>
+</g>
+<g >
+<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\src\fluid_properties\coolprop_interface.py:426:_critical_value (22,259,652 samples, 1.79%)</title><rect x="423.0" y="53" width="21.2" height="15.0" fill="rgb(242,173,41)" rx="2" ry="2" />
+<text  x="426.03" y="63.5" ></text>
+</g>
+<g >
+<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\src\pyshockflow\fluid.py:249:_computeSoundSpeed_p_rho_single_phase (1,217,268 samples, 0.10%)</title><rect x="353.4" y="149" width="1.2" height="15.0" fill="rgb(247,195,46)" rx="2" ry="2" />
+<text  x="356.40" y="159.5" ></text>
+</g>
+<g >
+<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\.venv\Lib\site-packages\numpy\lib\_function_base_impl.py:2517:__call__ (24,329,583 samples, 1.96%)</title><rect x="39.3" y="165" width="23.1" height="15.0" fill="rgb(230,115,27)" rx="2" ry="2" />
+<text  x="42.30" y="175.5" >D..</text>
+</g>
+<g >
+<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\src\fluid_properties\coolprop_interface.py:485:PropsSI (26,797,750 samples, 2.16%)</title><rect x="37.0" y="181" width="25.4" height="15.0" fill="rgb(233,132,31)" rx="2" ry="2" />
+<text  x="39.95" y="191.5" >D..</text>
+</g>
+<g >
+<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\.venv\Lib\site-packages\numpy\_core\numeric.py:2337:isclose (3,465,145 samples, 0.28%)</title><rect x="57.3" y="69" width="3.3" height="15.0" fill="rgb(218,59,14)" rx="2" ry="2" />
+<text  x="60.26" y="79.5" ></text>
+</g>
+<g >
+<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\.venv\Lib\site-packages\numpy\lib\_function_base_impl.py:2524:_get_ufunc_and_otypes (2,097,489 samples, 0.17%)</title><rect x="1179.7" y="117" width="2.0" height="15.0" fill="rgb(216,53,12)" rx="2" ry="2" />
+<text  x="1182.69" y="127.5" ></text>
+</g>
+<g >
+<title>D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\src\pyshockflow\fluid.py:169:computePressure_rho_e (80,572,436 samples, 6.49%)</title><rect x="1111.4" y="213" width="76.6" height="15.0" fill="rgb(207,12,2)" rx="2" ry="2" />
+<text  x="1114.42" y="223.5" >D:\nexus..</text>
 </g>
 </g>
 </svg>
