@@ -17,11 +17,11 @@ from pyshockflow import Config
 
 # configFile = "inputs/config_files/CM-15.3/godunov/single_phase_gas.ini"
 # configFile = "inputs/config_files/CM-15.3/roe/single_phase_gas.ini"
-configFile = "inputs/config_files/CM-15.3/roe_arabi/phase_transition.ini"
+# configFile = "inputs/config_files/CM-15.3/roe_arabi/phase_transition.ini"
 # configFile = "inputs/config_files/CM-15.3/roe_arabi/single_phase_gas.ini"
 # configFile = "inputs/config_files/CM-15.3/roe_arabi/two_phase.ini"
 # configFile = "inputs/config_files/CM-15.3/roe_vinokur/phase_transition.ini"
-# configFIle = "inputs/config_files/CM-15.3/roe_vinokur/single_phase_gas.ini"
+# configFile = "inputs/config_files/CM-15.3/roe_vinokur/single_phase_gas.ini"
 # configFile = "inputs/config_files/CM-15.3/roe_vinokur/two_phase.ini"
 
 
