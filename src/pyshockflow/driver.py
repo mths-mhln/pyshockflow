@@ -1,10 +1,9 @@
 # To the person extending this code. Please spend time making the 
 # code readable, maintainable, documented, modular, and self-explanatory. 
-# the fact that you are here for results does not mean you should deliver 
-# quick and dirty code. This will significantly impede future development. 
-# a little extra time spent on these things goes so much further than most
-# think. I tried my best refactoring what I was given, and writing my own 
-# code to these standards, I hope you do the same. 
+# Quick and dirty code will significantly impede future development. 
+# a little extra time spent on these things goes a long way.
+# I tried my best refactoring what I was given to these standards, 
+# and holding myself to them. I hope you do the same. 
 
 
 import os
@@ -22,14 +21,21 @@ import matplotlib.pyplot as plt
 from pathlib import Path
 
 from pyshockflow import RiemannProblem
-from pyshockflow import AdvectionRoeBase, AdvectionRoeArabi, AdvectionRoeVinokur
 from pyshockflow import FluidIdeal, FluidReal
+from pyshockflow.advection_roe import (
+    computeFluxRoeBaseMUSCL,
+    computeFluxRoeBaseNoMUSCL,
+    computeFluxRoeArabiMUSCL, 
+    computeFluxRoeArabiNoMUSCL,
+    computeFluxRoeVinokurMUSCL,
+    computeFluxRoeVinokurNoMUSCL,
+)
+
 from pyshockflow.math_utils import (
     getConservativesFromFluidState,
     getFluidStateFromConservatives,
     computeAdvectionFluxFromConservatives
 )
-
 
 
 class Driver:
@@ -65,7 +71,6 @@ class Driver:
             # options stored in the restart file will be overwritten by the new ones.
             self.prepareRestart(config, restartFilePath)
             
-
 
     # =========================================================================
     #  Startup helpers
@@ -435,29 +440,8 @@ class Driver:
 
         # meshNodeSpacing: the physical width of each mesh cell.  np.gradient gives
         # second-order central differences in the interior and one-sided differences
-        # at the boundaries, which is exactly what we want.
-        def computeGridSpacing(xNodes):
-            """
-            Compute spacing between the physical geometry nodes, which is needed for the solver and for the mesh stretching if activated.
-
-            Arguments
-            ---------
-            xNodes : numpy array
-                The coordinates of the nodes along the 1D (x) axis, excluding halo nodes.
-
-            Returns
-            -------
-            dx : numpy array
-                The spacing between the nodes along the 1D (x) axis, excluding halo nodes.
-            """
-            dx = np.zeros_like(xNodes)
-            dx[0] = xNodes[1]-xNodes[0]
-            for i in range(1,len(dx)-1):
-                dx[i] = (xNodes[i+1]-xNodes[i])/2 + (xNodes[i]-xNodes[i-1])/2
-            dx[-1] = xNodes[-1]-xNodes[-2]
-            return dx
-        # meshData["meshNodeSpacing"] = np.gradient(xMeshNodes)
-        meshData["meshNodeSpacing"] = computeGridSpacing(xMeshNodes)
+        # at the boundaries, 
+        meshData["meshNodeSpacing"] = np.gradient(xMeshNodes)
 
         # Interpolate the device cross-sectional area variation at the mesh node
         # locations.  Keeping the area constant outside the physical domain prevents
@@ -1182,7 +1166,7 @@ class Driver:
         None, but writes result files to self.resultsSubdirPath at intervals specified
         by writeInterval in the configuration file.
         """
-        # Unpack all instance attributes up front.
+        # Unpack all instance attributes.
         config              = self.config
         deviceGeometryData  = self.deviceGeometryData
         meshData            = self.meshData
@@ -1194,13 +1178,13 @@ class Driver:
         resultsSubdirPath   = self.resultsSubdirPath
 
         # Read solver settings from config.
-        entropyFixActive      = config.entropyFixActiveBool()
-        if entropyFixActive:
+        entropyFixActiveBool    = config.entropyFixActiveBool()
+        if entropyFixActiveBool:
             entropyFixCoefficient = config.entropyFixCoefficient()
         else:
             entropyFixCoefficient = None
         advectionScheme       = config.numericalScheme()
-        isMusclActive         = config.MUSCLReconstructionBool()
+        musclActiveBool       = config.MUSCLReconstructionBool()
         writeInterval         = config.writeInterval()
         printResiduals        = config.printInfoResidualsBool()
         timeMax               = config.maxTime()
@@ -1208,8 +1192,8 @@ class Driver:
         expansionDeviceType   = config.expansionDeviceType()
         fluidModelType        = config.fluidModelType()
         fluidLibrary          = config.fluidLibrary() if fluidModelType.lower() == "real" else None
-        if isMusclActive:
-            limiter = config.MUSCLReconstrFluxLimiter()
+        if musclActiveBool:
+            limiter = config.MUSCLReconstructionFluxLimiter()
         else:
             limiter = None
 
@@ -1231,13 +1215,13 @@ class Driver:
         print("=" * 80)
         print(" " * 33 + "START SOLVER")
         print("Numerical flux method: %s"  % advectionScheme)
-        print("MUSCL reconstruction:  %s"  % isMusclActive)
-        print("Entropy fix active:    %s"  % entropyFixActive)
+        print("MUSCL reconstruction:  %s"  % musclActiveBool)
+        print("Entropy fix active:    %s"  % entropyFixActiveBool)
         if fluidModelType.lower() == "real":
             print("Real Gas model, library: %s" % fluidLibrary)
         else:
             print("Ideal Gas model")
-        if entropyFixActive:
+        if entropyFixActiveBool:
             print("Entropy fix coefficient: %s" % entropyFixCoefficient)
         print("=" * 80)
         print()
@@ -1260,6 +1244,14 @@ class Driver:
         while time < timeMax:
             iterationIndex += 1
 
+            # compute more fluid states that are re-used throughout a single iteration
+            fluidState["soundSpeed"] = fluidModel.computeSoundSpeed_p_rho(
+                fluidState["Pressure"], fluidState["Density"]
+            )
+            fluidState["internalEnergy"] = fluidModel.computeInternalEnergy_p_rho(
+                fluidState["Pressure"], fluidState["Density"]
+            )
+
             # Compute the CFL-limited timestep and clip it so we land exactly on timeMax.
             dt      = computeTimeStep(fluidState, meshData, fluidModel, cflMax)
             dt      = min(dt, timeMax - time)
@@ -1268,8 +1260,8 @@ class Driver:
             # Compute residuals (finite-volume right-hand side).
             residuals = computeResiduals(
                 config, meshData, fluidState, 
-                fluidModel, dt,advectionScheme, isMusclActive, 
-                limiter, entropyFixActive, entropyFixCoefficient,
+                fluidModel, dt,advectionScheme, musclActiveBool, 
+                limiter, entropyFixActiveBool, entropyFixCoefficient,
                 expansionDeviceType
             )
 
@@ -1292,8 +1284,6 @@ class Driver:
                 saveSingleIterResult(
                     config, deviceGeometryData, meshData, fluidState, resultsSubdirPath, iterationIndex, time
                 )
-
-                
 
             # Check for NaNs / Infs and abort with a diagnostic if found.
             checkSimulationStatus(fluidState, meshData, fluidModel, dt)
@@ -1382,13 +1372,13 @@ class Driver:
                     config = singleIterResult['config']
                     
                     timeHistory = np.zeros(nTimes)
-                    fluidStateHistory['Density'] = np.zeros((numMeshNodes, nTimes))
+                    fluidStateHistory['Density']  = np.zeros((numMeshNodes, nTimes))
                     fluidStateHistory['Velocity'] = np.zeros((numMeshNodes, nTimes))
                     fluidStateHistory['Pressure'] = np.zeros((numMeshNodes, nTimes))
                     fluidStateHistory['staticInternalEnergy'] = np.zeros((numMeshNodes, nTimes))
                 
                 timeHistory[iFile] = singleIterResult['time']
-                fluidStateHistory['Density'][:, iFile] = singleIterResult['fluidState']['Density']
+                fluidStateHistory['Density'][:, iFile]  = singleIterResult['fluidState']['Density']
                 fluidStateHistory['Velocity'][:, iFile] = singleIterResult['fluidState']['Velocity']
                 fluidStateHistory['Pressure'][:, iFile] = singleIterResult['fluidState']['Pressure']
                 fluidStateHistory['staticInternalEnergy'][:, iFile] = singleIterResult['fluidState']['staticInternalEnergy']
@@ -1417,7 +1407,7 @@ class Driver:
 
 def _applyReflectiveBC(location, fluidState):
     """
-    Fill the halo node to yield a reflective (solid-wall) boundary condition.
+    Set fluidState in halo node to yield a reflective (solid-wall) boundary condition.
     All scalar quantities are mirrored from the adjacent interior node; the
     normal velocity component is negated to enforce zero mass flux through the wall.
 
@@ -1445,7 +1435,7 @@ def _applyReflectiveBC(location, fluidState):
 
 def _applyTransparentBC(location, fluidState):
     """
-    Fill the halo node to yield a transparent (zero-gradient) boundary condition.
+    Set fluidState in halo node to yield a transparent (zero-gradient) boundary condition.
     All quantities are simply copied from the adjacent interior node, allowing
     waves to exit the domain without reflection.
 
@@ -1471,7 +1461,7 @@ def _applyTransparentBC(location, fluidState):
 
 def _applyPeriodicBC(location, fluidState):
     """
-    Fill the halo node to yield periodic boundary conditions.  The left halo
+    Set fluidState in halo node to yield periodic boundary conditions.  The left halo
     receives the value from the last physical node; the right halo receives the
     value from the first physical node.
 
@@ -1502,7 +1492,7 @@ def _applyPeriodicBC(location, fluidState):
 def _applyInletBC(iHalo, iInternal, fluidModel, fluidState,
                   isTotalInlet, inletConditionsVars, inletConditionsValues):
     """
-    Fill the halo node to yield an inlet boundary condition.
+    Set fluidState in halo node to yield an inlet boundary condition.
 
     For total inlet conditions, the static pressure is extracted from the
     adjacent interior node and used together with the specified total conditions
@@ -1549,13 +1539,13 @@ def _applyInletBC(iHalo, iInternal, fluidModel, fluidState,
             pressure = 0.9999*totalPressure
 
         if inletConditionsVars == "ptTt":
-            totalTemperature = inletConditionsValues[1]
+            totalTemperature  = inletConditionsValues[1]
             massFlowDirection = inletConditionsValues[2]
             density, velocity, energy = fluidModel.computeInletQuantitiesTotal_pt_Tt(
                 pressure, totalPressure, totalTemperature, massFlowDirection
             )
         elif inletConditionsVars == "ptQt":
-            totalQuality     = inletConditionsValues[1]
+            totalQuality      = inletConditionsValues[1]
             massFlowDirection = inletConditionsValues[2]
             density, velocity, energy = fluidModel.computeInletQuantitiesTotal_pt_Q(
                 pressure, totalPressure, totalQuality, massFlowDirection
@@ -1593,7 +1583,7 @@ def _applyInletBC(iHalo, iInternal, fluidModel, fluidState,
 
 def _applyOutletBC(location, iHalo, iInternal, config, fluidModel, fluidState):
     """
-    Fill the halo node to yield a subsonic outlet boundary condition.
+    Set fluidState in halo node to yield a subsonic outlet boundary condition.
 
     For subsonic outflow (Mach < 1 at the adjacent interior node), the back
     pressure is fixed at the value specified in the configuration file while
@@ -1679,8 +1669,8 @@ def computeTimeStep(fluidState, meshData, fluidModel, cflMax):
     density   = fluidState["Density"][1:-1]
     dx        = meshData["meshNodeSpacing"][1:-1]
 
-    # Sound speed for all interior nodes in one call.
-    soundSpeed = fluidModel.computeSoundSpeed_p_rho(pressure, density)
+    # Soundspeed already precomputed at start of iteration. 
+    soundSpeed = fluidState["soundSpeed"][1:-1]
 
     dtMax = np.min(dx * cflMax / (np.abs(velocity) + soundSpeed))
     return dtMax
@@ -1691,19 +1681,21 @@ def computeTimeStep(fluidState, meshData, fluidModel, cflMax):
 # -----------------------------------------------------------------------------
 
 def computeResiduals(config, meshData, fluidState, 
-                     fluidModel, dt, advectionScheme, isMusclActive, 
-                     limiter, entropyFixActive, entropyFixCoefficient,
+                     fluidModel, dt, advectionScheme, musclActiveBool, 
+                     limiter, entropyFixActiveBool, entropyFixCoefficient,
                      expansionDeviceType):
     """
-    Compute the finite-volume residual vector for all interior nodes.
+    Compute vector of residuals for the discretized finite-volume formulation of
+    the euler equations. See equation 13 of "Pyshockflow: An open-source tool for
+     one-dimensional simulation of unsteady nonideal compressible flows"
 
     The residual for node i is:
 
-        R_i = (dt / dx_i) * [(F_{i-1/2} - F_{i+1/2}) + S_i * dx_i]
+        R_i = (dt / dx_i) * [(F_{i-1/2} - F_{i+1/2}) + Q_i * dx_i]
 
     where F_{i±1/2} are the advection fluxes at the left and right cell
-    interfaces and S_i is the quasi-1D area-variation source term (zero for
-    constant-area geometries).
+    interfaces and Q_i is the area-variation-induced source term 
+    (zero for constant-area geometries).
 
     Arguments
     ---------
@@ -1716,11 +1708,11 @@ def computeResiduals(config, meshData, fluidState,
         Current timestep.
     advectionScheme : str
         One of 'godunov', 'roe', 'roe_arabi', 'roe_vinokur'.
-    isMusclActive : bool
+    musclActiveBool : bool
         Whether MUSCL second-order reconstruction is enabled.
     limiter : str
-        Name of the flux limiter (e.g. 'van_leer', 'min_mod', 'superbee').
-    entropyFixActive : bool
+        Name of the flux limiter (e.g. 'van leer', 'min-mod', 'superbee').
+    entropyFixActiveBool : bool
     entropyFixCoefficient : float
     expansionDeviceType : str
         'nozzle' or 'shocktube'.
@@ -1731,20 +1723,18 @@ def computeResiduals(config, meshData, fluidState,
         The residual increment for each interior node and each conservation
         equation (mass, momentum, energy).
     """
-    numMeshNodes  = meshData["numMeshNodes"]
+    numMeshNodes   = meshData["numMeshNodes"]
     nPhysicalNodes = numMeshNodes - 2  # exclude the two halo nodes
-    dx            = meshData["meshNodeSpacing"]
+    dx             = meshData["meshNodeSpacing"]
 
     # Compute advection fluxes on every internal interface (between node i and i+1
     # for i in [0, nPhysicalNodes], using halo nodes for the boundary interfaces).
-    # All faces are assembled in one call so the scheme can operate on batched arrays.
     nFaces = nPhysicalNodes + 1
-    iLeft = np.arange(nFaces, dtype=int)
-    iRight = iLeft + 1
+
     flux = computeFluxVector(
-        iLeft, iRight, fluidState, meshData, fluidModel, dt,
-        advectionScheme, isMusclActive, limiter,
-        entropyFixActive, entropyFixCoefficient,
+        nFaces, fluidState, meshData, fluidModel, dt,
+        advectionScheme, musclActiveBool, limiter,
+        entropyFixActiveBool, entropyFixCoefficient,
     )
 
     # Compute quasi-1D source terms for nozzle geometries; zero for constant area.
@@ -1766,11 +1756,14 @@ def computeResiduals(config, meshData, fluidState,
     return residuals
 
 
-def computeFluxVector(iLeft, iRight, fluidState, meshData, fluidModel, dt,
-                      advectionScheme, isMusclActive, limiter,
-                      entropyFixActive, entropyFixCoefficient):
+
+def computeFluxVector(nFaces, fluidState, meshData, fluidModel, dt,
+                      advectionScheme, musclActiveBool, limiter,
+                      entropyFixActiveBool, entropyFixCoefficient):
     """
-    Compute numerical flux vectors at interfaces between mesh nodes iLeft and iRight.
+    Compute the numerical flux vector at each meshnode interface using the fluid
+    states at the mesh nodes. the interface between mesh nodes iLeft
+    and iRight.
 
     If MUSCL reconstruction is active and the stencil is fully interior (at
     least one layer of real nodes on each side beyond the immediate neighbours),
@@ -1779,9 +1772,8 @@ def computeFluxVector(iLeft, iRight, fluidState, meshData, fluidModel, dt,
 
     Arguments
     ---------
-    iLeft, iRight : int or np.ndarray
-        Indices (into the full halo-included arrays) of the nodes on either side
-        of the face(s).
+    nFaces : int
+        The number of faces in the mesh.
     fluidState : dict
         Current fluid state variable arrays.
     meshData : dict
@@ -1790,25 +1782,24 @@ def computeFluxVector(iLeft, iRight, fluidState, meshData, fluidModel, dt,
     dt : float
         Current timestep (only needed by the Godunov scheme).
     advectionScheme : str
-    isMusclActive : bool
+    musclActiveBool : bool
     limiter : str
-    entropyFixActive : bool
+    entropyFixActiveBool : bool
     entropyFixCoefficient : float
 
     Returns
     -------
-    flux : np.ndarray
+    flux : np.ndarray, shape (nFaces, 3)
         Numerical flux [F_mass, F_momentum, F_energy] at each face.
-        Shape is (3,) for scalar input and (nFaces, 3) for batched input.
     """
-    numMeshNodes = meshData["numMeshNodes"]
-    nFaces = iLeft.size
+    numMeshNodes   = meshData["numMeshNodes"]
 
-    if iLeft.shape != iRight.shape:
-        raise ValueError("iLeft and iRight must have the same shape.")
+    # Compute advection fluxes on every internal interface (between node i and i+1
+    # for i in [0, nPhysicalNodes], using halo nodes for the boundary interfaces).
+    iLeft = np.arange(nFaces, dtype=int)
+    iRight = iLeft + 1
 
-    # Start from first-order face states, then overwrite the subset of faces
-    # where MUSCL reconstruction is valid.
+    # construct arrays containing fluid states left and right of the interface. 
     rhoL = fluidState["Density"][iLeft].astype(float, copy=True)
     rhoR = fluidState["Density"][iRight].astype(float, copy=True)
     uL   = fluidState["Velocity"][iLeft].astype(float, copy=True)
@@ -1816,32 +1807,30 @@ def computeFluxVector(iLeft, iRight, fluidState, meshData, fluidModel, dt,
     pL   = fluidState["Pressure"][iLeft].astype(float, copy=True)
     pR   = fluidState["Pressure"][iRight].astype(float, copy=True)
 
-    if isMusclActive:
+    if musclActiveBool:
         # MUSCL reconstruction requires a two-cell stencil on each side of the face
-        # (nodes iLeft-1 and iRight+1 must be valid array indices). Faces 
-        # touching boundary halos cannot use the full MUSCL stencil and must hence 
-        # be excluded from the reconstruction procedure.
-        musclMask = (iLeft >= 2) & (iRight <= numMeshNodes - 3)
-        if np.any(musclMask):
-            rhoL_m, uL_m, pL_m, rhoR_m, uR_m, pR_m = computeMusclReconstruction(
-                iLeft[musclMask], iRight[musclMask], fluidState, meshData, limiter
-            )
-            rhoL[musclMask] = rhoL_m
-            uL[musclMask] = uL_m
-            pL[musclMask] = pL_m
-            rhoR[musclMask] = rhoR_m
-            uR[musclMask] = uR_m
-            pR[musclMask] = pR_m
+        # (nodes iLeft-1 and iRight+1 must be valid array indices). That is, faces 
+        # touching boundary halos cannot use the full MUSCL stencil.
+        maskInterface = (iLeft >= 2) & (iRight <= numMeshNodes - 3)
 
-    # Dispatch to the chosen flux scheme.
-    scheme = advectionScheme.lower()
-    if scheme == "godunov":
+        # evaluate MUSCL reconstructed meshNode fluid states
+        rhoL_MUSCL, uL_MUSCL, pL_MUSCL, rhoR_MUSCL, uR_MUSCL, pR_MUSCL = computeMusclReconstruction(
+            fluidState, meshData, limiter)
+
+        rhoL[maskInterface] = rhoL_MUSCL
+        uL[maskInterface] = uL_MUSCL
+        pL[maskInterface] = pL_MUSCL
+        rhoR[maskInterface] = rhoR_MUSCL
+        uR[maskInterface] = uR_MUSCL
+        pR[maskInterface] = pR_MUSCL
+
+    # Compute the inter-cell flux using the selected scheme
+    if advectionScheme.lower() == "godunov":
         if not isinstance(fluidModel, FluidIdeal):
             raise ValueError("Godunov scheme is available only for the ideal gas model.")
 
         # Exact-Riemann sampling remains face-wise; this keeps solver behavior
         # unchanged while retaining batched data preparation and return shape.
-        
         dx_left  = meshData["meshNodeSpacing"][iLeft]
         dx_right = meshData["meshNodeSpacing"][iRight]
         flux = np.zeros((nFaces, 3))
@@ -1854,52 +1843,102 @@ def computeFluxVector(iLeft, iRight, fluidState, meshData, fluidModel, dt,
                 float(dt), fluidModel,
             )
 
-    elif scheme == "roe":
+    elif advectionScheme.lower() == "roe":
         if isinstance(fluidModel, FluidReal):
             raise ValueError(
                 "Basic Roe scheme is not available for the real gas model. "
                 "Select 'roe_arabi' or 'roe_vinokur' instead."
             )
-        roe = AdvectionRoeBase(rhoL, rhoR, uL, uR, pL, pR, fluidModel)
-        flux = roe.computeFlux(entropyFixActive=entropyFixActive, fixCoefficient=entropyFixCoefficient)
+        if musclActiveBool:
+            flux = computeFluxRoeBaseMUSCL(
+                rhoL, rhoR, uL, uR, pL, pR, fluidModel,
+                entropyFixActive=entropyFixActiveBool, fixCoefficient=entropyFixCoefficient,
+            )
+        else:
+            flux = computeFluxRoeBaseNoMUSCL(
+                rhoL, rhoR, uL, uR, pL, pR, fluidState, fluidModel,
+                entropyFixActive=entropyFixActiveBool, fixCoefficient=entropyFixCoefficient,
+            )
 
-    elif scheme == "roe_arabi":
+    elif advectionScheme.lower() == "roe_arabi":
         if isinstance(fluidModel, FluidIdeal):
             raise ValueError(
                 "Roe_Arabi scheme is not available for the ideal gas model. "
                 "Use the standard 'roe' scheme instead."
             )
-        roe = AdvectionRoeArabi(rhoL, rhoR, uL, uR, pL, pR, fluidModel)
-        flux = roe.computeFlux(entropyFixActive=entropyFixActive, fixCoefficient=entropyFixCoefficient)
+        if musclActiveBool:
+            flux = computeFluxRoeArabiMUSCL(
+                rhoL, rhoR, uL, uR, pL, pR, fluidModel,
+                entropyFixActive=entropyFixActiveBool, fixCoefficient=entropyFixCoefficient,
+            )
+        else:
+            flux = computeFluxRoeArabiNoMUSCL(
+               rhoL, rhoR, uL, uR, pL, pR, fluidState,
+                entropyFixActive=entropyFixActiveBool, fixCoefficient=entropyFixCoefficient,
+            )
 
-    elif scheme == "roe_vinokur":
-        roe = AdvectionRoeVinokur(rhoL, rhoR, uL, uR, pL, pR, fluidModel)
-        flux = roe.computeFlux(entropyFixActive=entropyFixActive, fixCoefficient=entropyFixCoefficient)
-
-    else:
-        raise ValueError(f"Unknown flux method '{advectionScheme}'.")
+    elif advectionScheme.lower() == "roe_vinokur":
+        if musclActiveBool:
+            flux = computeFluxRoeVinokurMUSCL(
+                rhoL, rhoR, uL, uR, pL, pR, fluidModel,
+                entropyFixActive=entropyFixActiveBool, fixCoefficient=entropyFixCoefficient,
+            )
+        else:
+            flux = computeFluxRoeVinokurNoMUSCL(
+                rhoL, rhoR, uL, uR, pL, pR, fluidState, fluidModel,
+                entropyFixActive=entropyFixActiveBool, fixCoefficient=entropyFixCoefficient,
+            )
 
     return flux
 
 
+@lru_cache(maxsize=200000)
+def _computeGodunovFluxCached(rhoL, rhoR, uL, uR, pL, pR, dxLeft, dxRight, dt, fluidModel):
+    """Compute one Godunov interface flux and cache by interface state."""
+    nx, nt = 51, 51
+    x = np.linspace(-dxLeft / 2, dxRight / 2, nx)
+    t = np.linspace(0, dt, nt)
+    riem = RiemannProblem(x, t)
+    riem.initializeState([rhoL, rhoR, uL, uR, pL, pR])
+    riem.initializeSolutionArrays()
+    riem.computeStarRegion()
+    riem.solve(space_domain="interface", time_domain="global")
+    rho, u, p = riem.getSolutionInTime()
+    u1, u2, u3 = getConservativesFromFluidState(rho, u, p, fluidModel)
+    flux = computeAdvectionFluxFromConservatives(
+        np.mean(u1), np.mean(u2), np.mean(u3), fluidModel
+    )
+    # coputeAdvectionFluxFromConservatives is refactored for vectorized 
+    # evaluations, must umpack the returned array to a tuple for the single interface case.
+    flux = flux[0]  # unpack the single interface flux from the returned array
+    return tuple(np.asarray(flux, dtype=float))
 
-def computeMusclReconstruction(iLeft, iRight, fluidState, meshData, limiter):
+
+def computeMusclReconstruction(fluidState, meshData, limiter):
     """
     Perform MUSCL (Monotone Upstream-centred Schemes for Conservation Laws)
     reconstruction at the face between nodes iLeft and iRight.
 
     The reconstructed left and right interface states are:
 
-        U_L* = U_L + 0.5 * psi_L * (U_R - U_L)
-        U_R* = U_R - 0.5 * psi_R * (U_RP - U_R)
+        W_L* = W_L + 0.5 * psi_L * (W_R - W_L)
+        W_R* = W_R - 0.5 * psi_R * (W_RP - W_R)
 
     where psi is the flux limiter evaluated from the smoothness indicator r,
     which measures the ratio of upstream to downstream gradients.
 
+    The code displayed below is very non-intuitive. For a more intuitive version, 
+    please consult the ...
+    Unfortunately this old version, although intuitive, carried a lot of
+    double work, or even quadruple work. For example, the arrays for W_lm, W_l,
+    Wr, W_rp have different values at the very edges of the array, but contain 
+    duplicates for the large majority. Also the function calls could be replaced 
+    by a single function call, if the resulting array was sliced properly. 
+    This resulted in a 2.7x speed-up. however, I refer you to the old code
+    since this method of computation, followed by array slicing is very non-intuitive.
+
     Arguments
     ---------
-    iLeft, iRight : int
-        Node indices on either side of the face (into the full halo-included arrays).
     fluidState : dict
         Current fluid state variable arrays.
     meshData : dict
@@ -1912,54 +1951,26 @@ def computeMusclReconstruction(iLeft, iRight, fluidState, meshData, limiter):
     rhoL, uL, pL, rhoR, uR, pR : float
         Reconstructed fluid states at the left and right sides of the face.
     """
-    iLeft = np.asarray(iLeft, dtype=int)
-    iRight = np.asarray(iRight, dtype=int)
-    xMeshNodes = meshData["xMeshNodes"]
+    W = np.column_stack([
+        fluidState["Density"],
+        fluidState["Velocity"],
+        fluidState["Pressure"],
+    ])
 
-    # Four-point stencil arrays: [iLeft-1, iLeft, iRight, iRight+1].
-    U_lm = np.column_stack((
-        fluidState["Density"][iLeft - 1],
-        fluidState["Velocity"][iLeft - 1],
-        fluidState["Pressure"][iLeft - 1],
-    ))
-
-    U_l = np.column_stack((
-        fluidState["Density"][iLeft],
-        fluidState["Velocity"][iLeft],
-        fluidState["Pressure"][iLeft],
-    ))
-    U_r = np.column_stack((
-        fluidState["Density"][iRight],
-        fluidState["Velocity"][iRight],
-        fluidState["Pressure"][iRight],
-    ))
-    U_rp = np.column_stack((
-        fluidState["Density"][iRight + 1],
-        fluidState["Velocity"][iRight + 1],
-        fluidState["Pressure"][iRight + 1],
-    ))
-
-    dx_lm_l = xMeshNodes[iLeft] - xMeshNodes[iLeft - 1]
-    dx_l_r = xMeshNodes[iRight] - xMeshNodes[iLeft]
-    dx_r_rp = xMeshNodes[iRight + 1] - xMeshNodes[iRight]
-
-    r_left = computeSmoothnessIndicators(U_lm, U_l, U_r, dx_lm_l[:, None], dx_l_r[:, None])
-    r_right = computeSmoothnessIndicators(U_l, U_r, U_rp, dx_l_r[:, None], dx_r_rp[:, None])
-
-    psi_left = computeFluxLimiter(r_left, limiter)
-    psi_right = computeFluxLimiter(r_right, limiter)
-
-    U_l_rec = U_l + 0.5 * psi_left * (U_r - U_l)
-    U_r_rec = U_r - 0.5 * psi_right * (U_rp - U_r)
+    dx = meshData["xMeshNodes"][1:] - meshData["xMeshNodes"][:-1]
+    r = computeSmoothnessIndicators(W, dx)
+    psi = computeFluxLimiter(r, limiter)
+    W_l_rec = W[2:-3] + 0.5 * psi[1:-2] * (W[3:-2] - W[2:-3])
+    W_r_rec = W[3:-2] - 0.5 * psi[2:-1] * (W[4:-1] - W[3:-2])
 
     return (
-        U_l_rec[:, 0], U_l_rec[:, 1], U_l_rec[:, 2],
-        U_r_rec[:, 0], U_r_rec[:, 1], U_r_rec[:, 2],
+        W_l_rec[:, 0], W_l_rec[:, 1], W_l_rec[:, 2],
+        W_r_rec[:, 0], W_r_rec[:, 1], W_r_rec[:, 2]
     )
 
 
 
-def computeSmoothnessIndicators(U_left, U_central, U_right, dx_left, dx_right):
+def computeSmoothnessIndicators(W, dx):
     """
     Compute the smoothness indicator vector r for use in a flux limiter.
 
@@ -1970,18 +1981,19 @@ def computeSmoothnessIndicators(U_left, U_central, U_right, dx_left, dx_right):
 
     Arguments
     ---------
-    U_left, U_central, U_right : np.ndarray, shape (3,)
-        Fluid state variable vectors at the three stencil nodes.
-    dx_left, dx_right : float
-        Grid spacings on the left and right sides of the central node.
+    W : np.ndarray, shape (nNodes, 3)
+        Fluid state variable vectors at all nodes.
+    dx : np.ndarray, shape (nNodes - 1,)
+        Grid spacings between consecutive nodes.
 
     Returns
     -------
-    r : np.ndarray, shape (3,)
+    r : np.ndarray, shape (nNodes - 2, 3)
         Smoothness indicator for each fluid state variable.
     """
-    r = ((U_central - U_left) / dx_left) / ((U_right - U_central) / dx_right + 1e-6)
+    r = ((W[1:-1] - W[:-2]) / dx[:-1, None]) / ((W[2:] - W[1:-1]) / dx[1:, None] + 1e-6)
     return r
+
 
 
 def computeFluxLimiter(r_vec, limiter):
@@ -2005,7 +2017,7 @@ def computeFluxLimiter(r_vec, limiter):
 
     Returns
     -------
-    psi : np.ndarray, shape (3,)
+    psi : np.ndarray, shape (r_vec.shape)
         Limiter values.
     """
     r_arr = np.asarray(r_vec, dtype=float)
@@ -2026,30 +2038,7 @@ def computeFluxLimiter(r_vec, limiter):
     if limiter_l == "none":
         return np.ones_like(r_arr)
 
-    raise ValueError(f"Limiter '{limiter}' not recognized!")
 
-
-
-@lru_cache(maxsize=200000)
-def _computeGodunovFluxCached(rhoL, rhoR, uL, uR, pL, pR, dxLeft, dxRight, dt, fluidModel):
-    """Compute one Godunov interface flux and cache by interface state."""
-    nx, nt = 51, 51
-    x = np.linspace(-dxLeft / 2, dxRight / 2, nx)
-    t = np.linspace(0, dt, nt)
-    riem = RiemannProblem(x, t)
-    riem.initializeState([rhoL, rhoR, uL, uR, pL, pR])
-    riem.initializeSolutionArrays()
-    riem.computeStarRegion()
-    riem.solve(space_domain="interface", time_domain="global")
-    rho, u, p = riem.getSolutionInTime()
-    u1, u2, u3 = getConservativesFromFluidState(rho, u, p, fluidModel)
-    flux = computeAdvectionFluxFromConservatives(
-        np.mean(u1), np.mean(u2), np.mean(u3), fluidModel
-    )
-    # coputeAdvectionFluxFromConservatives is refactored for vectorized 
-    # evaluations, must umpack the returned array to a tuple for the single interface case.
-    flux = flux[0]  # unpack the single interface flux from the returned array
-    return tuple(np.asarray(flux, dtype=float))
 
 # -----------------------------------------------------------------------------
 #  Solution update
@@ -2282,7 +2271,10 @@ def _computeCFLField(fluidState, meshData, fluidModel, dt):
     velocity = fluidState["Velocity"][1:-1]
     dx       = meshData["meshNodeSpacing"][1:-1]
 
-    soundSpeed = fluidModel.computeSoundSpeed_p_rho(pressure, density)
+    soundSpeed = np.array([
+        fluidModel.computeSoundSpeed_p_rho(pressure[i], density[i])
+        for i in range(len(velocity))
+    ])
 
     cfl = (np.abs(velocity) + soundSpeed) * dt / dx
     return cfl
