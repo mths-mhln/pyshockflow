@@ -1247,12 +1247,10 @@ class Driver:
         # -----------------------------------------
         while time < timeMax:
             iterationIndex += 1
-
             # compute more fluid states that are re-used throughout a single iteration
-            if iterationIndex == 1:
-                fluidState["soundSpeed"] = fluidModel.computeSoundSpeed_p_rho(
-                    fluidState["Pressure"], fluidState["Density"]
-                )
+            fluidState["soundSpeed"] = fluidModel.computeSoundSpeed_p_rho(
+                fluidState["Pressure"], fluidState["Density"]
+            )
 
             # Compute the CFL-limited timestep and clip it so we land exactly on timeMax.
             dt      = computeTimeStep(fluidState, meshData, cflMax)

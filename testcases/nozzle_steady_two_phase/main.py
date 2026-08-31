@@ -6,8 +6,8 @@ from pyshockflow import Driver
 from pyshockflow import Config
 
 
-configFile = "inputs/config_files/lettieri/L1_smooth.ini"
-# configFile = "inputs/config_files/lettieri/L1_friction.ini"
+# configFile = "inputs/config_files/lettieri/L1_smooth.ini"
+configFile = "inputs/config_files/lettieri/L1_friction.ini"
 # configFile = "inputs/config_files/lettieri/L5_smooth.ini"
 # configFile = "inputs/config_files/lettieri/L5_friction.ini"
 # configFile = "inputs/config_files/petruccelli/P1.ini"
