@@ -11,12 +11,14 @@ from pyshockflow import Driver, Config
 
 # files whose data to extract:
 configFiles = [
-    "inputs/config_files/lettieri/L1_smooth.ini"
+    "inputs/config_files/lettieri/L1_friction.ini",
+    # "inputs/config_files/lettieri/L1_smooth.ini",
 ]
 
 # perform verification on the simulation
-verification_cases = [
-    "lettieri/L1_pressure"
+verificationDataFiles = [
+    "verification_data/lettieri/L1_friction__pressure.csv", 
+    # "verification_data/lettieri/L1_smooth__pressure.csv"
 ]
 
 # instantiate results path list
@@ -47,18 +49,20 @@ fig = thermoplot_expansion_plot("inputs/thermoplot/CO2.ini", resultPicklePaths, 
 plt.show()
 
 # convert csv information to dict to comply with v_and_v function argument data format.
-for verification_case in verification_cases:
-    df = pd.read_csv(f"verification_data/{verification_case}.csv")
-    v_and_v_data = {
+v_and_v_data = {}
+for verificationDataPath in verificationDataFiles:
+    df = pd.read_csv(verificationDataPath)
+    legend_key = Path(verificationDataPath).stem
+    v_and_v_data[legend_key] = {
         "meshData": {"xMeshNodes": df.iloc[1:, 0].values},
         "(final)fluidState": {"Pressure": df.iloc[1:, 1].values}
         }
-    # extract the legend keys from the filenames
-    simulation_data = {}
-    for i, resultPicklePath in enumerate(resultPicklePaths):
-        legend_key = Path(resultPicklePath).parent.name.split(".")[0]
-        simulation_data[legend_key] = unpack_simulation_results(resultPicklePath)
-    comparison_results = perform_v_and_v(verification_data = v_and_v_data, simulation_data = simulation_data, show_plots = True)
+# extract the legend keys from the filenames
+simulation_data = {}
+for resultPicklePath in resultPicklePaths:
+    legend_key = Path(resultPicklePath).parent.name.split(".")[0]
+    simulation_data[legend_key] = unpack_simulation_results(resultPicklePath)
+comparison_results = perform_v_and_v(verification_data = v_and_v_data, simulation_data = simulation_data, show_plots = True)
 
     
         

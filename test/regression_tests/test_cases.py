@@ -140,10 +140,10 @@ def compare_results_with_reference(case_dir):
     print(f"Comparing results for case: {case_dir.name}")
     
     reference_file = case_dir / "reference_result.pik"
-    print(f"Reference file: {reference_file}")
+    # print(f"Reference file: {reference_file}")
     
     result_file = find_result_file(case_dir)
-    print(f"Result file: {result_file}")
+    # print(f"Result file: {result_file}")
     
     file_paths = [reference_file, result_file]
     file_datas = []
@@ -163,7 +163,7 @@ def compare_results_with_reference(case_dir):
             assert file_datas[0]["meshData"]['xMeshNodes'].shape == file_datas[1]["meshData"]['xMeshNodes'].shape, "X Coords shape mismatch between reference and result"
     
     keys_to_check = ['Pressure', 'Velocity', 'Density']
-    print(file_datas[0])
+    # print(file_datas[0])
     for key in keys_to_check:
         try:
             they_agree, err = result_arrays_agree(file_datas[0]['Primitive'][key][:, -1], file_datas[1]['fluidStateHistory'][key][:, -1])

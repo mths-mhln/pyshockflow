@@ -428,24 +428,28 @@ def construct_ideal_expansion_path(pickleFilePath: type[WindowsPath]) -> np.ndar
 def perform_v_and_v(verification_data: dict = None, validation_data: dict = None, simulation_data: dict = None, show_plots: bool = False) -> dict:
     """
     The user provides verification or validation data, with data
-    format similar to that resulting from applying the 
-    unpack_simulation_results function to the simulation results pickle file, 
-    Which can be a singleIterResults or groupedIterResults. 
-    The function will then compare the simulation results with the verification 
-    or validation data and return a dictionary containing comparison metrics.
+    format similar to that resulting from applying the
+    unpack_simulation_results function to the simulation results pickle file,
+    which can be a singleIterResults or groupedIterResults. The function will
+    then compare the simulation results with the verification or validation
+    data and return a dictionary containing comparison metrics.
 
     Arguments
     ---------
     verification_data : dict
-        A dictionary containing the verification data, complying to the 
-        unpack_simulation_results function output data format.
+        Either a single verification data dict complying to the
+        unpack_simulation_results output format, or a dict of such dicts
+        where the top-level keys are used as legend labels, e.g.:
+            {
+                "CaseA.csv": {"meshData": {...}, "(final)fluidState": {...}},
+                "CaseB.csv": {"meshData": {...}, "(final)fluidState": {...}},
+            }
     validation_data : dict
-        A dictionary containing the validation data, complying to the 
-        unpack_simulation_results function output data format.
+        Same format as verification_data, but for validation data.
     simulation_data : dict
-        Either a single simulation data dictionary complying to the 
-        unpack_simulation_results function output data format, or a dict of 
-        such dicts where the top-level keys are used as legend labels, e.g.:
+        Either a single simulation data dict complying to the
+        unpack_simulation_results output format, or a dict of such dicts
+        where the top-level keys are used as legend labels, e.g.:
             {
                 "Simulation A": unpack_simulation_results(...),
                 "Simulation B": unpack_simulation_results(...),
@@ -454,125 +458,177 @@ def perform_v_and_v(verification_data: dict = None, validation_data: dict = None
     Returns
     -------
     comparison_metrics : dict
-        A dictionary containing the comparison metrics. If multiple simulation 
-        datasets are provided, the top-level keys are the simulation labels and 
-        the values are the per-variable metric dicts. For a single simulation, 
-        the structure is the same as before.
+        A dictionary containing the comparison metrics. The nesting adapts
+        to how many datasets were supplied:
+          - 1 V&V dataset,  1 simulation  -> {var: {...}}
+          - N V&V datasets, N simulations -> {vnv_label: {sim_label: {var: {...}}}}
+        NOTE: Only corresponding pairs are compared (first with first, second with second, etc.)
     """
-    # --- normalise simulation_data to a labelled dict ---
-    # detect a "bare" simulation dict by checking for expected top-level keys
     _bare_keys = {"meshData", "(final)fluidState", "config"}
+
+    # --- normalise simulation_data to a labelled dict ---
     if any(k in simulation_data for k in _bare_keys):
         simulation_datasets = {"Simulation Data": simulation_data}
     else:
         simulation_datasets = simulation_data
 
-    # --- resolve v_and_v reference data ---
+    # --- normalise v_and_v reference data to a labelled dict ---
     if verification_data is not None:
-        v_and_v_variables = list(verification_data["(final)fluidState"].keys())
-        v_and_v_data = verification_data
+        raw_vnv = verification_data
+        vnv_kind = "Verification"
     elif validation_data is not None:
-        v_and_v_variables = list(validation_data["(final)fluidState"].keys())
-        v_and_v_data = validation_data
+        raw_vnv = validation_data
+        vnv_kind = "Validation"
     else:
         raise ValueError("Either verification_data or validation_data must be provided")
 
-    # --- interpolate and compute metrics for each simulation dataset ---
+    if any(k in raw_vnv for k in _bare_keys):
+        v_and_v_datasets = {f"{vnv_kind} Data": raw_vnv}
+    else:
+        v_and_v_datasets = raw_vnv
+
+    # Check that number of datasets match for paired comparison
+    n_vnv = len(v_and_v_datasets)
+    n_sim = len(simulation_datasets)
+    
+    if n_vnv != n_sim:
+        raise ValueError(
+            f"Number of V&V datasets ({n_vnv}) must equal number of simulation datasets ({n_sim}) "
+            f"for paired comparison. If you want all-to-all comparison, use the original function."
+        )
+
+    # union of variables across all v_and_v datasets (preserving first-seen order)
+    v_and_v_variables = []
+    for vnv_data in v_and_v_datasets.values():
+        for var in vnv_data["(final)fluidState"].keys():
+            if var not in v_and_v_variables:
+                v_and_v_variables.append(var)
+
+    # --- interpolate and compute metrics for corresponding pairs only ---
     comparison_metrics = {}
 
-    for sim_label, sim_data in simulation_datasets.items():
+    # Get ordered pairs (first with first, second with second, etc.)
+    vnv_items = list(v_and_v_datasets.items())
+    sim_items = list(simulation_datasets.items())
+
+    for idx, (vnv_label, vnv_data) in enumerate(vnv_items):
+        sim_label, sim_data = sim_items[idx]  # Corresponding simulation
+        
+        comparison_metrics[vnv_label] = {}
+        vnv_vars_here = list(vnv_data["(final)fluidState"].keys())
         sim_metrics = {}
         simulation_interpolated = {}
 
-        if not np.array_equal(v_and_v_data["meshData"]["xMeshNodes"], sim_data["meshData"]["xMeshNodes"]):
-            for var in v_and_v_variables:
-                if var in sim_data["(final)fluidState"]:
-                    sim_interpolant = interp1d(
-                        sim_data["meshData"]["xMeshNodes"], sim_data["(final)fluidState"][var],
-                        kind='linear', fill_value='extrapolate'
-                    )
-                    simulation_interpolated[var] = sim_interpolant(v_and_v_data["meshData"]["xMeshNodes"])
-        else:
-            for var in v_and_v_variables:
-                if var in sim_data["(final)fluidState"]:
-                    simulation_interpolated[var] = sim_data["(final)fluidState"][var]
+        same_mesh = np.array_equal(
+            vnv_data["meshData"]["xMeshNodes"], sim_data["meshData"]["xMeshNodes"]
+        )
 
-        for var in v_and_v_variables:
+        for var in vnv_vars_here:
+            if var not in sim_data["(final)fluidState"]:
+                continue
+            if same_mesh:
+                simulation_interpolated[var] = sim_data["(final)fluidState"][var]
+            else:
+                sim_interpolant = interp1d(
+                    sim_data["meshData"]["xMeshNodes"], sim_data["(final)fluidState"][var],
+                    kind='linear', fill_value='extrapolate'
+                )
+                simulation_interpolated[var] = sim_interpolant(vnv_data["meshData"]["xMeshNodes"])
+
+        for var in vnv_vars_here:
             if var in sim_data["(final)fluidState"]:
-                abs_error = simulation_interpolated[var] - v_and_v_data["(final)fluidState"][var]
-                relative_error = np.abs(abs_error) / np.abs(v_and_v_data["(final)fluidState"][var])
+                abs_error = simulation_interpolated[var] - vnv_data["(final)fluidState"][var]
+                relative_error = np.abs(abs_error) / np.abs(vnv_data["(final)fluidState"][var])
                 sim_metrics[var] = {
                     'absolute_error': abs_error,
                     'relative_error': relative_error
                 }
 
-        if len(sim_metrics) != len(v_and_v_variables):
-            missing_keys = set(v_and_v_variables) - set(sim_metrics.keys())
+        if len(sim_metrics) != len(vnv_vars_here):
+            missing_keys = set(vnv_vars_here) - set(sim_metrics.keys())
             raise ValueError(
-                f"[{sim_label}] Missing keys in simulation data due to different naming than "
-                f"simulation data dict keys: {missing_keys}"
+                f"[{vnv_label} vs {sim_label}] Missing keys in simulation data due to "
+                f"different naming than V&V data dict keys: {missing_keys}"
             )
 
-        comparison_metrics[sim_label] = sim_metrics
+        comparison_metrics[vnv_label][sim_label] = sim_metrics
 
-    # --- rich table: one row per (simulation, variable) pair ---
-    table = Table(title="Verification and Validation")
+    # --- rich table: one row per (v_and_v dataset, simulation, variable) triple ---
+    table = Table(title="Verification and Validation (Paired Comparison)")
+    table.add_column("V&V Dataset",        justify="left",  style="yellow",  no_wrap=True)
     table.add_column("Simulation",         justify="left",  style="blue",    no_wrap=True)
     table.add_column("Variable",           justify="left",  style="cyan",    no_wrap=True)
     table.add_column("Max Absolute Error", justify="right", style="magenta")
     table.add_column("Max Relative Error", justify="right", style="green")
 
-    for sim_label, sim_metrics in comparison_metrics.items():
-        for key, value in sim_metrics.items():
-            absolute_error_str = (
-                f"{value['absolute_error']:.6e}" if np.isscalar(value['absolute_error'])
-                else f"{np.max(value['absolute_error']):.6e}"
-            )
-            relative_error_str = (
-                f"{value['relative_error']:.6e}" if np.isscalar(value['relative_error'])
-                else f"{np.max(value['relative_error']):.6e}"
-            )
-            table.add_row(sim_label, key, absolute_error_str, relative_error_str)
+    for vnv_label, sim_dict in comparison_metrics.items():
+        for sim_label, sim_metrics in sim_dict.items():
+            for var, value in sim_metrics.items():
+                absolute_error_str = (
+                    f"{value['absolute_error']:.6e}" if np.isscalar(value['absolute_error'])
+                    else f"{np.max(value['absolute_error']):.6e}"
+                )
+                relative_error_str = (
+                    f"{value['relative_error']:.6e}" if np.isscalar(value['relative_error'])
+                    else f"{np.max(value['relative_error']):.6e}"
+                )
+                table.add_row(vnv_label, sim_label, var, absolute_error_str, relative_error_str)
 
     console = Console()
     console.print(table)
 
-    # --- plots: one figure per variable, all simulations overlaid ---
+    # --- plots: ONE figure per variable, all V&V datasets + all simulations overlaid ---
     if show_plots:
         # use the first simulation dataset for nozzle geometry
         first_sim_data = next(iter(simulation_datasets.values()))
-        xMeshNodes         = first_sim_data["meshData"]["xMeshNodes"]
+        xMeshNodes            = first_sim_data["meshData"]["xMeshNodes"]
         deviceAreaAtMeshNodes = first_sim_data["meshData"]["deviceAreaAtMeshNodes"]
 
-        colors = (
+        sim_colors = (
             plt.cm.tab10.colors if len(simulation_datasets) <= 10
             else [plt.cm.tab20(i / len(simulation_datasets)) for i in range(len(simulation_datasets))]
         )
+        
+        # Use darker colors for V&V data (e.g., Dark2 colormap which is generally darker)
+        vnv_colors = (
+            plt.cm.Dark2.colors if len(v_and_v_datasets) <= 8
+            else [plt.cm.tab20b(i / len(v_and_v_datasets)) for i in range(len(v_and_v_datasets))]
+        )
 
         for var in v_and_v_variables:
-            max_y = max(
-                np.max(np.abs(v_and_v_data["(final)fluidState"][var])),
-                *(np.max(np.abs(sim_data["(final)fluidState"][var]))
-                  for sim_data in simulation_datasets.values()
-                  if var in sim_data["(final)fluidState"])
-            )
+            y_candidates = []
+            for vnv_data in v_and_v_datasets.values():
+                if var in vnv_data["(final)fluidState"]:
+                    y_candidates.append(np.max(np.abs(vnv_data["(final)fluidState"][var])))
+            for sim_data in simulation_datasets.values():
+                if var in sim_data["(final)fluidState"]:
+                    y_candidates.append(np.max(np.abs(sim_data["(final)fluidState"][var])))
+            max_y = max(y_candidates) if y_candidates else 1.0
 
             plt.figure(figsize=(10, 5))
 
-            # reference data
-            plt.plot(
-                v_and_v_data["meshData"]["xMeshNodes"][1:-1],
-                v_and_v_data["(final)fluidState"][var][1:-1],
-                label='Verification/Validation Data', marker='o', color='black'
-            )
+            # all v_and_v datasets that have this variable (darker colors)
+            for idx, (vnv_label, vnv_data) in enumerate(v_and_v_datasets.items()):
+                if var in vnv_data["(final)fluidState"]:
+                    # Darken the color by reducing brightness
+                    color = vnv_colors[idx % len(vnv_colors)]
+                    # Make it even darker for V&V data
+                    plt.plot(
+                        vnv_data["meshData"]["xMeshNodes"][1:-1],
+                        vnv_data["(final)fluidState"][var][1:-1],
+                        label=vnv_label, marker='o', linestyle='--', 
+                        color=color, linewidth=2.5, markersize=8
+                    )
 
-            # one line per simulation dataset
-            for (sim_label, sim_data), color in zip(simulation_datasets.items(), colors):
+            # all simulation datasets that have this variable (lighter/bright colors)
+            for idx, (sim_label, sim_data) in enumerate(simulation_datasets.items()):
                 if var in sim_data["(final)fluidState"]:
                     plt.plot(
                         sim_data["meshData"]["xMeshNodes"][1:-1],
                         sim_data["(final)fluidState"][var][1:-1],
-                        label=sim_label, marker='x', color=color
+                        label=sim_label, marker='x', 
+                        color=sim_colors[idx % len(sim_colors)], 
+                        linewidth=1.5, markersize=6
                     )
 
             # nozzle geometry scaled to y range
@@ -581,19 +637,19 @@ def perform_v_and_v(verification_data: dict = None, validation_data: dict = None
                 deviceAreaAtMeshNodes * 1.2 * max_y * 0.3 / max(deviceAreaAtMeshNodes),
                 label='Nozzle Geometry', color='gray', alpha=0.5, zorder=-1
             )
-
-            plt.title(f'Comparison of {var}')
+            
             plt.xlabel("xMeshNodes")
             plt.ylabel(var)
             plt.legend()
             plt.grid()
             plt.show()
 
-    # unwrap to original flat structure if only a single dataset was passed
-    if len(comparison_metrics) == 1:
-        return next(iter(comparison_metrics.values()))
-
-    return comparison_metrics
+    # --- unwrap to the simplest matching structure ---
+    if n_vnv == 1 and n_sim == 1:
+        return next(iter(next(iter(comparison_metrics.values())).values()))
+    else:
+        # For paired comparison, return the structure as is (vnv_label -> sim_label -> var -> metrics)
+        return comparison_metrics
 
 # def perform_v_and_v(verification_data: dict = None, validation_data: dict = None, simulation_data: dict = None, show_plots: bool = False) -> dict:
 #     """

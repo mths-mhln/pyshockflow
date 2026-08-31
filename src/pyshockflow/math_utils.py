@@ -25,7 +25,7 @@ def getFluidStateFromConservatives(u1, u2, u3, fluid):
 
         `p`: pressure
 
-        `e`: static energy
+        `e`: static internal energy
         """
         rho = u1
         u = u2/u1

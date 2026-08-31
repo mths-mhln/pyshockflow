@@ -248,7 +248,7 @@ class Driver:
         # area of the device. 
         if nozzleDataFrame.columns[1] == "y":
             deviceGeometryData["deviceY"] = nozzleData[:, 1]
-            deviceGeometryData["deviceArea"] = np.pi * (deviceGeometryData["deviceY"] ** 2)
+            deviceGeometryData["deviceArea"] = 2 * deviceGeometryData["deviceY"]
         elif nozzleDataFrame.columns[1] == "A":
             deviceGeometryData["deviceArea"] = nozzleData[:, 1]
             deviceGeometryData["deviceY"] = np.sqrt(deviceGeometryData["deviceArea"] / np.pi)
@@ -1110,6 +1110,10 @@ class Driver:
         -------
         conservativeState : dict
         """
+        # only the conservatives at the boundary must be computed, since the 
+        # interior node conservative states are a direct result from numerical
+        # integration of the governing equations.  
+
         u1, u2, u3 = getConservativesFromFluidState(
             fluidState["Density"],
             fluidState["Velocity"],
@@ -1245,15 +1249,13 @@ class Driver:
             iterationIndex += 1
 
             # compute more fluid states that are re-used throughout a single iteration
-            fluidState["soundSpeed"] = fluidModel.computeSoundSpeed_p_rho(
-                fluidState["Pressure"], fluidState["Density"]
-            )
-            fluidState["internalEnergy"] = fluidModel.computeInternalEnergy_p_rho(
-                fluidState["Pressure"], fluidState["Density"]
-            )
+            if iterationIndex == 1:
+                fluidState["soundSpeed"] = fluidModel.computeSoundSpeed_p_rho(
+                    fluidState["Pressure"], fluidState["Density"]
+                )
 
             # Compute the CFL-limited timestep and clip it so we land exactly on timeMax.
-            dt      = computeTimeStep(fluidState, meshData, fluidModel, cflMax)
+            dt      = computeTimeStep(fluidState, meshData, cflMax)
             dt      = min(dt, timeMax - time)
             newTime = time + dt
 
@@ -1290,31 +1292,35 @@ class Driver:
 
             # Re-impose boundary conditions on the halo nodes.
             fluidState = self.setBoundaryConditions(config, fluidModel, fluidState)
-            # Keep conservative state consistent with the updated fluid state variables at the halos.
-            conservativeState = self._conservativesFromFluidState(fluidState, fluidModel)
+            # # Keep conservative state consistent with the updated fluid state variables at the halos.
+            # conservativeState = self._conservativesFromFluidState(fluidState, fluidModel)
 
             # ------------------------------------------------------------------
             # Convergence check: if all fluid state variables have changed by less
             # than convergenceTolerance (relative) for 20 consecutive iterations,
             # jump straight to timeMax to finalise the run.
             # ------------------------------------------------------------------
-            convergenceTolerance = 1e-5
-            converged = all(
-                np.max(
-                    np.abs(fluidState[var] - fluidStateOld[var])
-                    / (np.max(np.abs(fluidStateOld[var])) + 1e-300)
-                ) < convergenceTolerance
-                for var in ("Density", "Velocity", "Pressure", 'staticInternalEnergy')
-            )
-            convergenceHist = convergenceHist + [True] if converged else []
-            if len(convergenceHist) >= 20:
-                # Force the loop to end at timeMax on the next iteration.
-                newTime = timeMax
-                convergedSimulation = True
+            if expansionDeviceType == "nozzle":
+                # early stopping upon convergence of the fluid state for nozzle geometries. 
+                convergenceTolerance = 1e-5
+                converged = all(
+                    np.max(
+                        np.abs(fluidState[var] - fluidStateOld[var])
+                        / (np.max(np.abs(fluidStateOld[var])) + 1e-300)
+                    ) < convergenceTolerance
+                    for var in ("Density", "Velocity", "Pressure", 'staticInternalEnergy')
+                )
+                convergenceHist = convergenceHist + [True] if converged else []
+                if len(convergenceHist) >= 20:
+                    # Force the loop to end at timeMax on the next iteration.
+                    newTime = timeMax
+                    convergedSimulation = True
 
             # Advance physical time.
             time          = newTime
             fluidStateOld = copy.deepcopy(fluidState)
+
+            
 
         # if nozzle simulation ended without converging due to time limit exceeding, inform the user
         # about this with a fair warning, suggesting to increase the time limit.
@@ -1640,7 +1646,7 @@ def _applyOutletBC(location, iHalo, iInternal, config, fluidModel, fluidState):
 #  Time stepping
 # -----------------------------------------------------------------------------
 
-def computeTimeStep(fluidState, meshData, fluidModel, cflMax):
+def computeTimeStep(fluidState, meshData, cflMax):
     """
     Compute the maximum CFL-limited timestep over all interior nodes.
 
@@ -1665,8 +1671,6 @@ def computeTimeStep(fluidState, meshData, fluidModel, cflMax):
     """
     # Slice to interior nodes only (exclude the two halo nodes).
     velocity  = fluidState["Velocity"][1:-1]
-    pressure  = fluidState["Pressure"][1:-1]
-    density   = fluidState["Density"][1:-1]
     dx        = meshData["meshNodeSpacing"][1:-1]
 
     # Soundspeed already precomputed at start of iteration. 
@@ -2163,34 +2167,11 @@ def computeSourceTerms(config, meshData, fluidModel, fluidState):
         # compute dynamic viscosity for real fluid using the current state
         elif config.fluidModelType() == "real":
             mu_2phase = fluidModel.computeDynamicViscosity_p_rho(p, rho)    
-            mu = mu_2phase   
+            mu = mu_2phase 
         Re_2phase = rho * np.abs(u) * (2*meshData["yMeshNodes"]) / mu
         f = (-1.81 * np.log10(6.9/Re_2phase))**-2  # Darcy-Weisbach friction factor
-        D = 2*meshData["yMeshNodes"]
-        P_w = np.pi * D
-        # show percentage change of source term magnitude by adding darcy friction
-        source_magnitude = np.linalg.norm(source[:, 1])
-        friction_magnitude = np.linalg.norm(0.125 * f * rho * u**2 * P_w)
-        percentage_change = (friction_magnitude / source_magnitude) * 100
-        # print("source magnitude:", source_magnitude)
-        # print("friction magnitude:", friction_magnitude)
-        # print(f"Percentage change in momentum source term due to wall friction: {percentage_change:.2f}%")
-        source[:, 1] -= 0.125 * f * rho * u**2 * P_w
-
-    # print all variables and magnitude
-    # print("rho:", rho)
-    # print("u:", u)
-    # print("p:", p)
-    # print("e:", e)
-    # print("area:", area)
-    # print("dAdx:", dAdx)
-    # print("geomFactor:", geomFactor)
-    # print("mu:", mu)
-    # print("Re_2phase:", Re_2phase)
-    # print("log10(6.9/Re_2phase):", np.log10(6.9/Re_2phase))
-    # print("f:", f)
-    # print("D:", D)
-    # print("P_w:", P_w)
+        P_w = 2 * (2 * meshData["yMeshNodes"]) + 2
+        source[:, 1] -= 0.125 * f * rho * u**2 * P_w / area
 
     return source
 
@@ -2271,12 +2252,9 @@ def _computeCFLField(fluidState, meshData, fluidModel, dt):
     velocity = fluidState["Velocity"][1:-1]
     dx       = meshData["meshNodeSpacing"][1:-1]
 
-    soundSpeed = np.array([
-        fluidModel.computeSoundSpeed_p_rho(pressure[i], density[i])
-        for i in range(len(velocity))
-    ])
+    fluidState["soundSpeed"] =  fluidModel.computeSoundSpeed_p_rho(pressure, density)
 
-    cfl = (np.abs(velocity) + soundSpeed) * dt / dx
+    cfl = (np.abs(velocity) + fluidState["soundSpeed"][1:-1]) * dt / dx
     return cfl
 
 

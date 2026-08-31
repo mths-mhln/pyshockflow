@@ -96,7 +96,7 @@ def computeFluxRoeBaseNoMUSCL(rhoL, rhoR, uL, uR, pL, pR, fluidState, fluid, ent
     method _can_ be reused. """
     # unpack the fluid state dictionary for easier access to the variables
     # and reducing the amount of dictionary lookups.
-    e = fluidState["internalEnergy"]
+    e = fluidState["staticInternalEnergy"]
     u = fluidState["Velocity"]
     p = fluidState["Pressure"]
     rho = fluidState["Density"]
@@ -268,7 +268,7 @@ def computeFluxRoeArabiNoMUSCL(rhoL, rhoR, uL, uR, pL, pR, fluidState, entropyFi
     method _can_ be reused."""
     # unpack the fluid state dictionary for easier access to the variables
     # and reducing the amount of dictionary lookups.
-    e = fluidState["internalEnergy"]
+    e = fluidState["staticInternalEnergy"]
     u = fluidState["Velocity"]
     p = fluidState["Pressure"]
     rho = fluidState["Density"]
@@ -504,7 +504,7 @@ def computeFluxRoeVinokurNoMUSCL(rhoL, rhoR, uL, uR, pL, pR, fluidState, fluid, 
     method _can_ be reused."""
     # unpack the fluid state dictionary for easier access to the variables
     # and reducing the amount of dictionary lookups.
-    e = fluidState["internalEnergy"]
+    e = fluidState["staticInternalEnergy"]
     u = fluidState["Velocity"]
     p = fluidState["Pressure"]
     rho = fluidState["Density"]
