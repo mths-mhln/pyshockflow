@@ -154,16 +154,20 @@ def compare_results_with_reference(case_dir):
     # compare generated results with reference files. Naming convention used to be different
     # so I temporarily went around it, you can easily standerdize this to the new data format
     # by running the test case separately, copying the results pkl and copying it as the reference pkl. 
+    print(file_datas[0])
     try:
         assert file_datas[0]['X Coords'].shape == file_datas[1]["meshData"]['xMeshNodes'].shape, "X Coords shape mismatch between reference and result"
     except:
         try: 
             assert file_datas[0]['X Coords'].shape == file_datas[1]['X Coords'].shape, "X Coords shape mismatch between reference and result"
         except:
-            assert file_datas[0]["meshData"]['xMeshNodes'].shape == file_datas[1]["meshData"]['xMeshNodes'].shape, "X Coords shape mismatch between reference and result"
+            try:
+                assert file_datas[0]["meshData"]['xMeshNodes'].shape == file_datas[1]["meshData"]['xMeshNodes'].shape, "X Coords shape mismatch between reference and result"
+            except:
+                assert file_datas[0]['xMeshNodes'].shape == file_datas[1]["meshData"]['xMeshNodes'].shape, "X Coords shape mismatch between reference and result"
     
     keys_to_check = ['Pressure', 'Velocity', 'Density']
-    # print(file_datas[0])
+    print(file_datas[0])
     for key in keys_to_check:
         try:
             they_agree, err = result_arrays_agree(file_datas[0]['Primitive'][key][:, -1], file_datas[1]['fluidStateHistory'][key][:, -1])
@@ -171,7 +175,10 @@ def compare_results_with_reference(case_dir):
             try:
                 they_agree, err = result_arrays_agree(file_datas[0]['Primitive'][key][:, -1], file_datas[1]['Primitive'][key][:, -1])
             except:
-                they_agree, err = result_arrays_agree(file_datas[0]['fluidStateHistory'][key][:, -1], file_datas[1]["fluidStateHistory"][key][:, -1])
+                try:
+                    they_agree, err = result_arrays_agree(file_datas[0]['fluidStateHistory'][key][:, -1], file_datas[1]["fluidStateHistory"][key][:, -1])
+                except:
+                     they_agree, err = result_arrays_agree(file_datas[0]['fluidState'][key][:, -1], file_datas[1]["fluidStateHistory"][key][:, -1])
         assert they_agree, f"{key} field mismatch between reference and result with relative error {err:.2e}"
     
 

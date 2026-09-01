@@ -254,34 +254,33 @@ class FluidReal():
 
     def _computeSoundSpeedScalar(self, p, rho):
         # This is the critical fix - avoid recursive calls
-        if self.extraction_method == 'fluid':
-            return self._computeSoundSpeed_p_rho_single_fluid(p, rho)
-        else:
-            return self._computeSoundSpeed_p_rho_single(p, rho)
+        # if self.extraction_method == 'fluid':
+        #     return self._computeSoundSpeed_p_rho_single_fluid(p, rho)
+        # else:
+        return self._computeSoundSpeed_p_rho_single(p, rho)
 
-    @staticmethod
-    def _computeSoundSpeed_p_rho_single_fluid(p, rho, fluid):
+    def _computeSoundSpeed_p_rho_single_fluid(self, p, rho):
         """Sound speed calculation for string-based fluid"""
-        phase = CP.PropsSI("Phase", "P", p, "D", rho, fluid)
+        phase = CP.PropsSI("Phase", "P", p, "D", rho, self.fluid_name)
         
         if phase == 6:  # Two-phase
             # Use HEM model
-            T = CP.PropsSI("T", "P", p, "D", rho, fluid)
-            y_V = CP.PropsSI("Q", "P", p, "D", rho, fluid)
+            T = CP.PropsSI("T", "P", p, "D", rho, self.fluid_name)
+            y_V = CP.PropsSI("Q", "P", p, "D", rho, self.fluid_name)
             y_L = 1 - y_V
-            soundSpeed_L = CP.PropsSI("A", "P", p, "Q", 0, fluid)
-            soundSpeed_V = CP.PropsSI("A", "P", p, "Q", 1, fluid)
-            rho_L = CP.PropsSI("D", "P", p, "Q", 0, fluid)
-            rho_V = CP.PropsSI("D", "P", p, "Q", 1, fluid)
-            c_p_L = CP.PropsSI("Cpmass", "P", p, "Q", 0, fluid)
-            c_p_V = CP.PropsSI("Cpmass", "P", p, "Q", 1, fluid)
+            soundSpeed_L = CP.PropsSI("A", "P", p, "Q", 0, self.fluid_name)
+            soundSpeed_V = CP.PropsSI("A", "P", p, "Q", 1, self.fluid_name)
+            rho_L = CP.PropsSI("D", "P", p, "Q", 0, self.fluid_name)
+            rho_V = CP.PropsSI("D", "P", p, "Q", 1, self.fluid_name)
+            c_p_L = CP.PropsSI("Cpmass", "P", p, "Q", 0, self.fluid_name)
+            c_p_V = CP.PropsSI("Cpmass", "P", p, "Q", 1, self.fluid_name)
             alpha_V = y_V * (rho/rho_V)
             alpha_L = y_L * (rho/rho_L)
             
-            ds_dp_cQ_L = (CP.PropsSI("S", "P", p + 1e3, "Q", 0, fluid) -
-                          CP.PropsSI("S", "P", p - 1e3, "Q", 0, fluid)) / (2 * 1e3)
-            ds_dp_cQ_V = (CP.PropsSI("S", "P", p + 1e3, "Q", 1, fluid) -
-                          CP.PropsSI("S", "P", p - 1e3, "Q", 1, fluid)) / (2 * 1e3)
+            ds_dp_cQ_L = (CP.PropsSI("S", "P", p + 1e3, "Q", 0, self.fluid_name) -
+                          CP.PropsSI("S", "P", p - 1e3, "Q", 0, self.fluid_name)) / (2 * 1e3)
+            ds_dp_cQ_V = (CP.PropsSI("S", "P", p + 1e3, "Q", 1, self.fluid_name) -
+                          CP.PropsSI("S", "P", p - 1e3, "Q", 1, self.fluid_name)) / (2 * 1e3)
             
             a = (rho * (
                     alpha_L / (rho_L * soundSpeed_L**2) +
@@ -292,11 +291,11 @@ class FluidReal():
             return a
         else:
             # Single phase
-            return CP.PropsSI("A", "P", p, "D", rho, fluid)
+            return CP.PropsSI("A", "P", p, "D", rho, self.fluid_name)
 
     def _computeSoundSpeed_p_rho_single(self, p, rho):
         """Sound speed calculation for AbstractState-based fluids"""
-        if self.extraction_method in ['abstractstate_v2', 'abstractstate_v3']:
+        if self.extraction_method == 'abstractstate_v2':
             # Use the wrapper's PropsSI method
             phase = self.fluid.PropsSI("Phase", "P", p, "D", rho)
         else:
@@ -309,7 +308,7 @@ class FluidReal():
             y_V = self._get_property('Q', 'P', p, 'D', rho)
             y_L = 1 - y_V
             
-            if self.extraction_method in ['abstractstate_v2', 'abstractstate_v3']:
+            if self.extraction_method == 'abstractstate_v2':
                 soundSpeed_L = self.fluid.PropsSI("A", "P", p, "Q", 0)
                 soundSpeed_V = self.fluid.PropsSI("A", "P", p, "Q", 1)
                 rho_L = self.fluid.PropsSI("D", "P", p, "Q", 0)

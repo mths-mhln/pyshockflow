@@ -274,7 +274,7 @@ class Config:
                 ("inlet", "outlet"),      ("outlet", "inlet"),
                 ("outlet", "transparent"), ("transparent", "outlet"),
             ]
-            if ((bc_left, bc_right) not in linear_init_pairs) or (self.enforceUniformInitNozzleBool()):
+            if ((bc_left, bc_right) not in linear_init_pairs) or (self.enforceUniformNozzleInitBool()):
                 # user must specify inputs "PRESSURE", "VELOCITY", ()"DENSITY" or "TEMPERATURE") in the config file
                 # check "PRESSURE" and "VELOCITY"
                 if self._parser.has_option("INITIAL CONDITIONS", "PRESSURE") is False:
@@ -371,10 +371,10 @@ class Config:
 
         # in case of nozzle expansions, enforce_uniform_init_nozzle = False prohibits specification of the 
         # initial conditions PRESSURE, VELOCITY, DENSITY or TEMPERATURE
-        if expansion_device_type == "nozzle" and not self.enforceUniformInitNozzleBool():
+        if expansion_device_type == "nozzle" and not self.enforceUniformNozzleInitBool():
             check_prohibited_keys(
                 {"INITIAL CONDITIONS": ["PRESSURE", "VELOCITY", "DENSITY", "TEMPERATURE"]},
-                "ENFORCE_UNIFORM_INIT_NOZZLE_BOOL is False"
+                "ENFORCE_UNIFORM_NOZZLE_INIT_BOOL is False"
             )
 
         return None
@@ -464,8 +464,8 @@ class Config:
     def initialDensity(self) -> float:
         return self._get_float("INITIAL CONDITIONS", "DENSITY", positive=True)
 
-    def enforceUniformInitNozzleBool(self) -> bool:
-        return self._get_bool("INITIAL CONDITIONS", "ENFORCE_UNIFORM_INIT_NOZZLE_BOOL", default=False)
+    def enforceUniformNozzleInitBool(self) -> bool:
+        return self._get_bool("INITIAL CONDITIONS", "ENFORCE_UNIFORM_NOZZLE_INIT_BOOL", default=False)
     
     
     

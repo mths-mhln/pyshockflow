@@ -890,7 +890,7 @@ class Driver:
                 ("inlet", "transparent"),
                 ("transparent", "inlet"),
             ]
-            if tuple(bcs) in linearBCPairs and not config.enforceUniformInitNozzleBool():
+            if tuple(bcs) in linearBCPairs and not config.enforceUniformNozzleInitBool():
                 fluidState = _imposeInitialConditionsNozzleLinear(
                     config, meshData, fluidModel, fluidState
                 )
