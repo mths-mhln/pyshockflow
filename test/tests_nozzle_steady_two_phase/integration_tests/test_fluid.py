@@ -41,7 +41,7 @@ def test_CM56_SOS_testing_test_1(fluid_real_obj, verification_data_path):
     with open(verification_data_path, "rb") as f:
         data = pickle.load(f)
 
-    print(f"fluid: {fluid_real_obj.fluid}, data: {data}")
+    # print(f"fluid: {fluid_real_obj.fluid}, data: {data}")
     
     # data structure
     #{
@@ -89,8 +89,8 @@ def test_CM56_SOS_testing_test_1(fluid_real_obj, verification_data_path):
     thdy_coords = data["parallel_000"]["thdy_coords"]
     p = FP.PropsSI("P", "T", thdy_coords[:, 1], "S", thdy_coords[:, 0], fluid_real_obj.fluid)
     rho = FP.PropsSI("D", "T", thdy_coords[:, 1], "S", thdy_coords[:, 0], fluid_real_obj.fluid)
-    print("pressures: ", p)
-    print("densities: ", rho)
+    # print("pressures: ", p)
+    # print("densities: ", rho)
     expected_sound_speed = data["parallel_000"]["sound_speed"]
     sound_speed = fluid_real_obj.computeSoundSpeed_p_rho(p, rho)
     assert sound_speed == pytest.approx(expected_sound_speed, rel=1e-3)
@@ -219,11 +219,11 @@ def test_CM92_CoolProp_mixture_thdy_properties(fluid_real_obj, verification_data
 
         # drop all NaN values, for assertion testing.
         prop_eval = prop_eval[~np.isnan(prop_eval)]    
-        print(np.sum(np.isnan(prop_eval)))
+        # print(np.sum(np.isnan(prop_eval)))
 
         # compare the computed property with the expected property from the verification data
         expected_prop_eval = data[prop_type]["vals"].ravel()
-        print(np.sum(np.isnan(expected_prop_eval)))
+        # print(np.sum(np.isnan(expected_prop_eval)))
 
-        print(prop_eval.size, expected_prop_eval.size)
+        # print(prop_eval.size, expected_prop_eval.size)
         assert prop_eval == pytest.approx(expected_prop_eval, rel=1e-3)
