@@ -1,22 +1,22 @@
 # Byte-compiled / optimized / DLL files (any format)
-*__pycache__/
+**__pycache__/
 
 # Distribution / packaging
-*.egg-info/
+**.egg-info/
 
 # Environments
-.venv/
+**.venv/
 
 # Custom folders
-*/benchmarking_tools/
-*/investigations/
-*/terminal_outputs/
+**/benchmarking_tools/
+**/investigations/
+**/terminal_outputs/
 
 # files
-*.pik
-*.pkl
-*.mp4
-*.pdf
+**.pik
+**.pkl
+**.mp4
+**.pdf
 
 
 
