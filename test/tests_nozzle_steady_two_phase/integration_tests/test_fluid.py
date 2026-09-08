@@ -40,8 +40,6 @@ def test_CM56_SOS_testing_test_1(fluid_real_obj, verification_data_path):
     """
     with open(verification_data_path, "rb") as f:
         data = pickle.load(f)
-
-    # print(f"fluid: {fluid_real_obj.fluid}, data: {data}")
     
     # data structure
     #{
@@ -59,7 +57,7 @@ def test_CM56_SOS_testing_test_1(fluid_real_obj, verification_data_path):
     rho = FP.PropsSI("D", "T", thdy_coords[:, 1], "S", thdy_coords[:, 0], fluid_real_obj.fluid)
     expected_sound_speed = data["isentropic_expansion"]["sound_speed"]
     sound_speed = fluid_real_obj.computeSoundSpeed_p_rho(p, rho)
-    assert sound_speed == pytest.approx(expected_sound_speed, rel=1e-3)
+    assert sound_speed == pytest.approx(expected_sound_speed, rel=1e-3), "CM56_SOS_testing_test_1 - assert case 1 - isentropic expansion failed"
 
     # assert case 2 - isothermal process
     thdy_coords = data["isothermal_process"]["thdy_coords"]
@@ -67,7 +65,7 @@ def test_CM56_SOS_testing_test_1(fluid_real_obj, verification_data_path):
     rho = FP.PropsSI("D", "T", thdy_coords[:, 1], "S", thdy_coords[:, 0], fluid_real_obj.fluid)
     expected_sound_speed = data["isothermal_process"]["sound_speed"]
     sound_speed = fluid_real_obj.computeSoundSpeed_p_rho(p, rho)
-    assert sound_speed == pytest.approx(expected_sound_speed, rel=1e-3)
+    assert sound_speed == pytest.approx(expected_sound_speed, rel=1e-3), "CM56_SOS_testing_test_1 - assert case 2 - isothermal process failed"
 
     # assert case 3 - parallel_plus_001
     thdy_coords = data["parallel_plus_001"]["thdy_coords"]
@@ -75,7 +73,7 @@ def test_CM56_SOS_testing_test_1(fluid_real_obj, verification_data_path):
     rho = FP.PropsSI("D", "T", thdy_coords[:, 1], "S", thdy_coords[:, 0], fluid_real_obj.fluid)
     expected_sound_speed = data["parallel_plus_001"]["sound_speed"]
     sound_speed = fluid_real_obj.computeSoundSpeed_p_rho(p, rho)
-    assert sound_speed == pytest.approx(expected_sound_speed, rel=1e-3)
+    assert sound_speed == pytest.approx(expected_sound_speed, rel=1e-3), "CM56_SOS_testing_test_1 - assert case 3 - parallel_plus_001 failed"
 
     # assert case 4 - parallel_minus_001
     thdy_coords = data["parallel_minus_001"]["thdy_coords"]
@@ -83,17 +81,15 @@ def test_CM56_SOS_testing_test_1(fluid_real_obj, verification_data_path):
     rho = FP.PropsSI("D", "T", thdy_coords[:, 1], "S", thdy_coords[:, 0], fluid_real_obj.fluid)
     expected_sound_speed = data["parallel_minus_001"]["sound_speed"]
     sound_speed = fluid_real_obj.computeSoundSpeed_p_rho(p, rho)
-    assert sound_speed == pytest.approx(expected_sound_speed, rel=1e-3)
+    assert sound_speed == pytest.approx(expected_sound_speed, rel=1e-3), "CM56_SOS_testing_test_1 - assert case 4 - parallel_minus_001 failed"
 
     # assert case 5 - parallel_000
     thdy_coords = data["parallel_000"]["thdy_coords"]
     p = FP.PropsSI("P", "T", thdy_coords[:, 1], "S", thdy_coords[:, 0], fluid_real_obj.fluid)
     rho = FP.PropsSI("D", "T", thdy_coords[:, 1], "S", thdy_coords[:, 0], fluid_real_obj.fluid)
-    # print("pressures: ", p)
-    # print("densities: ", rho)
     expected_sound_speed = data["parallel_000"]["sound_speed"]
     sound_speed = fluid_real_obj.computeSoundSpeed_p_rho(p, rho)
-    assert sound_speed == pytest.approx(expected_sound_speed, rel=1e-3)
+    assert sound_speed == pytest.approx(expected_sound_speed, rel=1e-3), "CM56_SOS_testing_test_1 - assert case 5 - parallel_000 failed"
     
 
 
@@ -139,7 +135,7 @@ def test_CM56_SOS_testing_test_2(fluid_real_obj, verification_data_path):
     
     # compare the computed sound speed with the expected sound speed from the verification data
     expected_soundSpeed_HEM = data["HEM_sound_speed"]
-    assert soundSpeed_HEM == pytest.approx(expected_soundSpeed_HEM, rel=1e-3)
+    assert soundSpeed_HEM == pytest.approx(expected_soundSpeed_HEM, rel=1e-3), "CM56_SOS_testing_test_2 - HEM sound speed failed"
 
 
 
@@ -199,7 +195,7 @@ def test_CM92_CoolProp_mixture_thdy_properties(fluid_real_obj, verification_data
     #  "P": {"vals": np.2darray([...]), "coords": (S_grid, T_grid)},
     #  "Q": {"vals": np.2darray([...]), "coords": (S_grid, T_grid)}}
 
-    AS = CoolPropAbstractState_v2(fluid_real_obj.fluid.Library, fluid_real_obj.fluid.Name)
+    AS = CoolPropAbstractState_v2(fluid_real_obj.fluid_library, fluid_real_obj.fluid_name)
 
     for prop_type in data.keys():
         # extract coords (at which to evaluate the property)

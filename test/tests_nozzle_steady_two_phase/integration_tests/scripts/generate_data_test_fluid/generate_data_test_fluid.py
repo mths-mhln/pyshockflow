@@ -127,7 +127,7 @@ for fluid in fluid_data.keys():
     P = AS.PropsSI("P", "T", T, "S", S)
     rho = AS.PropsSI("D", "T", T, "S", S)
     sound_speeds = np.array([fluid_real_obj.computeSoundSpeed_p_rho(p, rho) for p, rho in zip(P, rho)])
-    thdy_coords = np.column_stack((S, T))
+    thdy_coords = np.column_stack((S, T))   
     data_dict["isentropic_expansion"]["thdy_coords"] = thdy_coords
     data_dict["isentropic_expansion"]["sound_speed"] = sound_speeds
 
