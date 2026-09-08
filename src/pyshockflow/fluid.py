@@ -29,9 +29,12 @@ class FluidIdeal():
     def computeTotalInternalEnergy_Tt(self, Tt):
         return self.Rgas*Tt/(self.gmma-1)
 
+    def computeEnthalpy_T(self, T):
+        return self.gmma*self.Rgas*T/(self.gmma-1)
+
     def computeEntropy_p_rho(self, p, rho):
         return p/(rho**self.gmma)
-
+    
 
 
     def computeSoundSpeed_p_rho(self, p, rho):
