@@ -1,6 +1,9 @@
 # Byte-compiled / optimized / DLL files (any format)
 **__pycache__/
 
+# ruff caches
+**.ruff_cache/
+
 # Distribution / packaging
 **.egg-info/
 
@@ -12,16 +15,11 @@
 **/investigations/
 **/terminal_outputs/
 
+# pickle files only ingored when being results files
+**/Results/**/*.pik
+**/Results/**/*.pkl
+**Results.pik
+
 # files
-**.pik
-**.pkl
 **.mp4
 **.pdf
-
-
-
-
-
-
-
-
