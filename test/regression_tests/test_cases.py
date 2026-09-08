@@ -185,6 +185,8 @@ def compare_results_with_reference(case_dir):
 def clean_results(case_dir):
     """
     Remove the Results directory to ensure a clean state for the next run.
+    Also remove the log file containing the terminal output of the solver
+    during test case evaluation. 
 
     Arguments
     ---------
@@ -198,6 +200,10 @@ def clean_results(case_dir):
     results_dir = case_dir / "Results"
     if results_dir.exists():
         shutil.rmtree(results_dir)
+    # remove log file
+    log_file = case_dir / "log.txt"
+    if log_file.exists():
+        log_file.unlink()
 
 
 
