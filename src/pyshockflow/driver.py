@@ -653,7 +653,7 @@ class Driver:
             inletConditionsValues = config.inletConditionsValues()
             if isTotalInlet:
                 if 0.0 <= inletConditionsValues[1] <= 1.0:
-                    inletConditionsVars = "ptQt"
+                    inletConditionsVars = "ptQ"
                 else:
                     inletConditionsVars = "ptTt"
             if isStaticInlet:
@@ -803,10 +803,19 @@ class Driver:
                         )
                     else:
                         totalEnthalpy = fluidModel.computeEnthalpy_T(totalTemperature)
-                elif inletConditionsVars == "ptQt":
+                elif inletConditionsVars == "ptQ":
                     if config.fluidModelType() == "real":
-                        totalPressure, totalQuality = inletConditionsValues[:2]
-                        totalEnthalpy = fluidModel.computeEnthalpy_p_Q(totalPressure, totalQuality)
+                        totalPressure, _ = inletConditionsValues[:2]
+                        totalInternalEnergy = fluidState["staticInternalEnergy"][inletIdx] + \
+                            (totalPressure - fluidState["Pressure"][inletIdx]) / \
+                            (0.25 * fluidState["Density"][inletIdx])
+                        cp = fluidModel.computeSpecificHeatCP_p_rho(
+                            fluidState["Pressure"][inletIdx], fluidState["Density"][inletIdx]
+                        )
+                        cv = fluidModel.computeSpecificHeatCV_p_rho(
+                            fluidState["Pressure"][inletIdx], fluidState["Density"][inletIdx]
+                        )   
+                        totalEnthalpy = (cp / cv) * totalInternalEnergy
                     else:
                         raise NotImplementedError(
                             "Total inlet conditions specified via (pt, Qt) are not supported "
@@ -823,13 +832,14 @@ class Driver:
                     staticEnthalpyField = fluidModel.computeEnthalpy_p_s(
                         fluidState["Pressure"], staticEntropyField
                     )
+                    # one could also use the method below. The isentropic assumption
+                    # was made when the static density was computed thorughout the flow 
+                    # domain. However, the code can be left as-is :)
                 if config.fluidModelType() == "ideal":
                     # under ideal gas assumptions the enthlapy is computed from the 
                     # temperature only: 
                     staticEnthalpyField = fluidState["staticInternalEnergy"] + \
-                    fluidState["Pressure"] / fluidState["Density"]
-                    # the above should work for the real gas model as well given enthalpy 
-                    # is a defenition. However, the code can be left as-is :)
+                        fluidState["Pressure"] / fluidState["Density"]
 
                 fluidState["Velocity"] = np.sqrt(
                     2 * (totalEnthalpyField - staticEnthalpyField)
@@ -974,7 +984,7 @@ class Driver:
             inletConditionsValues = config.inletConditionsValues()
             if isTotalInlet:
                 if 0.0 <= inletConditionsValues[1] <= 1.0:
-                    inletConditionsVars = "ptQt"
+                    inletConditionsVars = "ptQ"
                 else:
                     inletConditionsVars = "ptTt"
             else:
@@ -994,10 +1004,11 @@ class Driver:
         elif bcRight == "periodic":
             fluidState = _applyPeriodicBC("right", fluidState)
         elif bcRight == "inlet":
+            isTotalInlet = config.inletConditionsType().lower() == "total"
             inletConditionsValues = config.inletConditionsValues()
             if isTotalInlet:
                 if 0.0 <= inletConditionsValues[1] <= 1.0:
-                    inletConditionsVars = "ptQt"
+                    inletConditionsVars = "ptQ"
                 else:
                     inletConditionsVars = "ptTt"
             else:
@@ -1565,16 +1576,16 @@ def _applyInletBC(iHalo, iInternal, fluidModel, fluidState,
             density, velocity, energy = fluidModel.computeInletQuantitiesTotal_pt_Tt(
                 pressure, totalPressure, totalTemperature, massFlowDirection
             )
-        elif inletConditionsVars == "ptQt":
-            totalQuality      = inletConditionsValues[1]
+        elif inletConditionsVars == "ptQ":
+            staticQuality      = inletConditionsValues[1]
             massFlowDirection = inletConditionsValues[2]
             density, velocity, energy = fluidModel.computeInletQuantitiesTotal_pt_Q(
-                pressure, totalPressure, totalQuality, massFlowDirection
+                pressure, totalPressure, staticQuality, massFlowDirection
             )
         else:
             raise ValueError(
                 f"Unknown inlet condition variable set '{inletConditionsVars}'. "
-                "Must be 'ptTt' or 'ptQt'."
+                "Must be 'ptTt' or 'ptQ'."
             )
 
     else: # static inlet

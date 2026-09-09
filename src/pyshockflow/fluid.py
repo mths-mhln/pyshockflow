@@ -359,9 +359,6 @@ class FluidReal():
     def computeDensity_p_T(self, p, T):
         return self._get_property('D', 'P', p, 'T', T)
 
-    def computeDensity_p_S(self, p, s):
-        return self._get_property('D', 'P', p, 'S', s)
-
     def computeDensity_p_s(self, p, s):
         return self._get_property('D', 'P', p, 'S', s)
 
@@ -412,6 +409,12 @@ class FluidReal():
 
     def computeQuality_p_rho(self, p, rho):
         return self._get_property('Q', 'P', p, 'D', rho)
+
+    def computeSpecificHeatCP_p_rho(self, p, rho):
+        return self._get_property('Cpmass', 'P', p, 'D', rho)
+
+    def computeSpecificHeatCV_p_rho(self, p, rho):
+        return self._get_property('Cvmass', 'P', p, 'D', rho)
 
     def computeSoundSpeed_p_rho(self, p, rho):
         p_arr = np.asarray(p, dtype=float)
@@ -487,18 +490,20 @@ class FluidReal():
         return mach
 
     def computeInletQuantitiesTotal_pt_Tt(self, pressure, totPressure, totTemperature, direction):
-        entropyTotal = self.computeEntropy_p_T(totPressure, totTemperature)
-        density = self.computeDensity_p_S(pressure, entropyTotal)
+        totalEntropy = self.computeEntropy_p_T(totPressure, totTemperature)
+        # total conditions are by definition isentropic retardation of the flow, so isentropic 
+        # conditions apply.
+        density = self.computeDensity_p_s(pressure, totalEntropy)
         enthalpyTotal = self.computeEnthalpy_p_T(totPressure, totTemperature)
         enthalpyStatic = self.computeEnthalpy_p_rho(pressure, density)
         velocity = direction * np.sqrt(2 * (enthalpyTotal - enthalpyStatic))
         energy = self.computeInternalEnergy_p_rho(pressure, density)
         return density, velocity, energy
 
-    def computeInletQuantitiesTotal_pt_Q(self, pressure, totPressure, quality, direction):
-        entropyTotal = self.computeEntropy_p_Q(totPressure, quality)
-        density = self.computeDensity_p_S(pressure, entropyTotal)
-        enthalpyTotal = self.computeEnthalpy_p_Q(totPressure, quality)
+    def computeInletQuantitiesTotal_pt_Q(self, pressure, totPressure, staticQuality, direction):
+        staticEntropy = self.computeEntropy_p_Q(pressure, staticQuality)
+        density = self.computeDensity_p_s(pressure, staticEntropy)
+        enthalpyTotal = self.computeEnthalpy_p_s(totPressure, staticEntropy)
         enthalpyStatic = self.computeEnthalpy_p_rho(pressure, density)
         velocity = direction * np.sqrt(2 * (enthalpyTotal - enthalpyStatic))
         energy = self.computeInternalEnergy_p_rho(pressure, density)
