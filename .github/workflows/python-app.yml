@@ -53,4 +53,3 @@ jobs:
         cd test/integration_tests/
         uv run pytest test_fluid.py
         cd ../..
-        
