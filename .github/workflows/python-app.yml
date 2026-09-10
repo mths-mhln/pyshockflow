@@ -22,11 +22,11 @@ jobs:
       with:
         ref: CM_14_6
 
-    - name: Install uv
-      uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
-      with:
-        # Install a specific version of uv.
-        version: "0.11.14"
+    # - name: Install uv
+    #   uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+    #   with:
+    #     # Install a specific version of uv.
+    #     version: "0.11.14"
     
     - name: create virtual environment w/ uv based on lock file
       run: |
@@ -36,11 +36,6 @@ jobs:
     - name: Install dependencies in venv
       run: |
         uv pip install -e .
-
-      
-    - name: test
-      run: |
-        uv pip list
         
     - name: Perform regression tests
       run: |
