@@ -23,3 +23,7 @@
 # files
 **.mp4
 **.pdf
+
+# github
+actions-runner/
+.github/workflows/
