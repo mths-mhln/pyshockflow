@@ -841,6 +841,7 @@ class Driver:
                     staticEnthalpyField = fluidState["staticInternalEnergy"] + \
                         fluidState["Pressure"] / fluidState["Density"]
 
+                print(totalEnthalpyField - staticEnthalpyField)
                 fluidState["Velocity"] = np.sqrt(
                     2 * (totalEnthalpyField - staticEnthalpyField)
                 )
@@ -2278,9 +2279,9 @@ def _computeCFLField(fluidState, meshData, fluidModel, dt):
     velocity = fluidState["Velocity"][1:-1]
     dx       = meshData["meshNodeSpacing"][1:-1]
 
-    fluidState["soundSpeed"] =  fluidModel.computeSoundSpeed_p_rho(pressure, density)
+    soundSpeed =  fluidModel.computeSoundSpeed_p_rho(pressure, density)
 
-    cfl = (np.abs(velocity) + fluidState["soundSpeed"][1:-1]) * dt / dx
+    cfl = (np.abs(velocity) + soundSpeed) * dt / dx
     return cfl
 
 

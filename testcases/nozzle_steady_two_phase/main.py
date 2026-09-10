@@ -7,7 +7,7 @@ from pyshockflow import Config
 
 
 # configFile = "inputs/config_files/lettieri/L1_smooth.ini"
-configFile = "inputs/config_files/lettieri/L1_friction.ini"
+# configFile = "inputs/config_files/lettieri/L1_friction.ini"
 # configFile = "inputs/config_files/lettieri/L5_smooth.ini"
 # configFile = "inputs/config_files/lettieri/L5_friction.ini"
 # configFile = "inputs/config_files/petruccelli/P1.ini"
@@ -28,7 +28,7 @@ configFile = "inputs/config_files/lettieri/L1_friction.ini"
 # configFile = "inputs/config_files/CM-15.3/roe_vinokur/single_phase_gas.ini"
 # configFile = "inputs/config_files/CM-15.3/roe_vinokur/two_phase.ini"
 
-
+configFile = "inputs/config_files/CM-10.2/test_conf.ini"
 
 # config = Config(configFile)
 # driver = Driver(config=config)
