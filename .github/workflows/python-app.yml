@@ -38,13 +38,13 @@ jobs:
         uv venv
         source .venv/bin/activate
 
-    - name: test
-      run: |
-        uv pip list
-
     - name: Install dependencies in venv
       run: |
         uv pip install -e .
+      
+    - name: test
+      run: |
+        uv pip list
         
     - name: Perform regression tests
       run: |
