@@ -27,7 +27,12 @@ jobs:
       with:
         # Install a specific version of uv.
         version: "0.11.14"
-    
+
+
+    - name: test
+      run: |
+        uv pip list
+
     # - name: Set up Python 3.12
     #   uses: actions/setup-python@v3
     #   with:
