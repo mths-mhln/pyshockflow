@@ -50,11 +50,11 @@ jobs:
     - name: Perform regression tests
       run: |
         cd test/regression_tests/
-        python -m pytest test_cases.py
+        uv run pytest test_cases.py
         cd ../..
 
     - name: Perform fluid integration test
       run: |
         cd test/integration_tests/
-        python -m pytest test_fluid.py
+        uv run pytest test_fluid.py
         cd ../..
