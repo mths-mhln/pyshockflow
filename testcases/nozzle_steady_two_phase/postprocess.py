@@ -11,13 +11,14 @@ from pyshockflow import Driver, Config
 
 # files whose data to extract:
 configFiles = [
-    "inputs/config_files/lettieri/L1_friction.ini",
+    # "inputs/config_files/lettieri/L1_friction.ini",
     # "inputs/config_files/lettieri/L1_smooth.ini",
+    "inputs/config_files/CM-10.2/test_conf.ini"
 ]
 
 # perform verification on the simulation
 verificationDataFiles = [
-    "verification_data/lettieri/L1_friction__pressure.csv", 
+    # "verification_data/lettieri/L1_friction__pressure.csv", 
     # "verification_data/lettieri/L1_smooth__pressure.csv"
 ]
 

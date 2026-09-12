@@ -103,7 +103,7 @@ class Driver:
         conservativeState  = self._conservativesFromFluidState(fluidState, fluidModel)
 
         # Output paths - created fresh (never from a previous run).
-        resultsSubdirPath = self._prepareResultsSubdirPath(config, meshData, restartFilePath=None)
+        resultsSubdirPath = self._prepareResultsSubdirPath(config, restartFilePath=None)
 
         # Pack everything the solver needs into attributes.
         self.config              = config
@@ -115,6 +115,7 @@ class Driver:
         self.resultsSubdirPath   = resultsSubdirPath
         self.time                = 0.0
         self.iterationIndex      = 0
+        self.restartFilePath     = None
 
 
     def prepareRestart(self, config, restartFilePath):
@@ -138,15 +139,15 @@ class Driver:
         timeElapsed, fluidStateRestart, configRestart, iterationIndex = \
             self.extractRestartData(restartFilePath)
 
-        print(
-            f"Restarting simulation from file {restartFilePath} "
-            f"at iteration {iterationIndex} and time elapsed {timeElapsed:.6e} s"
-        )
-
         # Allow the user to override the stored config by supplying a new file.
         config = config if config is not None else configRestart
 
         self._printWelcomeBanner(config)
+
+        print(
+            f"""Restarting simulation from file {restartFilePath} \n \
+            at iteration {iterationIndex} and time elapsed {timeElapsed:.6e} s"""
+        )
 
         deviceGeometryData = self.extractDeviceGeometricalFeatures(config)
         meshData           = self.generateMesh(config, deviceGeometryData)
@@ -161,7 +162,7 @@ class Driver:
         conservativeState  = self._conservativesFromFluidState(fluidState, fluidModel)
 
         # Append new iterations to the same directory as the restart file.
-        resultsSubdirPath = Path(restartFilePath).parent
+        resultsSubdirPath = self._prepareResultsSubdirPath(config, restartFilePath=None)
 
         # Pack everything the solver needs into attributes.
         self.config             = config
@@ -173,7 +174,7 @@ class Driver:
         self.resultsSubdirPath  = resultsSubdirPath
         self.time               = timeElapsed
         self.iterationIndex     = iterationIndex
-
+        self.restartFilePath    = restartFilePath
 
     @staticmethod
     def _printWelcomeBanner(config):
@@ -698,7 +699,7 @@ class Driver:
                     # For transparent BCs, seed with a fraction of the inlet pressure
                     # just to get a smooth initial field; this gets overwritten later
                     # by the transparent BC call inside setBoundaryConditions().
-                    fluidState["Pressure"][iHalo] = inletConditionsValues[0] / 10
+                    fluidState["Pressure"][iHalo] = inletConditionsValues[0] / 5
 
             # Initialize static pressure linearly across the domain from the two edge values.
             fluidState["Pressure"] = np.interp(
@@ -805,17 +806,9 @@ class Driver:
                         totalEnthalpy = fluidModel.computeEnthalpy_T(totalTemperature)
                 elif inletConditionsVars == "ptQ":
                     if config.fluidModelType() == "real":
-                        totalPressure, _ = inletConditionsValues[:2]
-                        totalInternalEnergy = fluidState["staticInternalEnergy"][inletIdx] + \
-                            (totalPressure - fluidState["Pressure"][inletIdx]) / \
-                            (0.25 * fluidState["Density"][inletIdx])
-                        cp = fluidModel.computeSpecificHeatCP_p_rho(
-                            fluidState["Pressure"][inletIdx], fluidState["Density"][inletIdx]
-                        )
-                        cv = fluidModel.computeSpecificHeatCV_p_rho(
-                            fluidState["Pressure"][inletIdx], fluidState["Density"][inletIdx]
-                        )   
-                        totalEnthalpy = (cp / cv) * totalInternalEnergy
+                        totalPressure, staticQuality = inletConditionsValues[:2]
+                        staticEntropy = fluidModel.computeEntropy_p_Q(fluidState["Pressure"][inletIdx], staticQuality)
+                        totalEnthalpy = fluidModel.computeEnthalpy_p_s(totalPressure, staticEntropy)
                     else:
                         raise NotImplementedError(
                             "Total inlet conditions specified via (pt, Qt) are not supported "
@@ -1066,7 +1059,7 @@ class Driver:
     # =========================================================================
 
     @staticmethod
-    def _prepareResultsSubdirPath(config, meshData, restartFilePath):
+    def _prepareResultsSubdirPath(config, restartFilePath):
         """
         Prepare and return the subdirectory path for in which to store simulation results.
         The user specifies the name of the subdirectory in the configuration file.
@@ -1100,18 +1093,16 @@ class Driver:
             # Append new iteration files to the same folder as the restart file.
             return Path(restartFilePath).parent
 
-        numNodes = meshData["numMeshNodes"] - 2  # subtract halo nodes for the label
-        resultsSubdirName = f"{config.resultsSubdirectoryName()}_NX_{numNodes}"
         # we impose the parent dir to be called "Results"
         resultsSubdirPardirName = Path("Results")
         resultsSubdirPardirName.mkdir(parents=True, exist_ok=True)
-        resultsSubdirPath = resultsSubdirPardirName / resultsSubdirName
+        resultsSubdirPath = resultsSubdirPardirName / config.resultsSubdirectoryName()
 
         if not config.overwriteResults():
             counter = 1
             candidate = resultsSubdirPath
             while candidate.exists():
-                candidate = resultsSubdirPath.with_name(f"{resultsSubdirName}_{counter}")
+                candidate = resultsSubdirPath.with_name(f"{config.resultsSubdirectoryName()}_{counter}")
                 counter += 1
             resultsSubdirPath = candidate
 
@@ -1209,6 +1200,7 @@ class Driver:
         time                = self.time
         iterationIndex      = self.iterationIndex
         resultsSubdirPath   = self.resultsSubdirPath
+        restartFilePath     = self.restartFilePath
 
         # Read solver settings from config.
         entropyFixActiveBool    = config.entropyFixActiveBool()
@@ -1228,21 +1220,7 @@ class Driver:
         if musclActiveBool:
             limiter = config.MUSCLReconstructionFluxLimiter()
         else:
-            limiter = None
-
-        # generate results directory according to user specifications. 
-        if config.overwriteResults():
-            # remove subdirectory with name = resultsSubdirectoryName if it 
-            # exists within the directory where the solve() method is executed, 
-            # and if it is a directory. Then instantiate a new empty directory 
-            # with the same name.
-            if resultsSubdirPath.exists() and resultsSubdirPath.is_dir():
-                shutil.rmtree(resultsSubdirPath)
-            resultsSubdirPath.mkdir(parents=True, exist_ok=True)
-        else:
-            # _prepareResultsSubdirPath() has already determined a unique name for the 
-            # results subdirectory, all that is left is to create it.
-            resultsSubdirPath.mkdir(parents=True, exist_ok=True)
+            limiter = None    
 
         print()
         print("=" * 80)
@@ -1258,6 +1236,9 @@ class Driver:
             print("Entropy fix coefficient: %s" % entropyFixCoefficient)
         print("=" * 80)
         print()
+
+        # prepare output directory
+        self.prepareOutputDirectory(config, resultsSubdirPath, restartFilePath, iterationIndex)
 
         # Save the initial state (iteration 0, t = 0) for a clean start; a restart
         # already has its initial file so we skip this.
@@ -1379,9 +1360,117 @@ class Driver:
 # =============================================================================
 #  Additional helper functions
 # =============================================================================
+    def prepareOutputDirectory(self, config, resultsSubdirPath, restartFilePath, iterationIndex):
+        """
+        Four possible scenario's:
+        1) Clean start, overwriteResults = True: remove existing resultsSubdirPath 
+           if it exists, then create a new empty directory.
+        2) Clean start, overwriteResults = False: create resultsSubdirPath 
+        3) Restart, resultsSubdirPath does not exist: create resultsSubdirPath, 
+           then copy over all files from the restart file's directory to the new 
+           output directory, but only the iteridx%write_interval == 0 files, to 
+           comply with the new config file's write frequency desires.
+        4) Restart, resultsSubdirPath exists: remove any file with higher step 
+           number than restartfile, and keep the rest. Then check if output before 
+           restart iter idx is already present in the new directory. If not, copy 
+           over the iteridx%write_interval == 0 files  from the restart file's
+           directory to the new output directory, to comply with the new config 
+           file's write frequency desires.
+
+        Arguments
+        ---------
+        config : Config
+            The configuration object.
+        resultsSubdirPath : Path
+            The (created) directory in which the results will be written.
+        restartFilePath : str or None
+            Path to the restart file, or None for a clean start.
+        iterationIndex : int
+            The iteration index at which the simulation is starting (0 for a clean start).
+
+        Returns
+        -------
+        None, but creates or modifies the resultsSubdirPath according to the scenario.
+        """
+        # generate results directory according to user specifications. 
+        if config.overwriteResults() and self.time == 0.0:
+            # remove subdirectory with name = resultsSubdirectoryName if it 
+            # exists within the directory where the solve() method is executed, 
+            # and if it is a directory. Then instantiate a new empty directory 
+            # with the same name.
+            if resultsSubdirPath.exists() and resultsSubdirPath.is_dir():
+                shutil.rmtree(resultsSubdirPath)
+            resultsSubdirPath.mkdir(parents=True, exist_ok=True)
+        elif self.time == 0.0:
+            # create resultsSubdirPath
+            resultsSubdirPath.mkdir(parents=True, exist_ok=True)
+        elif self.time > 0.0 and not resultsSubdirPath.exists():
+            # restart case: resultsSubdirPath already exists, but
+            # config file points the sim results to go to a new
+            # directory. 
+            resultsSubdirPath.mkdir(parents=True, exist_ok=True)
+            # resultsSubdirPath can not exist due to new config file
+            # pointing to a new output directory. In that case, copy over
+            # every file from the restart file's directory to the new output directory,
+            # but only the iteridx%write_interval == 0 files, to comply with the 
+            # new config file's write frequency desires.
+            writeInterval = config.writeInterval()
+            restartFilePath = Path(restartFilePath)
+            restartFileIterIdx = iterationIndex
+            for file in restartFilePath.parent.glob(f"step_*.pik"):
+                baseName = file.stem
+                if int(str(baseName).split("_")[-1]) <= int(restartFileIterIdx) and int(str(baseName).split("_")[-1]) % writeInterval == 0:
+                    shutil.copy(file, resultsSubdirPath)
+        elif self.time > 0.0 and resultsSubdirPath.exists():
+            # restart case: resultsSubdirPath already exists, and
+            # config file points the sim results to go to the same
+            # directory. Remove any file with higher step number than 
+            # restartfile, and keep the rest.
+            for file in resultsSubdirPath.glob(f"step_*.pik"):
+                baseName = file.stem
+                if int(str(baseName).split("_")[-1]) > int(iterationIndex):
+                    file.unlink()
+            # Chck if output before restart iter idx is already present 
+            # in the new directory. If not, copy over every file from the 
+            # restart file's directory to the new output directory,
+            # but only the iteridx%write_interval == 0 files, to comply 
+            # with the new config file's write frequency desires.
+            writeInterval = config.writeInterval()
+            restartFilePath = Path(restartFilePath)
+            restartFileIterIdx = iterationIndex
+            for file in restartFilePath.parent.glob(f"step_*.pik"):
+                baseName = file.stem
+                if int(str(baseName).split("_")[-1]) <= int(restartFileIterIdx) and int(str(baseName).split("_")[-1]) % writeInterval == 0:
+                    shutil.copy(file, resultsSubdirPath)
+
 
 
     def groupSingleIterResults(self, filepath):
+        """
+        At every iteration of the solver logic, information of interest is generated. 
+        This information is of interest for simulation restart, or post-processing purposes.
+        At the end of the simulation, all the information of interest is regrouped in a single file,
+        to avoid having a large number of files in the results folder.
+        Infomration in the grouped file:
+        1) config: the configuration for which the governing equations were solved. 
+        2) deviceGeometryData: the geometry of the expansion device through which the governing
+           equations were solved.
+        3) meshData: the mesh data for which the governing equations were solved.
+        4) fluidStateHistory: the history of the fluid state variables at every simulation iteration.
+        5) timeHistory: the history of the physical time at every simulation iteration.
+
+        The resulting file is named Results.pik
+
+        Arguments
+        ---------
+        filepath : Path
+            The path to the results folder in which the regrouped file will be stored.
+        
+        Returns
+        -------
+        None, but creates a single regrouped file in the results folder.
+        """
+
         # regrouping is only necessary when the results folder contains
         # files with filename RegEx: step*. 
         # Check for this
