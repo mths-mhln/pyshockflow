@@ -188,7 +188,7 @@ class Driver:
         print(" " * 32 + "SIMULATION DATA")
         print("Fluid name:                                  %s" % config.fluidName())
         print("Fluid treatment:                             %s" % config.fluidModelType())
-        if config.fluidModelType().lower() == "ideal":
+        if config.fluidModelType() == "ideal":
             print("Fluid cp/cv ratio [-]:                       %.6e" % config.fluidGamma())
             print("Fluid gas constant [J/kgK]:                  %.6e" % config.gasRConstant())
         print("Boundary Conditions Left:                    %s" % config.boundaryConditions()[0])
@@ -243,6 +243,11 @@ class Driver:
         # Extract nozzle ordinates (physical distance along the nozzle) 
         nozzleDataFrame = pd.read_csv(deviceGeometryFilePath)
         nozzleData = nozzleDataFrame.to_numpy()
+
+        # sort nozzleData based on x ordinate
+        nozzleData = nozzleData[np.argsort(nozzleData[:, 0])]
+
+        # extract x ordinate
         deviceGeometryData["deviceX"] = nozzleData[:, 0]
 
         # coordinate is either the device radius, or the local circular cross-sectional 
@@ -487,7 +492,7 @@ class Driver:
         """
         fluidModelType = config.fluidModelType()
 
-        if fluidModelType.lower() == "ideal":
+        if fluidModelType == "ideal":
             gmma = config.fluidGamma()
             Rgas = config.gasRConstant()
             if config.wallFrictionModellingBool():
@@ -496,7 +501,7 @@ class Driver:
             else:
                 return FluidIdeal(gmma, Rgas)
 
-        elif fluidModelType.lower() == "real":
+        elif fluidModelType == "real":
             fluidName    = config.fluidName()
             fluidLibrary = config.fluidLibrary()
             return FluidReal(fluidName, fluidLibrary, config.fluidPropertyExtractionMethod(), False)
@@ -522,6 +527,15 @@ class Driver:
         user-specified initial conditions that specify the thermodynamic state of the
         working fluid on each side of the interface. Conditions are assumed to be
         uniform on each side of the interface.
+
+        Note: throughout the logic, it will often seem that the code assumes certain 
+        information to be available, without any logic being included to ensure 
+        this is actaully the case. For example, for _imposeInitialConditionsNozzleUniform
+        it may seem that it is assumed that config.initialPressure() is available, 
+        While it is not for _imposeInitialConditionsNozzleLinear. This is because
+        the logic that ensures this iformation is available/ the logic that forces the 
+        user to specify the necessary infomration is included in config.py. A good understanding
+        of config.py is hence necessary to understand the inner workings of this method.
 
         Arguments
         ---------
@@ -645,28 +659,19 @@ class Driver:
                 - Pressure: np.1darray
                 - StaticInternalEnergy: np.1darray
             """
-            isTotalInlet = config.inletConditionsType().lower() == "total"
-            isStaticInlet = config.inletConditionsType().lower() == "static"
+            isTotalInlet = config.inletConditionsType() == "total"
+            isStaticInlet = config.inletConditionsType() == "static"
             inletIdx = None  # index (0 or -1) of whichever side is the inlet
 
             # Determine which type of total inlet variables were specified so that
             # the correct initialization can be performed further below.
             inletConditionsValues = config.inletConditionsValues()
-            if isTotalInlet:
-                if 0.0 <= inletConditionsValues[1] <= 1.0:
-                    inletConditionsVars = "ptQ"
-                else:
-                    inletConditionsVars = "ptTt"
-            if isStaticInlet:
-                if 0.0 <= inletConditionsValues[1] <= 1.0:
-                    inletConditionsVars = "pQ"
-                else:
-                    inletConditionsVars = "pT"
+            inletConditionsVars = _inferInletConditionVars(config, inletConditionsValues)
 
             # Impose boundary conditions at each edge of the domain, tracking which
             # edge is the inlet.
             for iHalo, iInternal in [(0, 1), (-1, -2)]:
-                btype = config.boundaryConditions()[0 if iHalo == 0 else 1].lower()
+                btype = config.boundaryConditions()[0 if iHalo == 0 else 1]
 
                 if btype == "inlet":
                     if isTotalInlet:
@@ -679,21 +684,29 @@ class Driver:
                         # computeInletQuantities[x] (see fluid.py) needs a velocity guess 
                         # to extrapolate from the internal domain. 
                         # Static inlet conditions: velocity initialized linearly from 10 to 200 m/s.
-                        fluidState["Velocity"] = np.interp(
-                            meshData["xMeshNodes"],
-                            [meshData["xMeshNodes"][0], meshData["xMeshNodes"][-1]],
-                            [10, 200],
-                        )
+                        massFlowDirection = _inferInitialMassFlowDirection(config)
+                        if massFlowDirection == 1:
+                            fluidState["Velocity"] = np.interp(
+                                meshData["xMeshNodes"],
+                                [meshData["xMeshNodes"][0], meshData["xMeshNodes"][-1]],c
+                                [10, 200],
+                            )
+                        elif massFlowDirection == -1:
+                            fluidState["Velocity"] = np.interp(
+                                meshData["xMeshNodes"],
+                                [meshData["xMeshNodes"][0], meshData["xMeshNodes"][-1]],
+                                [-200, -10],
+                            )
                     
                     fluidState = _applyInletBC(
-                        iHalo, iInternal, fluidModel, fluidState,
+                        config, iHalo, iInternal, fluidModel, fluidState,
                         isTotalInlet, inletConditionsVars if isTotalInlet else None,
                         inletConditionsValues,
                     )
                     inletIdx = iHalo
 
                 elif btype == "outlet":
-                    fluidState["Pressure"][iHalo] = config.outletConditions()
+                    fluidState["Pressure"][iHalo] = config.outletConditionsValues()
 
                 elif btype == "transparent":
                     # For transparent BCs, seed with a fraction of the inlet pressure
@@ -834,11 +847,11 @@ class Driver:
                     staticEnthalpyField = fluidState["staticInternalEnergy"] + \
                         fluidState["Pressure"] / fluidState["Density"]
 
-                print(totalEnthalpyField - staticEnthalpyField)
-                fluidState["Velocity"] = np.sqrt(
+
+                massFlowDirection = _inferInitialMassFlowDirection(config)
+                fluidState["Velocity"] = massFlowDirection * np.sqrt(
                     2 * (totalEnthalpyField - staticEnthalpyField)
                 )
-
             return fluidState
 
         
@@ -897,7 +910,7 @@ class Driver:
         # Dispatch to the correct initialization helper.
         # ------------------------------------------------------------------
         deviceType = config.expansionDeviceType()
-        bcs = [bc.lower() for bc in config.boundaryConditions()]
+        bcs = [bc for bc in config.boundaryConditions()]
 
         if deviceType == "shocktube":
             fluidState = _imposeInitialConditionsShocktube(config, deviceGeometryData, meshData, fluidModel, fluidState)
@@ -964,7 +977,7 @@ class Driver:
             - Pressure: np.1darray
             - StaticInternalEnergy: np.1darray
         """
-        bcLeft, bcRight = [bc.lower() for bc in config.boundaryConditions()]
+        bcLeft, bcRight = [bc for bc in config.boundaryConditions()]
 
         # Apply left boundary condition.
         if bcLeft == "reflective":
@@ -974,17 +987,11 @@ class Driver:
         elif bcLeft == "periodic":
             fluidState = _applyPeriodicBC("left", fluidState)
         elif bcLeft == "inlet":
-            isTotalInlet = config.inletConditionsType().lower() == "total"
+            isTotalInlet = config.inletConditionsType() == "total"
             inletConditionsValues = config.inletConditionsValues()
-            if isTotalInlet:
-                if 0.0 <= inletConditionsValues[1] <= 1.0:
-                    inletConditionsVars = "ptQ"
-                else:
-                    inletConditionsVars = "ptTt"
-            else:
-                inletConditionsVars = None  # not needed for static inlet
+            inletConditionsVars = _inferInletConditionVars(config, inletConditionsValues)
             fluidState = _applyInletBC(
-                0, 1, fluidModel, fluidState,
+                config, 0, 1, fluidModel, fluidState,
                 isTotalInlet, inletConditionsVars, inletConditionsValues,
             )
         elif bcLeft == "outlet":
@@ -998,17 +1005,11 @@ class Driver:
         elif bcRight == "periodic":
             fluidState = _applyPeriodicBC("right", fluidState)
         elif bcRight == "inlet":
-            isTotalInlet = config.inletConditionsType().lower() == "total"
+            isTotalInlet = config.inletConditionsType() == "total"
             inletConditionsValues = config.inletConditionsValues()
-            if isTotalInlet:
-                if 0.0 <= inletConditionsValues[1] <= 1.0:
-                    inletConditionsVars = "ptQ"
-                else:
-                    inletConditionsVars = "ptTt"
-            else:
-                inletConditionsVars = None  # not needed for static inlet
+            inletConditionsVars = _inferInletConditionVars(config, inletConditionsValues)
             fluidState = _applyInletBC(
-                -1, -2, fluidModel, fluidState,
+                config, -1, -2, fluidModel, fluidState,
                 isTotalInlet, inletConditionsVars, inletConditionsValues,
             )
         elif bcRight == "outlet":
@@ -1216,7 +1217,7 @@ class Driver:
         cflMax                = config.CFLMax()
         expansionDeviceType   = config.expansionDeviceType()
         fluidModelType        = config.fluidModelType()
-        fluidLibrary          = config.fluidLibrary() if fluidModelType.lower() == "real" else None
+        fluidLibrary          = config.fluidLibrary() if fluidModelType == "real" else None
         if musclActiveBool:
             limiter = config.MUSCLReconstructionFluxLimiter()
         else:
@@ -1228,7 +1229,7 @@ class Driver:
         print("Numerical flux method: %s"  % advectionScheme)
         print("MUSCL reconstruction:  %s"  % musclActiveBool)
         print("Entropy fix active:    %s"  % entropyFixActiveBool)
-        if fluidModelType.lower() == "real":
+        if fluidModelType == "real":
             print("Real Gas model, library: %s" % fluidLibrary)
         else:
             print("Ideal Gas model")
@@ -1420,7 +1421,11 @@ class Driver:
             for file in restartFilePath.parent.glob(f"step_*.pik"):
                 baseName = file.stem
                 if int(str(baseName).split("_")[-1]) <= int(restartFileIterIdx) and int(str(baseName).split("_")[-1]) % writeInterval == 0:
-                    shutil.copy(file, resultsSubdirPath)
+                    try:
+                        shutil.copy(file, resultsSubdirPath)
+                    except shutil.SameFileError:
+                        # If the source and destination are the same file, skip copying.
+                        pass
         elif self.time > 0.0 and resultsSubdirPath.exists():
             # restart case: resultsSubdirPath already exists, and
             # config file points the sim results to go to the same
@@ -1441,7 +1446,11 @@ class Driver:
             for file in restartFilePath.parent.glob(f"step_*.pik"):
                 baseName = file.stem
                 if int(str(baseName).split("_")[-1]) <= int(restartFileIterIdx) and int(str(baseName).split("_")[-1]) % writeInterval == 0:
-                    shutil.copy(file, resultsSubdirPath)
+                    try:
+                        shutil.copy(file, resultsSubdirPath)
+                    except shutil.SameFileError:
+                        # If the source and destination are the same file, skip copying.
+                        pass
 
 
 
@@ -1611,7 +1620,7 @@ def _applyPeriodicBC(location, fluidState):
     return fluidState
 
 
-def _applyInletBC(iHalo, iInternal, fluidModel, fluidState,
+def _applyInletBC(config, iHalo, iInternal, fluidModel, fluidState,
                   isTotalInlet, inletConditionsVars, inletConditionsValues):
     """
     Set fluidState in halo node to yield an inlet boundary condition.
@@ -1662,13 +1671,13 @@ def _applyInletBC(iHalo, iInternal, fluidModel, fluidState,
 
         if inletConditionsVars == "ptTt":
             totalTemperature  = inletConditionsValues[1]
-            massFlowDirection = inletConditionsValues[2]
+            massFlowDirection = _inferInitialMassFlowDirection(config)
             density, velocity, energy = fluidModel.computeInletQuantitiesTotal_pt_Tt(
                 pressure, totalPressure, totalTemperature, massFlowDirection
             )
         elif inletConditionsVars == "ptQ":
             staticQuality      = inletConditionsValues[1]
-            massFlowDirection = inletConditionsValues[2]
+            massFlowDirection = _inferInitialMassFlowDirection(config)
             density, velocity, energy = fluidModel.computeInletQuantitiesTotal_pt_Q(
                 pressure, totalPressure, staticQuality, massFlowDirection
             )
@@ -1684,10 +1693,10 @@ def _applyInletBC(iHalo, iInternal, fluidModel, fluidState,
 
         # same two options as the total conditions:
         if inletConditionsVars == "pT":
-            pressure, totalTemperature = inletConditionsValues[:2]
+            pressure, totalTemperature = inletConditionsValues
             density, energy = fluidModel.computeInletQuantitiesStatic_p_T(pressure, totalTemperature)
         elif inletConditionsVars == "pQ":
-            pressure, staticQuality = inletConditionsValues[:2]
+            pressure, staticQuality = inletConditionsValues
             density, energy = fluidModel.computeInletQuantitiesStatic_p_Q(pressure, staticQuality)
         else:
             raise ValueError(
@@ -1701,6 +1710,75 @@ def _applyInletBC(iHalo, iInternal, fluidModel, fluidState,
     fluidState['staticInternalEnergy'][iHalo]   = energy
 
     return fluidState
+
+
+def _inferInletConditionVars(config, inletConditionsValues):
+    """
+    Helper function to infer the type of inlet conditions the user 
+    specified in the configuration file. Depending on the magnitude of the
+    second inlet condition value, the inlet conditions are either specified
+    in terms of total temperature or static quality.
+
+    Arguments
+    ---------
+    config : Config
+        The configuration object.
+    inletConditionsValues : sequence
+        The inlet condition values read from config.
+
+    Returns
+    -------
+    inletConditionsVars : str
+        'ptTt' or 'pQ' for total inlet conditions, 'pT' or 'pQ' for static inlet conditions.
+    """
+    if config.inletConditionsType() == "total":
+        if 0.0 <= inletConditionsValues[1] <= 1.0:
+            inletConditionsVars = "ptQ"
+        else:
+            inletConditionsVars = "ptTt"
+    if config.inletConditionsType() == "static":
+        if 0.0 <= inletConditionsValues[1] <= 1.0:
+            inletConditionsVars = "pQ"
+        else:
+            inletConditionsVars = "pT"
+    return inletConditionsVars
+
+
+
+def _inferInitialMassFlowDirection(config):
+    # Extract BC's from config file, by nature the first element
+    # is the left BC, while the right element is the right BC
+    bcs = [bc for bc in config.boundaryConditions()]
+
+    # initialization sets the static pressure in case of total pressure
+    # boundary condition equal to the total pressure, hence for 
+    # inference of the initial flow direction, the total pressure
+    # can be used. 
+    if set(bcs) == {"inlet", "outlet"}:
+        inletConditionsValues = config.inletConditionsValues()
+        outletConditionsValues = config.outletConditionsValues()
+
+        # extract pressure values
+        inletPressure = inletConditionsValues[0]
+        outletPressure = outletConditionsValues[0]
+
+        # infer mass flow direction
+        if bcs[0] == "inlet":
+            massFlowDirection = 1 if inletPressure > outletPressure else -1
+        else:
+            massFlowDirection = -1 if inletPressure > outletPressure else 1
+
+    elif bcs[0] == "inlet" and bcs[1] == "transparent":
+        massFlowDirection = 1
+
+    elif bcs[0] == "transparent" and bcs[1] == "inlet":
+        massFlowDirection = -1
+    else:
+        massFlowDirection = config.massFlowDirection()
+
+    return massFlowDirection
+
+
 
 
 def _applyOutletBC(location, iHalo, iInternal, config, fluidModel, fluidState):
@@ -1742,7 +1820,7 @@ def _applyOutletBC(location, iHalo, iInternal, config, fluidModel, fluidState):
 
     if machOutlet < 1:
         # Subsonic: fix the back pressure, extrapolate everything else.
-        pressure = config.outletConditions()
+        pressure = config.outletConditionsValues()
         density  = fluidState["Density"][iInternal]
         velocity = fluidState["Velocity"][iInternal]
         energy   = fluidModel.computeInternalEnergy_p_rho(pressure, density)
@@ -1945,7 +2023,7 @@ def computeFluxVector(nFaces, fluidState, meshData, fluidModel, dt,
         pR[maskInterface] = pR_MUSCL
 
     # Compute the inter-cell flux using the selected scheme
-    if advectionScheme.lower() == "godunov":
+    if advectionScheme == "godunov":
         if not isinstance(fluidModel, FluidIdeal):
             raise ValueError("Godunov scheme is available only for the ideal gas model.")
 
@@ -1963,7 +2041,7 @@ def computeFluxVector(nFaces, fluidState, meshData, fluidModel, dt,
                 float(dt), fluidModel,
             )
 
-    elif advectionScheme.lower() == "roe":
+    elif advectionScheme == "roe":
         if isinstance(fluidModel, FluidReal):
             raise ValueError(
                 "Basic Roe scheme is not available for the real gas model. "
@@ -1980,7 +2058,7 @@ def computeFluxVector(nFaces, fluidState, meshData, fluidModel, dt,
                 entropyFixActive=entropyFixActiveBool, fixCoefficient=entropyFixCoefficient,
             )
 
-    elif advectionScheme.lower() == "roe_arabi":
+    elif advectionScheme == "roe_arabi":
         if isinstance(fluidModel, FluidIdeal):
             raise ValueError(
                 "Roe_Arabi scheme is not available for the ideal gas model. "
@@ -1997,7 +2075,7 @@ def computeFluxVector(nFaces, fluidState, meshData, fluidModel, dt,
                 entropyFixActive=entropyFixActiveBool, fixCoefficient=entropyFixCoefficient,
             )
 
-    elif advectionScheme.lower() == "roe_vinokur":
+    elif advectionScheme == "roe_vinokur":
         if musclActiveBool:
             flux = computeFluxRoeVinokurMUSCL(
                 rhoL, rhoR, uL, uR, pL, pR, fluidModel,
@@ -2141,7 +2219,7 @@ def computeFluxLimiter(r_vec, limiter):
         Limiter values.
     """
     r_arr = np.asarray(r_vec, dtype=float)
-    limiter_l = limiter.lower()
+    limiter_l = limiter
 
     if limiter_l == "van_albada":
         return (r_arr**2 + r_arr) / (1 + r_arr**2)

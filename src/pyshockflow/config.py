@@ -24,74 +24,125 @@ class Config:
     # ---------------------------------------------------------------------------------------------------------
     # input extraction helper functions, also verify whether input is of correct type or within acceptable set
     # ---------------------------------------------------------------------------------------------------------
-    def _get_raw(self, section: str, key: str, default: str | None = None, inputOptions: list[str] | None = None) -> str:
-        """Allows for special characters, necessary for e.g. fluid name R1234ze(E) """
+    
+    def _get_int(
+        self, 
+        section: str, 
+        key: str, 
+        positive: bool = False, 
+        default: int | None = None, 
+        inputOptions: list[int] | None = None
+        ) -> int:
         try:
-            value = self._parser.get(section, key)
-            if inputOptions is not None and value not in inputOptions:
-                raise ConfigError(
-                    f"{self.config_file} [{section}]: '{key}' must be one of {inputOptions}, got '{value}'"
-                )
-            return value
+            value =  self._parser.get(section, key)
         except (configparser.NoSectionError, configparser.NoOptionError) as e:
             if default is not None:
                 return default
-            raise ConfigError(
+            else:
+                raise ValueError(
                 f"{self.config_file} [{section}]: missing key '{key}'"
-            ) from e
-
-    def _get_int(self, section: str, key: str, default: int | None = None) -> int:
-        raw = self._get_raw(section, key)
+                ) from e  
         try:
-            return int(raw)
-        except ValueError:
-            if default is not None:
-                return default
+            value = int(value)
+        except:
+            raise TypeError("Config option value cannot be converted to integer")
+        
+        if inputOptions is not None and value not in inputOptions:
             raise ConfigError(
-                f"{self.config_file} [{section}]: '{key}' must be an integer, got '{raw}'"
-            )
-
-    def _get_float(self, section: str, key: str, positive: bool = False, default: float | None = None) -> float:
-        raw = self._get_raw(section, key)
-        try:
-            value = float(raw)
-        except ValueError:
-            if default is not None:
-                return default
-            raise ConfigError(
-                f"{self.config_file} [{section}]: '{key}' must be a real number, got '{raw}'"
+                f"{self.config_file} [{section}]: '{key}' must be one of {inputOptions}, got '{value}'"
             )
         if positive and value <= 0:
-            raise ConfigError(
+            raise ValueError(
                 f"{self.config_file} [{section}]: '{key}' must be positive, got {value}"
             )
         return value
 
-    def _get_bool(self, section: str, key: str, default: bool | None = None) -> bool:
-        try:
-            raw = self._get_raw(section, key).lower()
-        except ConfigError:
-            if default is not None:
-                return default
-        if raw in ("yes", "true"):
-            return True
-        if raw in ("no", "false"):
-            return False
-        raise ConfigError(
-            f"{self.config_file} [{section}]: '{key}' must be yes/no or true/false, got '{raw}'"
-        )
 
-    def _get_str(self, section: str, key: str, default: str | None = None, inputOptions: list[str] | None = None) -> str:
+    def _get_float(
+        self, 
+        section: str, 
+        key: str, 
+        positive: bool = False, 
+        default: float | None = None, 
+        inputOptions: list[float] | None = None
+        ) -> float:
         try:
-            value =  self._get_raw(section, key).lower()
-            if inputOptions is not None and value not in inputOptions:
-                raise ConfigError(
-                    f"{self.config_file} [{section}]: '{key}' must be one of {inputOptions}, got '{value}'"
-                )
-            return value
-        except ConfigError:
+            value =  self._parser.get(section, key)
+        except (configparser.NoSectionError, configparser.NoOptionError) as e:
             if default is not None:
                 return default
+            else:
+                raise ValueError(
+                f"{self.config_file} [{section}]: missing key '{key}'"
+                ) from e  
+        try:
+            value = float(value)
+        except:
+            raise TypeError("Config option value cannot be converted to float")
+        
+        if inputOptions is not None and value not in inputOptions:
+            raise ConfigError(
+                f"{self.config_file} [{section}]: '{key}' must be one of {inputOptions}, got '{value}'"
+            )
+        if positive and value <= 0:
+            raise ValueError(
+                f"{self.config_file} [{section}]: '{key}' must be positive, got {value}"
+            )
+        return value
+
+
+    def _get_bool(
+        self, 
+        section: str, 
+        key: str, 
+        default: bool | None = None
+        ) -> bool:
+        try:
+            value =  self._parser.get(section, key)
+        except (configparser.NoSectionError, configparser.NoOptionError) as e:
+            if default is not None:
+                return default
+            else:
+                raise ValueError(
+                f"{self.config_file} [{section}]: missing key '{key}'"
+                ) from e
+        if value not in ["True", "False"]:
+            raise ConfigError(
+                f"{self.config_file} [{section}]: '{key}' must be one of {[True, False]}, got '{value}'"
+            )
+        value = True if value == "True" else False
+        return value
+
+
+    def _get_str(
+        self, 
+        section: str, 
+        key: str, 
+        lower: bool = False,
+        default: str | None = None, 
+        inputOptions: list[str] | None = None
+        ) -> str:
+        try:
+            value =  self._parser.get(section, key)
+        except (configparser.NoSectionError, configparser.NoOptionError) as e:
+            if default is not None:
+                return default
+            else:
+                raise ValueError(
+                f"{self.config_file} [{section}]: missing key '{key}'"
+                ) from e            
+        try:
+            value = str(value)
+        except:
+            raise TypeError("Config option value cannot be converted to string")
+        if inputOptions is not None and value not in inputOptions:
+            raise ConfigError(
+                f"{self.config_file} [{section}]: '{key}' must be one of {inputOptions}, got '{value}'"
+            )
+        if lower:
+            value = value.lower()
+        return value
+
 
 
     # ------------------------------------------------------------
@@ -157,19 +208,19 @@ class Config:
         # =======================================================================
         requiredSectionsNKeysNozzle = {
             "GEOMETRY": ["EXPANSION_DEVICE_TYPE", "DEVICE_GEOMETRY_FILE_PATH"],
-            "MESH": ["NUM_MESH_NODES", "MESH_REFINEMENT_BOOL"],
+            "MESH": ["NUM_MESH_NODES"],
             "TIME": ["MAX_TIME"],
-            "NUMERICS": ["INTERCELL_FLUX_SCHEME", "CFL_MAX", "WALL_FRICTION_MODELLING_BOOL"], 
+            "NUMERICS": ["INTERCELL_FLUX_SCHEME", "CFL_MAX"], 
             "BOUNDARY CONDITIONS": ["BOUNDARY_CONDITION_LEFT", "BOUNDARY_CONDITION_RIGHT"],
             "FLUID": ["FLUID_NAME", "FLUID_MODEL_TYPE"],
             "OUTPUT": ["RESULTS_SUBDIRECTORY_NAME"]
             }
         requiredSectionsNKeysShocktube = {
             "GEOMETRY": ["EXPANSION_DEVICE_TYPE", "DEVICE_GEOMETRY_FILE_PATH"],
-            "MESH": ["NUM_MESH_NODES", "MESH_REFINEMENT_BOOL"],
+            "MESH": ["NUM_MESH_NODES"],
             "TIME": ["MAX_TIME"], 
             "INITIAL CONDITIONS": ["PRESSURE_LEFT", "PRESSURE_RIGHT", "VELOCITY_LEFT", "VELOCITY_RIGHT"],
-            "NUMERICS": ["INTERCELL_FLUX_SCHEME", "CFL_MAX", "WALL_FRICTION_MODELLING_BOOL"],
+            "NUMERICS": ["INTERCELL_FLUX_SCHEME", "CFL_MAX"],
             "BOUNDARY CONDITIONS": ["BOUNDARY_CONDITION_LEFT", "BOUNDARY_CONDITION_RIGHT"],
             "FLUID": ["FLUID_NAME", "FLUID_MODEL_TYPE"],
             "OUTPUT": ["RESULTS_SUBDIRECTORY_NAME"]
@@ -249,8 +300,12 @@ class Config:
                 {"FLUID": ["FLUID_LIBRARY"]})
         ]
         for section, key, trigger_values, required in condRequiredCommon: 
-            if self._get_raw(section, key) in trigger_values:
-                check_required_sections(required)
+            if type(trigger_values[0]) == bool:
+                if self._get_bool(section, key) in trigger_values:
+                    check_required_sections(required)
+            else:
+                if self._get_str(section, key, lower=True) in trigger_values:
+                    check_required_sections(required)
 
         # an outlier for the common conditionally required inputs is the fluid viscosity
         # which only must be specified if the user has WALL_FRICTION_MODELLING_BOOL = True
@@ -267,25 +322,26 @@ class Config:
             # If the boundary condition pair is not one of inlet/outlet/transparent
             # combinations, the initial conditions must be fully specified by the user
             # and the nozzle fluid state will be initialized uniformly. 
-            bc_left  = self._get_raw("BOUNDARY CONDITIONS", "BOUNDARY_CONDITION_LEFT")
-            bc_right = self._get_raw("BOUNDARY CONDITIONS", "BOUNDARY_CONDITION_RIGHT")
+            bc_left  = self._get_str("BOUNDARY CONDITIONS", "BOUNDARY_CONDITION_LEFT", lower=True)
+            bc_right = self._get_str("BOUNDARY CONDITIONS", "BOUNDARY_CONDITION_RIGHT", lower=True)
             linear_init_pairs = [
                 ("transparent", "inlet"), ("inlet", "transparent"),
                 ("inlet", "outlet"),      ("outlet", "inlet"),
-                ("outlet", "transparent"), ("transparent", "outlet"),
             ]
             if ((bc_left, bc_right) not in linear_init_pairs) or (self.enforceUniformNozzleInitBool()):
-                # user must specify inputs "PRESSURE", "VELOCITY", ()"DENSITY" or "TEMPERATURE") in the config file
+                # user must specify inputs "PRESSURE", "VELOCITY", ("DENSITY" or "TEMPERATURE") in the config file
                 # check "PRESSURE" and "VELOCITY"
                 if self._parser.has_option("INITIAL CONDITIONS", "PRESSURE") is False:
                     raise ConfigError(
                         f"{self.config_file} [INITIAL CONDITIONS]: 'PRESSURE' must be specified "
-                        f"when BOUNDARY_CONDITION_LEFT = '{bc_left}' and BOUNDARY_CONDITION_RIGHT = '{bc_right}'"
+                        f"when BOUNDARY_CONDITION_LEFT = '{bc_left}' and BOUNDARY_CONDITION_RIGHT = '{bc_right}'."
+                        f"This pressure will be uniformally applied to the simulation domain to initialize the simulation"
                     )
                 if self._parser.has_option("INITIAL CONDITIONS", "VELOCITY") is False:
                     raise ConfigError(
                         f"{self.config_file} [INITIAL CONDITIONS]: 'VELOCITY' must be specified "
-                        f"when BOUNDARY_CONDITION_LEFT = '{bc_left}' and BOUNDARY_CONDITION_RIGHT = '{bc_right}'"
+                        f"when BOUNDARY_CONDITION_LEFT = '{bc_left}' and BOUNDARY_CONDITION_RIGHT = '{bc_right}'."
+                        f"This velocity will be uniformally applied to the simulation domain to initialize the simulation"
                     )
 
                 # check for presence of density or temperature. One of the two must be specified, but not both. 
@@ -301,6 +357,14 @@ class Config:
                     raise ConfigError(
                         f"{self.config_file} [INITIAL CONDITIONS]: either DENSITY or TEMPERATURE "
                         f"must be specified."
+                    )
+            if ((bc_left, bc_right) not in linear_init_pairs):
+                # user must specify mass flow direction for flow initialization, since it 
+                # cannot be inferred from the boundary conditions.
+                if self._parser.has_option("INITIAL CONDITIONS", "MASS_FLOW_DIRECTION") is False:
+                    raise ConfigError(
+                        f"{self.config_file} [INITIAL CONDITIONS]: 'MASS_FLOW_DIRECTION' must be specified "
+                        f"when BOUNDARY_CONDITION_LEFT = '{bc_left}' and BOUNDARY_CONDITION_RIGHT = '{bc_right}'"
                     )
 
         elif expansion_device_type == "shocktube":
@@ -353,13 +417,17 @@ class Config:
                 "WALL_FRICTION_MODELLING_BOOL is False")
         ]
         for section, key, trigger_values, prohibited, reason in condProhibitedCommon:
-            if self._get_raw(section, key) in trigger_values:
-                check_prohibited_keys(prohibited, reason)
+            if type(trigger_values[0]) == bool:
+                if self._get_bool(section, key) in trigger_values:
+                    check_prohibited_keys(prohibited, reason)
+            else:
+                if self._get_str(section, key, lower=True) in trigger_values:
+                    check_prohibited_keys(prohibited, reason)
 
         # boundary conditions require special handling
         # boundary condition cross-prohibitions (too entangled for the list format)
-        bc_left  = self._get_raw("BOUNDARY CONDITIONS", "BOUNDARY_CONDITION_LEFT")
-        bc_right = self._get_raw("BOUNDARY CONDITIONS", "BOUNDARY_CONDITION_RIGHT")
+        bc_left  = self._get_str("BOUNDARY CONDITIONS", "BOUNDARY_CONDITION_LEFT", lower=True)
+        bc_right = self._get_str("BOUNDARY CONDITIONS", "BOUNDARY_CONDITION_RIGHT", lower=True)
 
         _inlet_keys  = {"BOUNDARY CONDITIONS": ["INLET_CONDITIONS_TYPE", "INLET_CONDITIONS_VALUES"]}
         _outlet_keys = {"BOUNDARY CONDITIONS": ["OUTLET_CONDITIONS_VALUES"]}
@@ -377,6 +445,21 @@ class Config:
                 "ENFORCE_UNIFORM_NOZZLE_INIT_BOOL is False"
             )
 
+        # if boundary conditions are within the set ((inlet, outlet), (outlet, inlet), 
+        # (inlet, transparent), (transparent, inlet)), the specification of MASS_FLOW_DIRECTION is prohibited, 
+        # since it can be inferred from the boundary conditions.
+        linear_init_pairs = [
+            ("transparent", "inlet"), ("inlet", "transparent"),
+            ("inlet", "outlet"),      ("outlet", "inlet"),
+        ]
+        if (bc_left, bc_right) in linear_init_pairs:
+            check_prohibited_keys(
+                {"INITIAL CONDITIONS": ["MASS_FLOW_DIRECTION"]},
+                "BOUNDARY_CONDITION_LEFT and BOUNDARY_CONDITION_RIGHT are in the set "
+                "((inlet, outlet), (outlet, inlet), (inlet, transparent), (transparent, inlet))"
+                "MASS_FLOW_DIRECTION can be inferred from the boundary conditions and must not be specified."
+            )
+
         return None
 
      
@@ -390,17 +473,17 @@ class Config:
     # [GEOMETRY]
     # ==========
     def expansionDeviceType(self) -> str:
-        return self._get_str("GEOMETRY", "EXPANSION_DEVICE_TYPE", inputOptions=["nozzle", "shocktube"])
+        return self._get_str("GEOMETRY", "EXPANSION_DEVICE_TYPE", lower = True, inputOptions=["nozzle", "shocktube"])
 
     def deviceGeometryFilePath(self) -> str:
-        return self._get_raw("GEOMETRY", "DEVICE_GEOMETRY_FILE_PATH")
+        return self._get_str("GEOMETRY", "DEVICE_GEOMETRY_FILE_PATH")
 
 
 
     # [MESH]
     # ======
     def numberOfMeshNodes(self) -> int:
-        return self._get_int("MESH", "NUM_MESH_NODES")
+        return self._get_int("MESH", "NUM_MESH_NODES", positive=True)
 
     def meshRefinementBool(self) -> bool:
         return self._get_bool("MESH", "MESH_REFINEMENT_BOOL", default=False)
@@ -411,7 +494,7 @@ class Config:
         return start, end
 
     def numberOfRefMeshNodes(self) -> int:
-        return self._get_int("MESH", "NUM_REFINEMENT_MESH_NODES")
+        return self._get_int("MESH", "NUM_REFINEMENT_MESH_NODES", positive=True)
 
 
 
@@ -450,8 +533,9 @@ class Config:
     def initialPressureRight(self) -> float:
         return self._get_float("INITIAL CONDITIONS", "PRESSURE_RIGHT", positive=True)
 
-    # for nozzle simulations w/ at least one BC different than (inlet, outlet, transparent) or enforce_uniform_init_nozzle = True
-    # ---------------------------------------------------------------------------------------------------------------------------
+    # for nozzle simulations w/ BC not in set ((inlet, outlet), (outlet, inlet), (inlet, transparent), 
+    # (transparent, inlet)) or enforce_uniform_init_nozzle = True
+    # ------------------------------------------------------------------------------------------------
     def initialPressure(self) -> float:
         return self._get_float("INITIAL CONDITIONS", "PRESSURE", positive=True)
 
@@ -466,6 +550,14 @@ class Config:
 
     def enforceUniformNozzleInitBool(self) -> bool:
         return self._get_bool("INITIAL CONDITIONS", "ENFORCE_UNIFORM_NOZZLE_INIT_BOOL", default=False)
+
+    # for nozzle simulations w/ BC not in set ((inlet, outlet), (outlet, inlet), (inlet, transparent), 
+    # (transparent, inlet)) or enforce_uniform_init_nozzle = True
+    # ------------------------------------------------------------------------------------------------
+    def massFlowDirection(self) -> str:
+        return self._get_int("INITIAL CONDITIONS", "MASS_FLOW_DIRECTION", inputOptions=[1, -1])
+    # 1 indicating flow from left BC to right, -1 indicating flow from right BC to left
+    
     
     
     
@@ -474,7 +566,7 @@ class Config:
     # [NUMERICS]
     # ==========
     def numericalScheme(self) -> str:
-        return self._get_str("NUMERICS", "INTERCELL_FLUX_SCHEME", inputOptions=["godunov", "roe", "roe_arabi", "roe_vinokur"])
+        return self._get_str("NUMERICS", "INTERCELL_FLUX_SCHEME", lower = True, inputOptions=["godunov", "roe", "roe_arabi", "roe_vinokur"])
 
     def entropyFixActiveBool(self) -> bool:
         return self._get_bool("NUMERICS", "ENTROPY_FIX_ACTIVE_BOOL")
@@ -486,13 +578,13 @@ class Config:
         return self._get_bool("NUMERICS", "MUSCL_RECONSTRUCTION_BOOL")
 
     def MUSCLReconstructionFluxLimiter(self) -> str:
-        return self._get_str("NUMERICS", "MUSCL_RECONSTRUCTION_FLUX_LIMITER", inputOptions=["van_albada", "van_leer", "min_mod", "superbee", "none"])
+        return self._get_str("NUMERICS", "MUSCL_RECONSTRUCTION_FLUX_LIMITER", lower = True, inputOptions=["van_albada", "van_leer", "min_mod", "superbee", "none"])
 
     def CFLMax(self) -> float:
             return self._get_float("NUMERICS", "CFL_MAX", positive=True)
 
     def wallFrictionModellingBool(self) -> bool:
-        return self._get_bool("NUMERICS", "WALL_FRICTION_MODELLING_BOOL")
+        return self._get_bool("NUMERICS", "WALL_FRICTION_MODELLING_BOOL", default = False)
 
     def fluidViscosity(self) -> float:
         return self._get_float("NUMERICS", "FLUID_VISCOSITY", positive=True)
@@ -502,12 +594,12 @@ class Config:
     # [BOUNDARY CONDITIONS]
     # =====================
     def boundaryConditions(self) -> tuple[str, str]:
-        left = self._get_str("BOUNDARY CONDITIONS", "BOUNDARY_CONDITION_LEFT", inputOptions=["inlet", "outlet", "transparent", "reflective", "periodic"])
-        right = self._get_str("BOUNDARY CONDITIONS", "BOUNDARY_CONDITION_RIGHT", inputOptions=["inlet", "outlet", "transparent", "reflective", "periodic"])
+        left = self._get_str("BOUNDARY CONDITIONS", "BOUNDARY_CONDITION_LEFT", lower = True, inputOptions=["inlet", "outlet", "transparent", "reflective", "periodic"])
+        right = self._get_str("BOUNDARY CONDITIONS", "BOUNDARY_CONDITION_RIGHT", lower = True, inputOptions=["inlet", "outlet", "transparent", "reflective", "periodic"])
         return left, right
 
     def inletConditionsType(self) -> str:
-        value = self._get_str("BOUNDARY CONDITIONS", "INLET_CONDITIONS_TYPE", inputOptions=["total", "static"])
+        value = self._get_str("BOUNDARY CONDITIONS", "INLET_CONDITIONS_TYPE", lower = True, inputOptions=["total", "static"])
         if value not in ("total", "static"):
             raise ConfigError(
                 f"{self.config_file} [BOUNDARY CONDITIONS]: 'INLET_CONDITIONS_TYPE' "
@@ -516,15 +608,15 @@ class Config:
         return value  # type: ignore[return-value]
 
     def inletConditionsValues(self) -> list[float]:
-        raw = self._get_raw("BOUNDARY CONDITIONS", "INLET_CONDITIONS_VALUES")
+        BC_str = self._get_str("BOUNDARY CONDITIONS", "INLET_CONDITIONS_VALUES")
         try:
-            values = [float(v.strip()) for v in raw.split(",")]
+            values = [float(v.strip()) for v in BC_str.split(",")]
         except ValueError:
             raise ConfigError(
                 f"{self.config_file} [BOUNDARY CONDITIONS]: 'INLET_CONDITIONS_VALUES' must be "
-                f"comma-separated numbers, got '{raw}'"
+                f"comma-separated numbers, got '{BC_str}'"
             )
-        expected = 3 if self.inletConditionsType() == "total" else 2
+        expected = 2
         if len(values) != expected:
             raise ConfigError(
                 f"{self.config_file} [BOUNDARY CONDITIONS]: 'INLET_CONDITIONS_VALUES' expects "
@@ -533,7 +625,7 @@ class Config:
             )
         return values
 
-    def outletConditions(self) -> float:
+    def outletConditionsValues(self) -> float:
         return self._get_float("BOUNDARY CONDITIONS", "OUTLET_CONDITIONS_VALUES")
 
 
@@ -541,10 +633,10 @@ class Config:
     # [FLUID]
     # =======
     def fluidName(self) -> str:
-        return self._get_raw("FLUID", "FLUID_NAME")
+        return self._get_str("FLUID", "FLUID_NAME")
 
     def fluidModelType(self) -> str:
-        return self._get_str("FLUID", "FLUID_MODEL_TYPE", inputOptions=["ideal", "real"])
+        return self._get_str("FLUID", "FLUID_MODEL_TYPE", lower = True, inputOptions=["ideal", "real"])
 
     def fluidGamma(self) -> float:
         return self._get_float("FLUID", "FLUID_GAMMA", positive=True)
@@ -561,7 +653,7 @@ class Config:
         LuT: ['LuT']
         Feos: ['feos::HOGC-PCP-SAFT']
         """
-        return self._get_raw("FLUID", "FLUID_LIBRARY", inputOptions = [
+        return self._get_str("FLUID", "FLUID_LIBRARY", inputOptions = [
             "StanMix", "GasMix", "PCP-SAFT", "RefProp", "qPCP-SAFT", "HOGC-PCP-SAFT",
             "CoolProp", "REFPROP", "HEOS",
             "Humid Air", "Humid Air Mix",
@@ -571,7 +663,7 @@ class Config:
 
     def fluidPropertyExtractionMethod(self) -> str:
         valid = {"fluid", "abstractstate", "abstractstate_v2"}
-        value = self._get_str("FLUID", "FLUID_PROPERTY_EXTRACTION_METHOD", default = "abstractstate_v2")
+        value = self._get_str("FLUID", "FLUID_PROPERTY_EXTRACTION_METHOD", lower = True, default = "abstractstate_v2")
         if value not in valid:
             raise ConfigError(
                 f"{self.config_file} [FLUID]: 'FLUID_PROPERTY_EXTRACTION_METHOD' "
@@ -584,7 +676,7 @@ class Config:
     # [OUTPUT]
     # ========
     def resultsSubdirectoryName(self) -> str:
-        return self._get_raw("OUTPUT", "RESULTS_SUBDIRECTORY_NAME")
+        return self._get_str("OUTPUT", "RESULTS_SUBDIRECTORY_NAME")
 
     def writeInterval(self) -> int:
         return self._get_int("OUTPUT", "WRITE_INTERVAL", default=250)
