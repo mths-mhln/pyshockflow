@@ -135,12 +135,12 @@ class Config:
             value = str(value)
         except:
             raise TypeError("Config option value cannot be converted to string")
+        if lower:
+            value = value.lower()
         if inputOptions is not None and value not in inputOptions:
             raise ConfigError(
                 f"{self.config_file} [{section}]: '{key}' must be one of {inputOptions}, got '{value}'"
             )
-        if lower:
-            value = value.lower()
         return value
 
 
@@ -275,9 +275,6 @@ class Config:
             ("NUMERICS", "INTERCELL_FLUX_SCHEME", ["roe", "roe_arabi", "roe_vinokur"],
                 {"NUMERICS": ["ENTROPY_FIX_ACTIVE_BOOL"]}),
 
-            ("NUMERICS", "ENTROPY_FIX_ACTIVE_BOOL", [True],
-                {"NUMERICS": ["ENTROPY_FIX_COEFFICIENT"]}),
-
             ("NUMERICS", "MUSCL_RECONSTRUCTION_BOOL", [True],
                 {"NUMERICS": ["MUSCL_RECONSTRUCTION_FLUX_LIMITER"]}),
 
@@ -312,6 +309,12 @@ class Config:
         # AND if FLUID_MODEL_TYPE = "ideal". This is handled below.
         if self.wallFrictionModellingBool() and self.fluidModelType() == "ideal":
             check_required_sections({"NUMERICS": ["FLUID_VISCOSITY"]})
+
+        # Similarly, presence of the ENTROPY_FIX_COEFFICIENT is only required if the 
+        # INTERCELL_FLUX_SCHEME is a Roe-family scheme AND if ENTROPY_FIX_ACTIVE_BOOL = True. 
+        # This is handled below.
+        if self.numericalScheme() in ["roe", "roe_arabi", "roe_vinokur"] and self.entropyFixActiveBool():
+            check_required_sections({"NUMERICS": ["ENTROPY_FIX_COEFFICIENT"]})
 
         # check expansion device specific conditionally required inputs
         # =============================================================
@@ -400,8 +403,7 @@ class Config:
                 "MESH_REFINEMENT_BOOL is False"),
 
             ("NUMERICS", "INTERCELL_FLUX_SCHEME", ["godunov"], 
-                {"NUMERICS": ["ENTROPY_FIX_ACTIVE_BOOL", "ENTROPY_FIX_COEFFICIENT",
-                            "MUSCL_RECONSTRUCTION_BOOL", "MUSCL_RECONSTRUCTION_FLUX_LIMITER"]},
+                {"NUMERICS": ["ENTROPY_FIX_ACTIVE_BOOL", "ENTROPY_FIX_COEFFICIENT"]},
                 "INTERCELL_FLUX_SCHEME is not a Roe-family scheme"),
 
             ("FLUID", "FLUID_MODEL_TYPE", ["ideal"],
@@ -569,7 +571,7 @@ class Config:
         return self._get_str("NUMERICS", "INTERCELL_FLUX_SCHEME", lower = True, inputOptions=["godunov", "roe", "roe_arabi", "roe_vinokur"])
 
     def entropyFixActiveBool(self) -> bool:
-        return self._get_bool("NUMERICS", "ENTROPY_FIX_ACTIVE_BOOL")
+        return self._get_bool("NUMERICS", "ENTROPY_FIX_ACTIVE_BOOL", default = False)
 
     def entropyFixCoefficient(self) -> float:
         return self._get_float("NUMERICS", "ENTROPY_FIX_COEFFICIENT", positive=True)

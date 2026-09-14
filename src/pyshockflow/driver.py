@@ -1760,7 +1760,7 @@ def _inferInitialMassFlowDirection(config):
 
         # extract pressure values
         inletPressure = inletConditionsValues[0]
-        outletPressure = outletConditionsValues[0]
+        outletPressure = outletConditionsValues
 
         # infer mass flow direction
         if bcs[0] == "inlet":
