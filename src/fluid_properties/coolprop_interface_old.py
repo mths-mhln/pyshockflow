@@ -1,3 +1,5 @@
+from functools import lru_cache
+
 import base_interface
 import numpy as np
 from coolprop import coolprop_functions
@@ -396,25 +398,26 @@ class CoolPropAbstractState_v2():
         output: float | np.ndarray
             output of the desired variable, e.g. temperature or pressure. Will be a float for single point evaluation, or a numpy array for vectorized evaluation. 
             For points that are not valid for the AbstractState (e.g. points outside the phase envelope), nan will be returned.
-        """
-        # check if the input thermodynamic pair lies close to the critical point
-        if CoolPropAbstractState_v2._critical_value(AS, x_str, x, critical_point_vals) and CoolPropAbstractState_v2._critical_value(AS, y_str, y, critical_point_vals):
-            # input pair is close or equal to critical point, compute state from critical point. Thdy states close to the critical
-            # point caused some issues during computation.
-            Tcrit, Dcrit, Pcrit = critical_point_vals
-            AS.update(CP.DmassT_INPUTS, Dcrit, Tcrit)
-            S = AS.smass()
-            AS.update(CP.SmassT_INPUTS, S, Tcrit)
-
-            # extract the desired output variable using the critical values rather than the given input
-            return getattr(AS, output)()
-        
+        """     
         if reorder:
-            skip_update = CoolPropAbstractState_v2._update_wrapper(AS, input_spec, y, x, verbose)
+            Failed = CoolPropAbstractState_v2._update_wrapper(AS, input_spec, y, x, verbose)
         else:
-            skip_update = CoolPropAbstractState_v2._update_wrapper(AS, input_spec, x, y, verbose)
-        if skip_update:
-            return np.nan
+            Failed = CoolPropAbstractState_v2._update_wrapper(AS, input_spec, x, y, verbose)
+        if Failed:
+            # check if the input thermodynamic pair lies close to the critical point
+            if CoolPropAbstractState_v2._critical_value(AS, x_str, x, critical_point_vals) and CoolPropAbstractState_v2._critical_value(AS, y_str, y, critical_point_vals):
+                # input pair is close or equal to critical point, compute state from critical point. Thdy states close to the critical
+                # point caused some issues during computation.
+                Tcrit, Dcrit, _ = critical_point_vals
+                AS.update(CP.DmassT_INPUTS, Dcrit, Tcrit)
+                S = AS.smass()
+                AS.update(CP.SmassT_INPUTS, S, Tcrit)
+    
+                # extract the desired output variable using the critical values rather than the given input
+                return getattr(AS, output)()
+
+            else: 
+                return np.nan
         if output == 'dPdrhomasscT':
             return AS.first_partial_deriv(CP.iP, CP.iDmass, CP.iT)
         if output == "dUdrhomasscU":

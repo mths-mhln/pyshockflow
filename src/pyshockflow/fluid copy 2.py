@@ -270,6 +270,32 @@ class FluidReal():
         a[~mask_two_phase] = _computeSoundSpeed_p_rho_single_phase(p[~mask_two_phase], rho[~mask_two_phase])
 
         return a
+        # if not two_phase:
+        #     # from tests performed in pyshockflow of this function, when computesoundspeed
+        #     # is called in any region other than two-phase near the two-phase dome, 
+        #     # the value is stable. Values inside the two-phase dome (phase == 6) near the 
+        #     # dome can return -9999980 or nan. 
+        #     a = _computeSoundSpeed_p_rho_single_phase(p, rho)
+        #     # common errors:
+        #     if abs(a) > 99999:
+        #         # for qualities near 0, I did see two-phase SOS in the thousands, but that
+        #         # is considered acceptably finite for an edge case.
+        #         print(f"Warning: Computed sound speed {a} is unusually high for p={p}, rho={rho}.\n"
+        #             "This issue is common when the thdy pair is considered two-phase by CoolProp\n"
+        #             "but is nevertheless evaluated using PropsSI, which from experience only\n"
+        #             "returns sensible values for non-two-phase regions.")
+        #     if np.isnan(a):
+        #         print(f"Warning: Computed sound speed is NaN for p={p}, rho={rho}.\n"
+        #             "This issue is common when the thdy pair is close to the critical point.\n"
+        #             "The user may try relaxing the tolerance of the CoolPropAbstractState_v2\n"
+        #             "_critical_value method. However if the relaxation required is too large\n"
+        #             "it is recommended to launch a separate investigation.")
+        #     return a
+        # else:
+        #     # but if the value is computed using the cioffi equation, the returned value
+        #     # has no risk of being -9999980 or nan either, so we can be ensured about stability.
+        #     a = _computeSoundSpeed_p_rho_two_phase(p, rho)
+        #     return a
 
     def computeMach_u_p_rho(self, u, p, rho):
         soundSpeed = self.computeSoundSpeed_p_rho(p, rho)
@@ -311,7 +337,7 @@ class FluidReal():
         gamma_pT = 1 / (1 - p/cp*dv_dT_P)
         return gamma_pT
 
-    def computeDynamicViscosity_p_rho(self, p: np.ndarray, rho: np.ndarray) -> np.ndarray:
+    def _computeDynamicViscosity_p_rho(self, p: np.ndarray, rho: np.ndarray) -> np.ndarray:
         # check if the state is two phase
         # readers can find interpretation of the phase number in the CoolProp documentation:
         # https://coolprop.org/_static/doxygen/html/namespace_cool_prop.html#aa1ce7c368d1058004293708038241850a648039a97f7392876038eaf56cf91e95

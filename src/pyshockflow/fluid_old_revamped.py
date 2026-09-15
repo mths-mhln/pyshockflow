@@ -239,15 +239,10 @@ class FluidReal():
         
         def _computeSoundSpeed_p_rho_two_phase(p: float, rho: float) -> float:
             # two-phase (HEM model from Cioffi et al.)
-            T = FP.PropsSI("T", "P", p, "D", rho, self.fluid)
-            y_V = FP.PropsSI("Q", "P", p, "D", rho, self.fluid)
+            T, y_V = FP.PropsSI(("T", "Q"), "P", p, "D", rho, self.fluid)
             y_L = 1 - y_V
-            soundSpeed_L = FP.PropsSI("A", "P", p, "Q", 0, self.fluid)
-            soundSpeed_V = FP.PropsSI("A", "P", p, "Q", 1, self.fluid)
-            rho_L = FP.PropsSI("D", "P", p, "Q", 0, self.fluid)
-            rho_V = FP.PropsSI("D", "P", p, "Q", 1, self.fluid)
-            c_p_L = FP.PropsSI("Cpmass", "P", p, "Q", 0, self.fluid)
-            c_p_V = FP.PropsSI("Cpmass", "P", p, "Q", 1, self.fluid)
+            soundSpeed_L, rho_L, c_p_L = FP.PropsSI(("A", "D", "Cpmass"), "P", p, "Q", 0, self.fluid)
+            soundSpeed_V, rho_V, c_p_V = FP.PropsSI(("A", "D", "Cpmass"), "P", p, "Q", 1, self.fluid)
             alpha_V = y_V * (rho/rho_V)
             alpha_L = y_L * (rho/rho_L)
             
@@ -330,9 +325,8 @@ class FluidReal():
 
         def _computeDynamicViscosity_p_rho_two_phase(p: float, rho: float) -> float:
             y_V = FP.PropsSI("Q", "P", p, "D", rho, self.fluid)
-            rho_V = FP.PropsSI("D", "P", p, "Q", 1, self.fluid)
+            rho_V, mu_V = FP.PropsSI(("D", "V"), "P", p, "Q", 1, self.fluid)
             alpha_V = y_V * rho / rho_V
-            mu_V = FP.PropsSI("V", "P", p, "Q", 1, self.fluid)
             mu_L = FP.PropsSI("V", "P", p, "Q", 0, self.fluid)
             mu_2phase = alpha_V * mu_V + (1-alpha_V) * (1+2.5*alpha_V) * mu_L
             return mu_2phase

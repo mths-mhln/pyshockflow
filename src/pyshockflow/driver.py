@@ -96,7 +96,9 @@ class Driver:
         meshData           = self.generateMesh(config, deviceGeometryData)
         fluidModel         = self.instantiateFluidModel(config)
         fluidState         = self.initializeFluidStateArrays(config, deviceGeometryData, meshData, fluidModel)
+        print(fluidState)
         fluidState         = self.setBoundaryConditions(config, fluidModel, fluidState)
+        print(fluidState)
 
         # Conservative variables are derived from the fluidState variables; initialise them
         # so that updateSolution() can operate on them from the very first step.
@@ -838,6 +840,9 @@ class Driver:
                     staticEnthalpyField = fluidModel.computeEnthalpy_p_s(
                         fluidState["Pressure"], staticEntropyField
                     )
+                    print("DEBUG pressure: ", fluidState["Pressure"])
+                    print("DEBUG staticEntropyField: ", staticEntropyField)
+                    print("DEBUG staticEnthalpyField: ", staticEnthalpyField)
                     # one could also use the method below. The isentropic assumption
                     # was made when the static density was computed thorughout the flow 
                     # domain. However, the code can be left as-is :)
@@ -847,7 +852,7 @@ class Driver:
                     staticEnthalpyField = fluidState["staticInternalEnergy"] + \
                         fluidState["Pressure"] / fluidState["Density"]
 
-
+                
                 massFlowDirection = _inferInitialMassFlowDirection(config)
                 fluidState["Velocity"] = massFlowDirection * np.sqrt(
                     2 * (totalEnthalpyField - staticEnthalpyField)
@@ -2172,7 +2177,7 @@ def computeSmoothnessIndicators(W, dx):
     """
     Compute the smoothness indicator vector r for use in a flux limiter.
 
-    r_i = (dU_i / dx_left) / (dU_i / dx_right + epsilon)
+    r_i = (dW_i / dx_left) / (dW_i / dx_right + epsilon)
 
     where epsilon is a small regularisation constant to avoid division by zero
     when the solution is locally flat.
@@ -2311,7 +2316,7 @@ def computeSourceTerms(config, meshData, fluidModel, fluidState):
     If friction modelling is enabled, the momentum source term is augmented 
     with the Darcy-Weisbach friction term:
     
-        S_2 = -rho * u^2 * (1/A) * dA/dx - 1/8 * f * rho * (u**2) * P_w
+        S_2 = -rho * u^2 * (1/A) * dA/dx - 1/8 * f * rho * (u**2) * (P_w/A)
     
     where P_w is the wetted perimeter and f is the Darcy friction factor.
     The wetted perimeter assumes a circular cross-section, so P_w = pi * D, 

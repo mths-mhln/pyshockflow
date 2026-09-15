@@ -1,3 +1,5 @@
+from functools import lru_cache
+
 import base_interface
 import numpy as np
 from coolprop import coolprop_functions
