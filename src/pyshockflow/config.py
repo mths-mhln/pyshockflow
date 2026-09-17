@@ -600,6 +600,8 @@ class Config:
     def convergencePatience(self) -> int:
         return self._get_int("NUMERICS", "CONVERGENCE_PATIENCE", positive=True, default=20)
 
+
+
     
 
     # [BOUNDARY CONDITIONS]

@@ -36,8 +36,8 @@ configFile = "inputs/config_files/lettieri/L1_smooth.ini"
 # driver.solve()
  
 config = Config(configFilePath = configFile)
-driver = Driver(config = config)
-# driver = Driver(config = config, restartFilePath = "Results/lettieri/output_L1_smooth/step_000033.pik") 
+# driver = Driver(config = config)
+driver = Driver(config = config,restartFilePath = "Results/lettieri/output_L1_smooth/step_000250.pik") 
 driver.solve()
 
 

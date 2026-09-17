@@ -1108,7 +1108,7 @@ class Driver:
             counter = 1
             candidate = resultsSubdirPath
             while candidate.exists():
-                candidate = resultsSubdirPath.with_name(f"{config.resultsSubdirectoryName()}_{counter}")
+                candidate = resultsSubdirPardirName / f"{config.resultsSubdirectoryName()}_{counter}"
                 counter += 1
             resultsSubdirPath = candidate
 
