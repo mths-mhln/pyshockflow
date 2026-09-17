@@ -383,15 +383,6 @@ class CoolPropAbstractState_v2():
         Pcrit = self._abstract_state.p_critical()
         self.critical_point_vals = (Tcrit, Dcrit, Pcrit)
 
-    # def _get_abstract_state(self) -> AbstractState:
-    #     """
-    #     If AbstractState instance is already created for the fluid type and library, no need to create it over and over again.
-    #     """
-    #     if self._abstract_state is None:
-    #         name = self.FluidName
-    #         self._abstract_state = AbstractState(self.Library, name)
-    #     return self._abstract_state
-
     def _apply_mass_syntax(self, s: str) -> str:
         """
         Converts PropsSI syntax to AbstractState syntax. for properties that are typically mass-averaged, the subscript mass should be added behind it.
