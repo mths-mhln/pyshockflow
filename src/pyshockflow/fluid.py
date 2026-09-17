@@ -29,10 +29,11 @@ class FluidIdeal():
     def computeTotalInternalEnergy_Tt(self, Tt):
         return self.Rgas*Tt/(self.gmma-1)
 
+    def computeEnthalpy_T(self, T):
+        return self.gmma*self.Rgas*T/(self.gmma-1)
+
     def computeEntropy_p_rho(self, p, rho):
         return p/(rho**self.gmma)
-
-
 
     def computeSoundSpeed_p_rho(self, p, rho):
         return np.sqrt(self.gmma*p/rho)
@@ -71,8 +72,6 @@ class FluidIdeal():
             gmma_pv = self.gmma
         return gmma_pv
 
-
-
     def computeDensityIsentropic_p1_p2_rho1(self, p1, p2, rho1):
         return rho1*(p2/p1)**(1/self.gmma)
 
@@ -91,8 +90,6 @@ class FluidIdeal():
     def computeMach_pt_p(self, pt, p):
         mach = np.sqrt( 2/(self.gmma-1) * ((pt/p)**((self.gmma-1)/self.gmma)-1) )
         return mach
-
-
 
     def computeInletQuantitiesTotal_pt_Tt(self, pressure, totPressure, totTemperature, direction):
         mach = self.computeMach_pt_p(totPressure, pressure)
@@ -115,8 +112,6 @@ class FluidIdeal():
     def computeInletQuantitiesStatic_p_Q(self, pressure, quality):
         """non-used inputs present for same reason as computeComprFactorZ_p_rho."""
         raise NotImplementedError("Two-phase flow is not supported for ideal fluids.")
-
-
 
     def computeChiKappa_VinokurScheme_p_rho(self, p, rho):
         chi = 0
@@ -142,7 +137,6 @@ class FluidReal():
     # Cached methods
     # -------------------------------------------------------------
     # A number of methods are called frequently throughout the 
-
 
     def computeTemperature_p_rho(self, p, rho):
         T = FP.PropsSI('T', 'P', p, 'D', rho, self.fluid)
@@ -241,6 +235,7 @@ class FluidReal():
             # two-phase (HEM model from Cioffi et al.)
             T, y_V = FP.PropsSI(("T", "Q"), "P", p, "D", rho, self.fluid)
             y_L = 1 - y_V
+            # print(FP.PropsSI(("A", "D", "Cpmass"), "P", p, "Q", 0, self.fluid))
             soundSpeed_L, rho_L, c_p_L = FP.PropsSI(("A", "D", "Cpmass"), "P", p, "Q", 0, self.fluid)
             soundSpeed_V, rho_V, c_p_V = FP.PropsSI(("A", "D", "Cpmass"), "P", p, "Q", 1, self.fluid)
             alpha_V = y_V * (rho/rho_V)
@@ -260,9 +255,11 @@ class FluidReal():
                             (alpha_V * rho_V / c_p_V) * ds_dp_cQ_V**2)
                     ))**(-0.5)
             return a
-        
-        a[mask_two_phase] = _computeSoundSpeed_p_rho_two_phase(p[mask_two_phase], rho[mask_two_phase])
-        a[~mask_two_phase] = _computeSoundSpeed_p_rho_single_phase(p[~mask_two_phase], rho[~mask_two_phase])
+
+        if mask_two_phase.any():
+            a[mask_two_phase] = _computeSoundSpeed_p_rho_two_phase(p[mask_two_phase], rho[mask_two_phase])
+        if (~mask_two_phase).any():
+            a[~mask_two_phase] = _computeSoundSpeed_p_rho_single_phase(p[~mask_two_phase], rho[~mask_two_phase])
 
         return a
 
@@ -331,8 +328,10 @@ class FluidReal():
             mu_2phase = alpha_V * mu_V + (1-alpha_V) * (1+2.5*alpha_V) * mu_L
             return mu_2phase
 
-        mu[mask_two_phase] = _computeDynamicViscosity_p_rho_two_phase(p[mask_two_phase], rho[mask_two_phase])
-        mu[~mask_two_phase] = _computeDynamicViscosity_p_rho_single_phase(p[~mask_two_phase], rho[~mask_two_phase])
+        if mask_two_phase.any():
+            mu[mask_two_phase] = _computeDynamicViscosity_p_rho_two_phase(p[mask_two_phase], rho[mask_two_phase])
+        if (~mask_two_phase).any():
+            mu[~mask_two_phase] = _computeDynamicViscosity_p_rho_single_phase(p[~mask_two_phase], rho[~mask_two_phase])
 
         return mu
 

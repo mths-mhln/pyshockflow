@@ -1,0 +1,15 @@
+============================= test session starts =============================
+platform win32 -- Python 3.12.13, pytest-9.0.3, pluggy-1.6.0
+rootdir: D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork
+configfile: pyproject.toml
+collected 5 items
+
+test_fluid.py .....                                                      [100%]
+
+============================== warnings summary ===============================
+test/integration_tests/test_fluid.py::test_CM92_CoolProp_mixture_thdy_properties[R1234ze(E)-data/test_fluid/CM92_CoolProp_mixture_thdy_properties.pkl]
+  D:\nexus\02_learning\00_university_education\04_MSc_TUDelft\05_thesis_nexus\06_computational_modelling\00_PyShockFlow_fork\.venv\Lib\site-packages\numpy\lib\_function_base_impl.py:2605: RuntimeWarning: invalid value encountered in func (vectorized)
+    outputs = ufunc(*inputs)
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+======================== 5 passed, 1 warning in 10.02s ========================

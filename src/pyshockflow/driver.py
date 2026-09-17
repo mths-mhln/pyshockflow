@@ -96,9 +96,7 @@ class Driver:
         meshData           = self.generateMesh(config, deviceGeometryData)
         fluidModel         = self.instantiateFluidModel(config)
         fluidState         = self.initializeFluidStateArrays(config, deviceGeometryData, meshData, fluidModel)
-        print(fluidState)
         fluidState         = self.setBoundaryConditions(config, fluidModel, fluidState)
-        print(fluidState)
 
         # Conservative variables are derived from the fluidState variables; initialise them
         # so that updateSolution() can operate on them from the very first step.
@@ -840,9 +838,6 @@ class Driver:
                     staticEnthalpyField = fluidModel.computeEnthalpy_p_s(
                         fluidState["Pressure"], staticEntropyField
                     )
-                    print("DEBUG pressure: ", fluidState["Pressure"])
-                    print("DEBUG staticEntropyField: ", staticEntropyField)
-                    print("DEBUG staticEnthalpyField: ", staticEnthalpyField)
                     # one could also use the method below. The isentropic assumption
                     # was made when the static density was computed thorughout the flow 
                     # domain. However, the code can be left as-is :)
@@ -852,7 +847,6 @@ class Driver:
                     staticEnthalpyField = fluidState["staticInternalEnergy"] + \
                         fluidState["Pressure"] / fluidState["Density"]
 
-                
                 massFlowDirection = _inferInitialMassFlowDirection(config)
                 fluidState["Velocity"] = massFlowDirection * np.sqrt(
                     2 * (totalEnthalpyField - staticEnthalpyField)
@@ -1149,31 +1143,6 @@ class Driver:
         return {"u1": u1, "u2": u2, "u3": u3}
 
 
-    @staticmethod
-    def _fluidStateFromConservatives(conservativeState, fluidModel):
-        """
-        Compute fluid state variables from the conservative state and return them as a
-        dictionary with keys 'Density', 'Velocity', 'Pressure', 'staticInternalEnergy'. Wrapper function
-        to make pre-processing code more compact.
-
-        Arguments
-        ---------
-        conservativeState : dict
-        fluidModel : FluidIdeal or FluidReal
-
-        Returns
-        -------
-        updates : dict of np.1darrays (interior nodes only)
-        """
-        rho, u, p, e = getFluidStateFromConservatives(
-            conservativeState["u1"],
-            conservativeState["u2"],
-            conservativeState["u3"],
-            fluidModel,
-        )
-        return {"Density": rho, "Velocity": u, "Pressure": p, 'staticInternalEnergy': e}
-
-
     # =========================================================================
     #  Solver
     # =========================================================================
@@ -1280,7 +1249,7 @@ class Driver:
                 limiter, entropyFixActiveBool, entropyFixCoefficient,
                 expansionDeviceType
             )
-
+            
             # Update conservative variables with the residuals, then recover fluid state variables.
             conservativeState, fluidState = updateSolution(
                 conservativeState, fluidState, residuals, fluidModel

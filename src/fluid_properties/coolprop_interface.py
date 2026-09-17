@@ -364,14 +364,15 @@ class CoolPropAbstractState_v2():
         if library == 'CoolProp':
             library = 'HEOS'
 
-        self.FluidName = fluid_name
-        self.Library = library
-        self._abstract_state = None
-
         # legacy code. I do not imagine myself putting a fluid name with [1] at the end, but it is in there, so i assume it can be called... 
         name = fluid_name
         if len(name) > 3 and name[-3:] == "[1]":
             name = name[:-3]
+
+        # store fluid extraction information as class attributes
+        self.FluidName = name
+        self.Library = library
+        self._abstract_state = None
 
         # initalize abstractstate:
         self._abstract_state = AbstractState(self.Library, name)
@@ -382,37 +383,29 @@ class CoolPropAbstractState_v2():
         Pcrit = self._abstract_state.p_critical()
         self.critical_point_vals = (Tcrit, Dcrit, Pcrit)
 
-    @staticmethod
-    def _update_wrapper(AS: AbstractState, input_spec: CP.PQ_INPUTS, x: float, y: float, verbose: bool = False) -> bool:
-        """
-        Coolprop utility to allow nan return upon vectorized evaluation of AbstractState. Note, input_spec
-        must not necessarily be CP.PQ_INPUTS, can be other pairs, I wanted to give an example for type hinting.
-        """
-        try:
-            AS.update(input_spec, x, y)
-            return AS, False
-        except Exception as e:
-            if verbose:
-                print("Failed to update abstractstate. CoolProp output:", e)
-            return AS, True
+    # def _get_abstract_state(self) -> AbstractState:
+    #     """
+    #     If AbstractState instance is already created for the fluid type and library, no need to create it over and over again.
+    #     """
+    #     if self._abstract_state is None:
+    #         name = self.FluidName
+    #         self._abstract_state = AbstractState(self.Library, name)
+    #     return self._abstract_state
 
-    def _get_abstract_state(self) -> AbstractState:
-        """
-        If AbstractState instance is already created for the fluid type and library, no need to create it over and over again.
-        """
-        if self._abstract_state is None:
-            name = self.FluidName
-            if len(name) > 3 and name[-3:] == "[1]":
-                name = name[:-3]
-            self._abstract_state = AbstractState(self.Library, name)
-        return self._abstract_state
-
-    def _abstractstate_mass_syntax(self, s: str) -> str:
+    def _apply_mass_syntax(self, s: str) -> str:
         """
         Converts PropsSI syntax to AbstractState syntax. for properties that are typically mass-averaged, the subscript mass should be added behind it.
         """
-        if s in CoolPropAbstractState_v2._MASS_PROPS:
+        if s in self._MASS_PROPS:
             return s + "mass"
+        return s
+
+    def _apply_abstractstate_method_syntax(self, s: str) -> str:
+        """
+        Converts PropsSI syntax to AbstractState syntax. for properties that are typically mass-averaged, the subscript mass should be added behind it.
+        """
+        if s in self._TRANSLATOR:
+            return self._TRANSLATOR.get(s)
         return s
                
     def _get_input_spec(self, x_str: str, y_str: str) -> tuple[CP.PQ_INPUTS, bool]:
@@ -437,10 +430,7 @@ class CoolPropAbstractState_v2():
                 f"Supported combinations: {sorted(self._INPUT_SPEC)}"
             )
 
-    @staticmethod
-    @np.vectorize(otypes=[float])
-    def _extract_single(AS: AbstractState, prop_AS: str, input_spec: int, x: float, y: float,
-                    reorder: bool, x_str_AS: str, y_str_AS: str, verbose: bool = False):
+    def _extract(self, AS: AbstractState, x_str_AS: str, x: float, y_str_AS: str, y: float, prop_AS: str, input_spec: CP.PQ_INPUTS, verbose: bool = False):
         """
         Vectorized method to update the AbstractState with the specified input specification and input variables, and return the specified output variable. 
         The method returns nan for points that are not valid for the AbstractState (e.g. points outside the phase envelope).
@@ -470,10 +460,10 @@ class CoolPropAbstractState_v2():
             output of the desired variable, e.g. temperature or pressure. Will be a float for single point evaluation, or a numpy array for vectorized evaluation. 
             For points that are not valid for the AbstractState (e.g. points outside the phase envelope), nan will be returned.
         """     
-        """Extract a property after a successful update."""
-        failed = CoolPropAbstractState_v2._update_one(AS, input_spec, x, y, reorder, verbose)
+        """Extract a property after a successful update."""           
+        failed = CoolPropAbstractState_v2._update_one(AS, x, y, input_spec, verbose)
         if failed:
-            val = CoolPropAbstractState_v2._try_critical_recovery(
+            val = self._try_critical_recovery(
                 AS, x_str_AS, x, y_str_AS, y, prop_AS
             )
         else:
@@ -487,54 +477,48 @@ class CoolPropAbstractState_v2():
             val = getattr(AS, prop_AS)()  
 
         if prop_AS == "Q":
-            val = min(1.0, max(0.0, val))
+            if val < 0.0:
+                val = 0.0
+            elif val > 1.0:
+                val = 1.0
         return float(val)
 
-    def _extract_tuple(self, AS: AbstractState, input_spec: int, x: float, y: float,
-                            reorder: bool, prop_AS_tuple: tuple,
-                            x_str_AS: str, y_str_AS: str, verbose: bool = False) -> tuple:
-        failed = self._update_one(AS, input_spec, x, y, reorder, verbose)
-
-        vals = []
-        for prop_AS in prop_AS_tuple:
-            if failed:
-                val = self._try_critical_recovery(AS, x_str_AS, x, y_str_AS, y, prop_AS)
-            elif prop_AS == "drhomassdPcT":
-                val = AS.first_partial_deriv(CP.iP, CP.iDmass, CP.iT)
-            elif prop_AS == "dPdDmass_constUmass":
-                val = AS.first_partial_deriv(CP.iP, CP.iDmass, CP.iUmass)
-            elif prop_AS == "dPdUmass_constDmass":
-                val = AS.first_partial_deriv(CP.iP, CP.iUmass, CP.iDmass)
-            else:
-                val = getattr(AS, prop_AS)()
-
-            if prop_AS == "Q":
-                val = min(1.0, max(0.0, val))
-            vals.append(float(val))
-
-        return tuple(vals)
-
-    @staticmethod
-    def _update_one(AS: AbstractState, input_spec, x: float, y: float,
-                    reorder: bool, verbose: bool = False) -> bool:
+    def _update_one(AS: AbstractState, x: float, y: float, 
+                    input_spec: CP.PQ_INPUTS, verbose: bool = False) -> bool:
         """
         Attempt a single update. Returns True if the update failed
         (caller should return nan or try critical recovery).
         Uses a tiny last-state cache to skip identical consecutive points.
         """
-        if reorder:
-            xx, yy = y, x
-        else:
-            xx, yy = x, y
-
         try:
-            AS.update(input_spec, xx, yy)
+            AS.update(input_spec, x, y)
             return False
         except Exception as e:
             if verbose:
                 print("Failed to update AbstractState:", e)
             return True
 
+    def _try_critical_recovery(self, AS: AbstractState, x_str_AS: str, x: float,
+                                   y_str_AS: str, y: float, out_key: str) -> float:
+        """
+        Called only after a normal update has failed.
+        If both inputs are judged to be near the critical point, force the
+        state to the critical point and return the requested property.
+        Otherwise return nan.
+        """
+        if not (self._critical_value(AS, x_str_AS, x) and
+                self._critical_value(AS, y_str_AS, y)):
+            return np.nan
+
+        # Force state to critical point
+        Tcrit, Dcrit, _ = self.critical_point_vals
+        try:
+            AS.update(CP.DmassT_INPUTS, Dcrit, Tcrit)
+            S = AS.smass()
+            AS.update(CP.SmassT_INPUTS, S, Tcrit)
+            return getattr(AS, out_key)()
+        except Exception:
+            return np.nan
 
     def _critical_value(self, AS: AbstractState, prop_str_AS: str, prop_val: float) -> bool:
         """
@@ -566,8 +550,11 @@ class CoolPropAbstractState_v2():
             AS.update(CP.SmassT_INPUTS, S, Tcrit)
 
             if prop_str_AS == "Q":
-                prop_crit = AS.Q()
-                prop_crit = max(0.0, min(1.0, prop_crit))
+                Q_crit = AS.Q()
+                if Q_crit < 0.0:
+                    Q_crit = 0.0
+                elif Q_crit > 1.0:
+                    Q_crit = 1.0
             else:
                 # Map the AS-style name to the key used by _extract / _getters
                 translator = {
@@ -587,33 +574,11 @@ class CoolPropAbstractState_v2():
                     "V": "viscosity",
                 }
                 key = translator.get(prop_str_AS, prop_str_AS)
-                prop_crit = self._extract(AS, key)
+                prop_crit = getattr(AS, key)()
 
             return bool(np.isclose(prop_val, prop_crit, rtol=1e-5, atol=1e-5))
         except Exception:
             return False
-
-    def _try_critical_recovery(self, AS: AbstractState, x_str_AS: str, x: float,
-                                   y_str_AS: str, y: float, out_key: str) -> float:
-        """
-        Called only after a normal update has failed.
-        If both inputs are judged to be near the critical point, force the
-        state to the critical point and return the requested property.
-        Otherwise return nan.
-        """
-        if not (self._critical_value(AS, x_str_AS, x) and
-                self._critical_value(AS, y_str_AS, y)):
-            return np.nan
-
-        # Force state to critical point
-        Tcrit, Dcrit, _ = self.critical_point_vals
-        try:
-            AS.update(CP.DmassT_INPUTS, Dcrit, Tcrit)
-            S = AS.smass()
-            AS.update(CP.SmassT_INPUTS, S, Tcrit)
-            return self._extract(AS, out_key)
-        except Exception:
-            return np.nan
 
     def PropsSI(self, prop: str | tuple[str], x_str: str = None, x: float | np.ndarray = None, y_str: str = None, y: float | np.ndarray = None, verbose: bool = False) -> float | np.ndarray:
         """
@@ -644,44 +609,73 @@ class CoolPropAbstractState_v2():
             If `prop` was a tuple, a tuple of such values is returned instead, one per requested property, in the
             same order as `prop`.
         """
-        AS = self._get_abstract_state()
+        # get previously instantiated abstractstate object
+        AS = self._abstract_state
 
-        if isinstance(prop, tuple):
-            prop_AS_tuple = tuple(self._abstractstate_mass_syntax(p) for p in prop)
-            prop_AS_tuple = tuple(self._TRANSLATOR.get(p, p) for p in prop_AS_tuple)
-            x_str_AS = self._abstractstate_mass_syntax(x_str)
-            y_str_AS = self._abstractstate_mass_syntax(y_str)
-            input_spec, reorder = self._get_input_spec(x_str_AS, y_str_AS)
-
-            extractor = np.vectorize(
-                self._extract_tuple,
-                otypes=[float] * len(prop_AS_tuple),
-                excluded={0, 1, 4, 5, 6, 7, 8},  # everything except x (2) and y (3)
-            )
-            return extractor(AS, input_spec, x, y, reorder, prop_AS_tuple, x_str_AS, y_str_AS, verbose)
-
-        if isinstance(prop, str):
-            if prop in ("Tcrit", "Pcrit", "Dcrit", "Tmax", "M", "Ttriple"):
-                AS = self._get_abstract_state()
-                if prop == "Tcrit":
-                    return self.critical_point_vals[0]
-                if prop == "Dcrit":
-                    return self.critical_point_vals[1]
-                if prop == "Pcrit":
-                    return self.critical_point_vals[2]
-                if prop == "Tmax":
-                    return AS.Tmax()
-                if prop == "M":
-                    return AS.molar_mass()
-                if prop == "Ttriple":
-                    return AS.Ttriple()
-
-            prop_AS = self._abstractstate_mass_syntax(prop)
-            prop_AS = self._TRANSLATOR.get(prop_AS, prop_AS)
-
-        x_str_AS = self._abstractstate_mass_syntax(x_str)
-        y_str_AS = self._abstractstate_mass_syntax(y_str)
-
+        x_str_AS = self._apply_mass_syntax(x_str)
+        y_str_AS = self._apply_mass_syntax(y_str)
+        
+        # get input spec necessary for updating the AbstractState. 
         input_spec, reorder = self._get_input_spec(x_str_AS, y_str_AS)
 
-        return self._extract_single(AS, prop_AS, input_spec, x, y, reorder, x_str_AS, y_str_AS, verbose)
+        # if reorder, swap x and y
+        if reorder:
+            x, y = y, x
+            x_str_AS, y_str_AS = y_str_AS, x_str_AS
+
+        # if prop input is a tuple of props to be extracted at the same thdy points (x, y)...
+        if isinstance(prop, tuple):
+            # ... convert all inputs to AbstractState syntax. 
+            prop_mass_tuple = tuple(self._apply_mass_syntax(p) for p in prop)
+            prop_AS_tuple = tuple(self._apply_abstractstate_method_syntax(p) for p in prop_mass_tuple)
+            
+            vals = []
+            for prop_AS in prop_AS_tuple:
+                if prop_AS in ("Tcrit", "Pcrit", "Dcrit", "Tmax", "M", "Ttriple"):
+                    if prop_AS == "Tcrit":
+                        return self.critical_point_vals[0]
+                    if prop_AS == "Dcrit":
+                        return self.critical_point_vals[1]
+                    if prop_AS == "Pcrit":
+                        return self.critical_point_vals[2]
+                    if prop_AS == "Tmax":
+                        return AS.Tmax()
+                    if prop_AS == "M":
+                        return AS.molar_mass()
+                    if prop_AS == "Ttriple":
+                        return AS.Ttriple()
+
+                # define a an np.vectorize object capable of looping over the x, y input.  
+                extractor = np.vectorize(
+                    self._extract,
+                    otypes=[float],
+                    excluded={0, 1, 3, 5, 6, 7, 8},  # everything except x (2) and y (3)
+                )
+                vals.append(extractor(AS, x_str_AS, x, y_str_AS, y, prop_AS, input_spec, verbose))
+            return tuple(vals)
+
+        else: 
+            prop_mass = self._apply_mass_syntax(prop)
+            prop_AS = self._apply_abstractstate_method_syntax(prop_mass)
+
+            if prop_AS in ("Tcrit", "Pcrit", "Dcrit", "Tmax", "M", "Ttriple"):
+                if prop_AS == "Tcrit":
+                    return self.critical_point_vals[0]
+                if prop_AS == "Dcrit":
+                    return self.critical_point_vals[1]
+                if prop_AS == "Pcrit":
+                    return self.critical_point_vals[2]
+                if prop_AS == "Tmax":
+                    return AS.Tmax()
+                if prop_AS == "M":
+                    return AS.molar_mass()
+                if prop_AS == "Ttriple":
+                    return AS.Ttriple()
+            # define a an np.vectorize object capable of looping over the x, y input.
+            extractor = np.vectorize(
+                self._extract,
+                otypes=[float],
+                excluded={0, 1, 3, 5, 6, 7, 8},  # everything except x (2) and y (3)
+            )
+
+            return extractor(AS, x_str_AS, x, y_str_AS, y, prop_AS, input_spec, verbose)
