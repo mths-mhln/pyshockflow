@@ -254,10 +254,16 @@ class Driver:
         # area of the device. 
         if nozzleDataFrame.columns[1] == "y":
             deviceGeometryData["deviceY"] = nozzleData[:, 1]
-            deviceGeometryData["deviceArea"] = 2 * deviceGeometryData["deviceY"]
+            if config.deviceTopology() == "planar":
+                deviceGeometryData["deviceArea"] = 2 * deviceGeometryData["deviceY"]
+            elif config.deviceTopology() == "quasi_cylindrical":
+                deviceGeometryData["deviceArea"] = np.pi * deviceGeometryData["deviceY"] ** 2
         elif nozzleDataFrame.columns[1] == "A":
             deviceGeometryData["deviceArea"] = nozzleData[:, 1]
-            deviceGeometryData["deviceY"] = np.sqrt(deviceGeometryData["deviceArea"] / np.pi)
+            if config.deviceTopology() == "planar":
+                deviceGeometryData["deviceY"] = deviceGeometryData["deviceArea"] / 2
+            if config.deviceTopology() == "quasi_cylindrical":
+                deviceGeometryData["deviceY"] = np.sqrt(deviceGeometryData["deviceArea"] / np.pi)
         # According to the shock tube input data format requirements, the second data row
         # (disregarding the header) contains the interface location.
         if config.expansionDeviceType() == "shocktube":

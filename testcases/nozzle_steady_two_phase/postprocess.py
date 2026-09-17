@@ -13,8 +13,8 @@ from pyshockflow import Driver, Config
 configFiles = [
     # "inputs/config_files/lettieri/L1_friction.ini",
     # "inputs/config_files/lettieri/L1_smooth.ini",
-    "inputs/config_files/CM-11.3/L1_smooth_flipped.ini",
-    # "inputs/config_files/CM-10.2/test_conf.ini"
+    # "inputs/config_files/CM-11.3/L1_smooth_flipped.ini",
+    "inputs/config_files/CM-10.2/test_conf.ini"
 ]
 
 # perform verification on the simulation

@@ -207,7 +207,7 @@ class Config:
         # specify required sections and keys for nozzle and shocktube simulations
         # =======================================================================
         requiredSectionsNKeysNozzle = {
-            "GEOMETRY": ["EXPANSION_DEVICE_TYPE", "DEVICE_GEOMETRY_FILE_PATH"],
+            "GEOMETRY": ["EXPANSION_DEVICE_TYPE", "DEVICE_TOPOLOGY", "DEVICE_GEOMETRY_FILE_PATH"],
             "MESH": ["NUM_MESH_NODES"],
             "TIME": ["MAX_TIME"],
             "NUMERICS": ["INTERCELL_FLUX_SCHEME", "CFL_MAX"], 
@@ -216,7 +216,7 @@ class Config:
             "OUTPUT": ["RESULTS_SUBDIRECTORY_NAME"]
             }
         requiredSectionsNKeysShocktube = {
-            "GEOMETRY": ["EXPANSION_DEVICE_TYPE", "DEVICE_GEOMETRY_FILE_PATH"],
+            "GEOMETRY": ["EXPANSION_DEVICE_TYPE", "DEVICE_TOPOLOGY", "DEVICE_GEOMETRY_FILE_PATH"],
             "MESH": ["NUM_MESH_NODES"],
             "TIME": ["MAX_TIME"], 
             "INITIAL CONDITIONS": ["PRESSURE_LEFT", "PRESSURE_RIGHT", "VELOCITY_LEFT", "VELOCITY_RIGHT"],
@@ -476,6 +476,9 @@ class Config:
     # ==========
     def expansionDeviceType(self) -> str:
         return self._get_str("GEOMETRY", "EXPANSION_DEVICE_TYPE", lower = True, inputOptions=["nozzle", "shocktube"])
+
+    def deviceTopology(self) -> str:
+        return self._get_str("GEOMETRY", "DEVICE_TOPOLOGY", lower = True, inputOptions=["planar", "quasi_cylindrical"])
 
     def deviceGeometryFilePath(self) -> str:
         return self._get_str("GEOMETRY", "DEVICE_GEOMETRY_FILE_PATH")
