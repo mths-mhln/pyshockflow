@@ -1291,16 +1291,15 @@ class Driver:
             # ------------------------------------------------------------------
             if expansionDeviceType == "nozzle":
                 # early stopping upon convergence of the fluid state for nozzle geometries. 
-                convergenceTolerance = 1e-5
                 converged = all(
                     np.max(
                         np.abs(fluidState[var] - fluidStateOld[var])
                         / (np.max(np.abs(fluidStateOld[var])) + 1e-300)
-                    ) < convergenceTolerance
+                    ) < config.convergenceTolerance()
                     for var in ("Density", "Velocity", "Pressure", 'staticInternalEnergy')
                 )
                 convergenceHist = convergenceHist + [True] if converged else []
-                if len(convergenceHist) >= 20:
+                if len(convergenceHist) >= config.convergencePatience():
                     # Force the loop to end at timeMax on the next iteration.
                     newTime = timeMax
                     convergedSimulation = True
