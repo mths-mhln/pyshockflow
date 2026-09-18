@@ -364,6 +364,8 @@ class CoolPropAbstractState_v2():
         if library == 'CoolProp':
             library = 'HEOS'
 
+        print(library)
+
         # legacy code. I do not imagine myself putting a fluid name with [1] at the end, but it is in there, so i assume it can be called... 
         name = fluid_name
         if len(name) > 3 and name[-3:] == "[1]":

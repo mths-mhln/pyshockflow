@@ -241,33 +241,33 @@ class Driver:
         deviceGeometryData = {}
 
         # Extract nozzle ordinates (physical distance along the nozzle) 
-        nozzleDataFrame = pd.read_csv(deviceGeometryFilePath)
-        nozzleData = nozzleDataFrame.to_numpy()
+        deviceGeometryCSVDataFrame = pd.read_csv(deviceGeometryFilePath)
+        deviceGeometryDataArray = deviceGeometryCSVDataFrame.to_numpy()
 
         # sort nozzleData based on x ordinate
-        nozzleData = nozzleData[np.argsort(nozzleData[:, 0])]
+        deviceGeometryDataArray = deviceGeometryDataArray[np.argsort(deviceGeometryDataArray[:, 0])]
 
         # extract x ordinate
-        deviceGeometryData["deviceX"] = nozzleData[:, 0]
+        deviceGeometryData["deviceX"] = deviceGeometryDataArray[:, 0]
 
         # coordinate is either the device radius, or the local circular cross-sectional 
         # area of the device. 
-        if nozzleDataFrame.columns[1] == "y":
-            deviceGeometryData["deviceY"] = nozzleData[:, 1]
+        if deviceGeometryCSVDataFrame.columns[1] == "y":
+            deviceGeometryData["deviceY"] = deviceGeometryDataArray[:, 1]
             if config.deviceTopology() == "planar":
                 deviceGeometryData["deviceArea"] = 2 * deviceGeometryData["deviceY"]
-            elif config.deviceTopology() == "quasi_cylindrical":
+            elif config.deviceTopology() == "axissymmetric":
                 deviceGeometryData["deviceArea"] = np.pi * deviceGeometryData["deviceY"] ** 2
-        elif nozzleDataFrame.columns[1] == "A":
-            deviceGeometryData["deviceArea"] = nozzleData[:, 1]
+        elif deviceGeometryCSVDataFrame.columns[1] == "A":
+            deviceGeometryData["deviceArea"] = deviceGeometryDataArray[:, 1]
             if config.deviceTopology() == "planar":
                 deviceGeometryData["deviceY"] = deviceGeometryData["deviceArea"] / 2
-            if config.deviceTopology() == "quasi_cylindrical":
+            elif config.deviceTopology() == "axissymmetric":
                 deviceGeometryData["deviceY"] = np.sqrt(deviceGeometryData["deviceArea"] / np.pi)
         # According to the shock tube input data format requirements, the second data row
         # (disregarding the header) contains the interface location.
         if config.expansionDeviceType() == "shocktube":
-            deviceGeometryData["shockTubeInterfaceLoc"] = nozzleData[1, 0]
+            deviceGeometryData["shockTubeInterfaceLoc"] = deviceGeometryDataArray[1, 0]
 
         # Generate some QoL information.
         deviceGeometryData["deviceLength"] = deviceGeometryData["deviceX"][-1] - deviceGeometryData["deviceX"][0]
@@ -2343,7 +2343,10 @@ def computeSourceTerms(config, meshData, fluidModel, fluidState):
             mu = mu_2phase 
         Re_2phase = rho * np.abs(u) * (2*meshData["yMeshNodes"]) / mu
         f = (-1.81 * np.log10(6.9/Re_2phase))**-2  # Darcy-Weisbach friction factor
-        P_w = 2 * (2 * meshData["yMeshNodes"]) + 2
+        if config.deviceTopology() == "planar":
+            P_w = 2 * (2 * meshData["yMeshNodes"]) + 2
+        elif config.deviceTopology() == "axissymmetric":
+            P_w = 2 * np.pi * meshData["yMeshNodes"]
         source[:, 1] -= 0.125 * f * rho * u**2 * P_w / area
 
     return source

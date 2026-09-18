@@ -9,18 +9,45 @@ from pyshockflow.post_processing import HiddenPrints
 from pyshockflow import Driver, Config
 
 
+
 # files whose data to extract:
 configFiles = [
-    # "inputs/config_files/lettieri/L1_friction.ini",
     # "inputs/config_files/lettieri/L1_smooth.ini",
+    # "inputs/config_files/lettieri/L1_friction.ini",
+    # "inputs/config_files/lettieri/L5_smooth.ini",
+    "inputs/config_files/lettieri/L5_friction.ini",
+    # "inputs/config_files/petruccelli/P1.ini",
+    # "inputs/config_files/petruccelli/P2.ini",
+    # "inputs/config_files/petruccelli/P3.ini",
+    # "inputs/config_files/petruccelli/P4.ini",
+    # "inputs/config_files/berana/B1.ini",
+    # "inputs/config_files/berana/B2.ini",
+    # "inputs/config_files/berana/B3.ini",
+
+
+    # "inputs/config_files/CM-15.3/godunov/single_phase_gas.ini",
+    # "inputs/config_files/CM-15.3/roe/single_phase_gas.ini",
+    # "inputs/config_files/CM-15.3/roe_arabi/phase_transition.ini",
+    # "inputs/config_files/CM-15.3/roe_arabi/single_phase_gas.ini",
+    # "inputs/config_files/CM-15.3/roe_arabi/two_phase.ini",
+    # "inputs/config_files/CM-15.3/roe_vinokur/phase_transition.ini",
+    # "inputs/config_files/CM-15.3/roe_vinokur/single_phase_gas.ini",
+    # "inputs/config_files/CM-15.3/roe_vinokur/two_phase.ini",
+
+    # "inputs/config_files/CM-10.2/test_conf.ini",
     # "inputs/config_files/CM-11.3/L1_smooth_flipped.ini",
-    "inputs/config_files/CM-10.2/test_conf.ini"
 ]
 
 # perform verification on the simulation
 verificationDataFiles = [
     # "verification_data/lettieri/L1_friction__pressure.csv", 
     # "verification_data/lettieri/L1_smooth__pressure.csv"
+    # "verification_data/lettieri/L5_smooth__pressure.csv"
+    "verification_data/lettieri/L5_friction__pressure.csv"
+    # "verification_data/petruccelli/P1__pressure.csv"
+    # "verification_data/petruccelli/P2__pressure.csv"
+    # "verification_data/petruccelli/P3__pressure.csv"
+    # "verification_data/petruccelli/P4__pressure.csv"
 ]
 
 # instantiate results path list
