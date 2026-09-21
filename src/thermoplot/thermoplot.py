@@ -96,12 +96,6 @@ def thermoplot(thermoplot_config_file_path: str, thermoplot_overwrite_settings: 
     # apply or clear LaTeX-specific matplotlib settings after all overrides have been resolved.
     if config.thermoplot_settings["latex_formatting"]:
         configure_matplotlib()
-    # else:
-    #     plt.rcParams.update({
-    #         "text.usetex": False,
-    #         "font.family": "sans-serif",
-    #         "text.latex.preamble": "",
-    #     })
 
     # Create figure and axis objects
     fig, ax = plt.subplots(figsize=(10, 7))

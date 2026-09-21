@@ -1,100 +1,136 @@
 import matplotlib.pyplot as plt
 import pandas as pd
 
-from pathlib import Path
 from pyshockflow.plot_styles import *
 
-from pyshockflow.post_processing import plot_results, thermoplot_expansion_plot, unpack_simulation_results, perform_v_and_v
-from pyshockflow.post_processing import HiddenPrints
-from pyshockflow import Driver, Config
+from pyshockflow.post_processing import (
+    collect_results_by_folder,
+    VandVSpec,
+    generate_fluid_state_var_profile_figs,
+    generate_expansion_thermoplot,
+    compute_v_and_v_metrics,
+)
 
 
+# show fluid state variable profiles along nozzle against verification and validation data.
+verificationData = VandVSpec(
+    paths={
+        "Pressure": (
+            "verification_data/lettieri/L1_smooth__pressure.csv",
+            "verification_data/lettieri/L1_friction__pressure.csv",
+            "verification_data/lettieri/L5_smooth__pressure.csv",
+        ),
+    },
+    legend_labels={
+        "Pressure": (
+            "L1_smooth", 
+            "L1_friction", 
+            "L5_smooth"
+        ),
+    },
+)
 
-# files whose data to extract:
-configFiles = [
-    # "inputs/config_files/lettieri/L1_smooth.ini",
-    # "inputs/config_files/lettieri/L1_friction.ini",
-    # "inputs/config_files/lettieri/L5_smooth.ini",
-    "inputs/config_files/lettieri/L5_friction.ini",
-    # "inputs/config_files/petruccelli/P1.ini",
-    # "inputs/config_files/petruccelli/P2.ini",
-    # "inputs/config_files/petruccelli/P3.ini",
-    # "inputs/config_files/petruccelli/P4.ini",
-    # "inputs/config_files/berana/B1.ini",
-    # "inputs/config_files/berana/B2.ini",
-    # "inputs/config_files/berana/B3.ini",
+validationData = VandVSpec(
+    paths={
+        "Pressure": (
+            "validation_data/lettieri/L1_friction__pressure.csv",
+        ),
+    },
+    legend_labels={
+        "Pressure": (
+            "L1_friction",
+        ),
+    },
+)
+
+fluidStateVarProfileFigs = generate_fluid_state_var_profile_figs(
+    resultsFolders= [
+        "Results/lettieri/output_L1_smooth",
+        "Results/lettieri/output_L1_friction",
+        "Results/lettieri/output_L5_smooth",
+        # "Results/lettieri/output_L5_friction",
+        # "Results/petruccelli/output_P1",
+        # "Results/petruccelli/output_P2",
+        # "Results/petruccelli/output_P3",
+        # "Results/petruccelli/output_P4",
+        # "Results/berana/output_B1",
+        # "Results/berana/output_B2",
+        # "Results/berana/output_B3",
+    ],
+    fluidStateVarNames=["Pressure", "Mach"],
+    iterationIndexes=[
+        250, 
+        0, 
+        0
+    ],
+    simulationLegendLabels=[
+        "L1_smooth", 
+        "L1_friction", 
+        "L5_smooth"
+    ],
+    verificationData=verificationData,
+    validationData=validationData,
+    showNozzleGeometry=True,
+)
+plt.show()
+
+# compute v and v metrics for the simulation results:
+v_and_v_metrics = compute_v_and_v_metrics(
+    resultsFolders= [
+        # "Results/lettieri/output_L1_smooth",
+        "Results/lettieri/output_L1_friction",
+        # "Results/lettieri/output_L5_smooth",
+        # "Results/lettieri/output_L5_friction",
+        # "Results/petruccelli/output_P1",
+        # "Results/petruccelli/output_P2",
+        # "Results/petruccelli/output_P3",
+        # "Results/petruccelli/output_P4",
+        # "Results/berana/output_B1",
+        # "Results/berana/output_B2",
+        # "Results/berana/output_B3",
+    ],
+    fluidStateVarNames=["Pressure", "Mach"],
+    verificationData=[
+        # "verification_data/lettieri/L1_smooth__pressure.csv",
+        "verification_data/lettieri/L1_friction__pressure.csv",
+        # "verification_data/lettieri/L5_smooth__pressure.csv"
+    ],
+    validationData=[
+        "validation_data/lettieri/L1_friction__pressure.csv"
+    ],
+)
 
 
-    # "inputs/config_files/CM-15.3/godunov/single_phase_gas.ini",
-    # "inputs/config_files/CM-15.3/roe/single_phase_gas.ini",
-    # "inputs/config_files/CM-15.3/roe_arabi/phase_transition.ini",
-    # "inputs/config_files/CM-15.3/roe_arabi/single_phase_gas.ini",
-    # "inputs/config_files/CM-15.3/roe_arabi/two_phase.ini",
-    # "inputs/config_files/CM-15.3/roe_vinokur/phase_transition.ini",
-    # "inputs/config_files/CM-15.3/roe_vinokur/single_phase_gas.ini",
-    # "inputs/config_files/CM-15.3/roe_vinokur/two_phase.ini",
-
-    # "inputs/config_files/CM-10.2/test_conf.ini",
-    # "inputs/config_files/CM-11.3/L1_smooth_flipped.ini",
-]
-
-# perform verification on the simulation
-verificationDataFiles = [
-    # "verification_data/lettieri/L1_friction__pressure.csv", 
-    # "verification_data/lettieri/L1_smooth__pressure.csv"
-    # "verification_data/lettieri/L5_smooth__pressure.csv"
-    "verification_data/lettieri/L5_friction__pressure.csv"
-    # "verification_data/petruccelli/P1__pressure.csv"
-    # "verification_data/petruccelli/P2__pressure.csv"
-    # "verification_data/petruccelli/P3__pressure.csv"
-    # "verification_data/petruccelli/P4__pressure.csv"
-]
-
-# instantiate results path list
-resultPicklePaths = []
-
-# extract their data
-for configFile in configFiles:
-    # Extract outputpath from config file
-    config = Config(configFilePath = configFile)
-    with HiddenPrints():
-        driver = Driver(config = config)
-    output_path = driver.resultsSubdirPath
-
-    # Extract all pickle files stored in that output path
-    pickleList = sorted(Path(f"{output_path}").glob("*.pik"))
-    resultPicklePaths.append(pickleList[-1])
-
-
-# Specify output variables of interest. Currently supported variables are:
-# ["Density", "Pressure", "Velocity", "Mach", "Entropy", "Temperature"] 
-outputVars = ["Pressure", "Mach"]  
-fig = plot_results([resultPicklePaths[-1]], outputVars, showNozzleGeometry=True)
+# plot the expansion path on top of a thermodynamic diagram.
+fig = generate_expansion_thermoplot(
+    resultsFolders= [
+        "Results/lettieri/output_L1_smooth",
+        "Results/lettieri/output_L1_friction",
+        "Results/lettieri/output_L5_smooth",
+        # "Results/lettieri/output_L5_friction",
+        # "Results/petruccelli/output_P1",
+        # "Results/petruccelli/output_P2",
+        # "Results/petruccelli/output_P3",
+        # "Results/petruccelli/output_P4",
+        # "Results/berana/output_B1",
+        # "Results/berana/output_B2",
+        # "Results/berana/output_B3",
+    ],
+    iterationIndexes=[
+        250, 
+        0, 
+        0
+    ],
+    legend_labels=[
+        "L1_smooth", 
+        "L1_friction", 
+        "L5_smooth"
+    ],
+    thermoplotConfigFilePath="inputs/thermoplot/CO2.ini"
+    )
 plt.show()
 
 
-# plot expansion path on top of thermoplot
-fig = thermoplot_expansion_plot("inputs/thermoplot/CO2.ini", resultPicklePaths, driver.config)
-plt.show()
-
-# convert csv information to dict to comply with v_and_v function argument data format.
-v_and_v_data = {}
-for verificationDataPath in verificationDataFiles:
-    df = pd.read_csv(verificationDataPath)
-    legend_key = Path(verificationDataPath).stem
-    v_and_v_data[legend_key] = {
-        "meshData": {"xMeshNodes": df.iloc[1:, 0].values},
-        "(final)fluidState": {"Pressure": df.iloc[1:, 1].values}
-        }
-# extract the legend keys from the filenames
-simulation_data = {}
-for resultPicklePath in resultPicklePaths:
-    legend_key = Path(resultPicklePath).parent.name.split(".")[0]
-    simulation_data[legend_key] = unpack_simulation_results(resultPicklePath)
-comparison_results = perform_v_and_v(verification_data = v_and_v_data, simulation_data = simulation_data, show_plots = True)
-
-    
-        
         
         
     

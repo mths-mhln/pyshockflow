@@ -73,7 +73,7 @@ class Driver:
             
 
     # =========================================================================
-    #  Startup helpers
+    #  Configure simulation
     # =========================================================================
 
     def prepareCleanStart(self, config):
@@ -130,7 +130,7 @@ class Driver:
             Config object containing the user-specified simulation parameters.  When
             None the configuration stored inside the restart file is used.
         restartFilePath : str
-            Path to the pickle restart file produced by saveSingleIterResult().
+            Path to the pickle restart file produced by saveSingleIterResults().
 
         Returns
         -------
@@ -197,7 +197,8 @@ class Driver:
 
 
     # =========================================================================
-    #  Geometry and mesh
+    #  Helper functions for extraction of expansion device geometrical features
+    #  and generation of the 1D mesh at which the governing equations will be solved.
     # =========================================================================
 
     def extractDeviceGeometricalFeatures(self, config):
@@ -476,7 +477,8 @@ class Driver:
 
 
     # =========================================================================
-    #  Fluid model
+    #  Helper functions for configuration of the fluid model used for 
+    #  extracting fluid thermodynamic properties. 
     # =========================================================================
 
     def instantiateFluidModel(self, config):
@@ -515,7 +517,7 @@ class Driver:
 
 
     # =========================================================================
-    #  Initial conditions
+    #  Helper functions for initialization of the fluid state at the mesh nodes.
     # =========================================================================
 
     def initializeFluidStateArrays(self, config, deviceGeometryData, meshData, fluidModel):
@@ -574,7 +576,7 @@ class Driver:
         }
 
         # ------------------------------------------------------------------
-        # Helper: shocktube initialization
+        # shocktube initialization
         # ------------------------------------------------------------------
         def _imposeInitialConditionsShocktube(config, deviceGeometryData, meshData, fluidModel, fluidState):
             """
@@ -639,7 +641,7 @@ class Driver:
             return fluidState
 
         # ------------------------------------------------------------------
-        # Helper: linear nozzle initialization
+        # linear pressure nozzle initialization
         # ------------------------------------------------------------------
         def _imposeInitialConditionsNozzleLinear(config, meshData, fluidModel, fluidState):
             """
@@ -859,7 +861,9 @@ class Driver:
                 )
             return fluidState
 
-        
+        # ------------------------------------------------------------------
+        # uniform thdy quantities nozzle initialization
+        # ------------------------------------------------------------------
         def _imposeInitialConditionsNozzleUniform(config, fluidModel, fluidState):
             """
             Initialize fluid state variables uniformly across the nozzle domain from
@@ -944,7 +948,7 @@ class Driver:
 
 
     # =========================================================================
-    #  Boundary conditions
+    #  Helper functions for imposing boundary conditions on the fluid state arrays.
     # =========================================================================
 
     def setBoundaryConditions(self, config, fluidModel, fluidState):
@@ -1031,7 +1035,7 @@ class Driver:
     def extractRestartData(restartFilePath):
         """
         Extract restart data from a previously saved simulation step.  The output
-        pickle file produced by saveSingleIterResult() doubles as the restart file.
+        pickle file produced by assembleSingleIterResults() doubles as the restart file.
 
         Arguments
         ---------
@@ -1332,7 +1336,18 @@ class Driver:
         print(" " * 34 + "END SOLVER")
         print("=" * 80)
         print(" " * 25 + "FINAL ASSEMBLY OF THE RESULTS")
-        self.groupSingleIterResults(resultsSubdirPath)
+
+        # assemble all singleIterResults into a single dictionary. File saving is 
+        # performed separately due to reasons explained in the assembleResultHistory() docstring.
+        singleIterResultsHistory = self.assembleResultHistory(resultsSubdirPath)
+        print("Replacing all individual files with a single pickle (this could take a while) ...")
+        shutil.rmtree(resultsSubdirPath)
+        os.makedirs(resultsSubdirPath, exist_ok=True)
+        with open(resultsSubdirPath / 'Results.pik', 'wb') as file:
+            pickle.dump(singleIterResultsHistory, file)
+        print(f"Regrouped all the times in a single file: {resultsSubdirPath / 'Results.pik'}")
+
+        
         print(" " * 34 + "END ASSEMBLER")
         print("=" * 80)
 
@@ -1432,13 +1447,19 @@ class Driver:
                         pass
 
 
-
-    def groupSingleIterResults(self, filepath):
+    @staticmethod
+    def assembleResultHistory(ResultsSubdirPath, verbose=True):
         """
         At every iteration of the solver logic, information of interest is generated. 
         This information is of interest for simulation restart, or post-processing purposes.
         At the end of the simulation, all the information of interest is regrouped in a single file,
-        to avoid having a large number of files in the results folder.
+        to avoid having a large number of files in the results folder. This method groups all
+        data generated during simulation in a single dictionary, and returns said dictionary. 
+        Saving of the data will be done separately in the solve() method, such that this method
+        can be used during post-processing steps to group simulation results of unfinished simulation
+        steps as well, since otherwise different logical processes must be launched for unfinished (
+        bunch of step.pik files) or finished (one big results.pik file) simulations. This makes 
+        The post-processing most intuitive at small cost to intuition in the Driver logic imo. 
         Infomration in the grouped file:
         1) config: the configuration for which the governing equations were solved. 
         2) deviceGeometryData: the geometry of the expansion device through which the governing
@@ -1451,7 +1472,7 @@ class Driver:
 
         Arguments
         ---------
-        filepath : Path
+        ResultsSubdirPath : Path
             The path to the results folder in which the regrouped file will be stored.
         
         Returns
@@ -1462,7 +1483,7 @@ class Driver:
         # regrouping is only necessary when the results folder contains
         # files with filename RegEx: step*. 
         # Check for this
-        iterResultFiles = [f for f in os.listdir(filepath) if os.path.isfile(os.path.join(filepath, f)) and 'pik' in f]
+        iterResultFiles = [f for f in os.listdir(ResultsSubdirPath) if os.path.isfile(os.path.join(ResultsSubdirPath, f)) and 'pik' in f]
         iterResultFilesSorted = sorted(iterResultFiles)
         if not any(re.match(r'step_\d+\.pik', f) for f in iterResultFilesSorted):
             print("No files with the expected naming convention found. No regrouping necessary.")
@@ -1470,11 +1491,13 @@ class Driver:
 
         nTimes = len(iterResultFilesSorted)
         fluidStateHistory = {}
-        
-        print("Regrouping all the results in a single file...")
+
+        if verbose:
+            print("Regrouping all the results in a single file...")
         for iFile in range(len(iterResultFilesSorted)):
-            print(f"Reading File {iFile+1} of {len(iterResultFilesSorted)}")
-            with open(filepath / iterResultFilesSorted[iFile], 'rb') as file:
+            if verbose:
+                print(f"Reading File {iFile+1} of {len(iterResultFilesSorted)}")
+            with open(ResultsSubdirPath / iterResultFilesSorted[iFile], 'rb') as file:
                 singleIterResult = pickle.load(file)
                 
                 if iFile == 0:
@@ -1482,33 +1505,30 @@ class Driver:
                     config = singleIterResult['config']
                     
                     timeHistory = np.zeros(nTimes)
+                    iterIdxHistory = np.zeros(nTimes, dtype=int)
                     fluidStateHistory['Density']  = np.zeros((numMeshNodes, nTimes))
                     fluidStateHistory['Velocity'] = np.zeros((numMeshNodes, nTimes))
                     fluidStateHistory['Pressure'] = np.zeros((numMeshNodes, nTimes))
                     fluidStateHistory['staticInternalEnergy'] = np.zeros((numMeshNodes, nTimes))
                 
                 timeHistory[iFile] = singleIterResult['time']
+                iterIdxHistory[iFile] = singleIterResult['iterIdx']
                 fluidStateHistory['Density'][:, iFile]  = singleIterResult['fluidState']['Density']
                 fluidStateHistory['Velocity'][:, iFile] = singleIterResult['fluidState']['Velocity']
                 fluidStateHistory['Pressure'][:, iFile] = singleIterResult['fluidState']['Pressure']
                 fluidStateHistory['staticInternalEnergy'][:, iFile] = singleIterResult['fluidState']['staticInternalEnergy']
         
-        groupedIterResults = {
+        simulationResultsHistory = {
             "config": config,
             "deviceGeometryData": singleIterResult['deviceGeometryData'],
             "meshData": singleIterResult['meshData'],
-            "fluidStateHistory": fluidStateHistory,
-            "timeHistory": timeHistory
+            "iterIdxHistory": iterIdxHistory,
+            "timeHistory": timeHistory,
+            "fluidStateHistory": fluidStateHistory
             }
-        
-        print("Replacing all individual files with a single pickle (this could take a while) ...")
-        shutil.rmtree(filepath)
-        os.makedirs(filepath, exist_ok=True)
-        with open(filepath / 'Results.pik', 'wb') as file:
-            pickle.dump(groupedIterResults, file)
-        print(f"Regrouped all the times in a single file: {filepath / 'Results.pik'}")
 
-        
+        return simulationResultsHistory
+         
 
 
 # -----------------------------------------------------------------------------
@@ -2461,6 +2481,7 @@ def _printInfoResiduals(iterationIndex, time, timeMax, residuals):
     )
 
 
+
 def saveSingleIterResult(config, deviceGeometryData, meshData, fluidState, resultsSubdirPath, iterationIndex, time):
     """
     Serialize the simulation state of single iteration to a pickle file in resultsDirPath.
@@ -2497,10 +2518,12 @@ def saveSingleIterResult(config, deviceGeometryData, meshData, fluidState, resul
         "config":                  config,
         "deviceGeometryData":      deviceGeometryData,
         "meshData":                meshData,
-        "fluidState":              fluidState,
         "iterIdx":                 iterationIndex,
-        "time":                    time
+        "time":                    time,
+        "fluidState":              fluidState
     }
 
     with open(fullPath, "wb") as fh:
         pickle.dump(singleIterResults, fh)
+
+
