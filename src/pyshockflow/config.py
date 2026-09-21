@@ -478,7 +478,7 @@ class Config:
         return self._get_str("GEOMETRY", "EXPANSION_DEVICE_TYPE", lower = True, inputOptions=["nozzle", "shocktube"])
 
     def deviceTopology(self) -> str:
-        return self._get_str("GEOMETRY", "DEVICE_TOPOLOGY", lower = True, inputOptions=["planar", "quasi_cylindrical"])
+        return self._get_str("GEOMETRY", "DEVICE_TOPOLOGY", lower = True, inputOptions=["planar", "axissymmetric"])
 
     def deviceGeometryFilePath(self) -> str:
         return self._get_str("GEOMETRY", "DEVICE_GEOMETRY_FILE_PATH")
