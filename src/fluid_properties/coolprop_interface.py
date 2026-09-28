@@ -364,8 +364,6 @@ class CoolPropAbstractState_v2():
         if library == 'CoolProp':
             library = 'HEOS'
 
-        print(library)
-
         # legacy code. I do not imagine myself putting a fluid name with [1] at the end, but it is in there, so i assume it can be called... 
         name = fluid_name
         if len(name) > 3 and name[-3:] == "[1]":
@@ -499,19 +497,50 @@ class CoolPropAbstractState_v2():
         state to the critical point and return the requested property.
         Otherwise return nan.
         """
-        if not (self._critical_value(AS, x_str_AS, x) and
-                self._critical_value(AS, y_str_AS, y)):
-            return np.nan
+        def critical_input_value(prop_str_AS):
+            Tcrit, Dcrit, Pcrit = self.critical_point_vals
+            critical_values = {"T": Tcrit, "P": Pcrit, "Dmass": Dcrit}
+            if prop_str_AS in critical_values:
+                return critical_values[prop_str_AS]
 
-        # Force state to critical point
-        Tcrit, Dcrit, _ = self.critical_point_vals
-        try:
             AS.update(CP.DmassT_INPUTS, Dcrit, Tcrit)
-            S = AS.smass()
-            AS.update(CP.SmassT_INPUTS, S, Tcrit)
-            return getattr(AS, out_key)()
-        except Exception:
-            return np.nan
+            Scrit = AS.smass()
+            AS.update(CP.SmassT_INPUTS, Scrit, Tcrit)
+            prop_method = self._apply_abstractstate_method_syntax(prop_str_AS)
+            return getattr(AS, prop_method)()
+
+        if (self._critical_value(AS, x_str_AS, x) and
+                self._critical_value(AS, y_str_AS, y)):
+            # Force state to critical point
+            Tcrit, Dcrit, _ = self.critical_point_vals
+            try:
+                AS.update(CP.DmassT_INPUTS, Dcrit, Tcrit)
+                S = AS.smass()
+                AS.update(CP.SmassT_INPUTS, S, Tcrit)
+                return getattr(AS, out_key)()
+            except Exception:
+                print("exception encountered for first critical point recovery attempt")
+                return np.nan
+        elif self._critical_value(AS, x_str_AS, x):
+            # Pin the near-critical input and retain the other input value.
+            try:
+                x_critical = critical_input_value(x_str_AS)
+                input_spec, _ = self._get_input_spec(x_str_AS, y_str_AS)
+                AS.update(input_spec, x_critical, y)
+                return getattr(AS, out_key)()
+            except Exception:
+                return np.nan
+        elif self._critical_value(AS, y_str_AS, y):
+            # Pin the near-critical input and retain the other input value.
+            try:
+                y_critical = critical_input_value(y_str_AS)
+                input_spec, _ = self._get_input_spec(x_str_AS, y_str_AS)
+                AS.update(input_spec, x, y_critical)
+                return getattr(AS, out_key)()
+            except Exception:
+                return np.nan
+
+        return np.nan
 
     def _critical_value(self, AS: AbstractState, prop_str_AS: str, prop_val: float) -> bool:
         """

@@ -2,6 +2,7 @@
 from fluid_properties.coolprop_interface import CoolPropAbstractState_v2
 from pyshockflow.fluid import FluidReal
 import numpy as np
+import pickle
 
 AS = CoolPropAbstractState_v2("REFPROP", "R1234ze(E)")
 FluidRealObj = FluidReal("R1234ze(E)", "REFPROP", "abstractstate_v2")
@@ -18,4 +19,11 @@ FluidRealObj = FluidReal("R1234ze(E)", "REFPROP", "abstractstate_v2")
 
 # print(FluidRealObj.computeSoundSpeed_p_rho(3622983.931949161, 409.3574380247973))
 
-print(FluidRealObj.computeSoundSpeed_p_rho(np.array([3634864.9992578067]), np.array([489.2384830777358])))
+# print(FluidRealObj.computeSoundSpeed_p_rho(np.array([3634864.9992578067]), np.array([489.2384830777358])))
+
+
+
+with open("Results/lettieri/output_L5_friction/step_001000.pik", "rb") as f:
+    data = pickle.load(f)
+
+print(data["fluidState"]["Pressure"])

@@ -1251,7 +1251,6 @@ class Driver:
             dt      = computeTimeStep(fluidState, meshData, cflMax)
             dt      = min(dt, timeMax - time)
             newTime = time + dt
-
             # Compute residuals (finite-volume right-hand side).
             residuals = computeResiduals(
                 config, meshData, fluidState, 
@@ -1274,19 +1273,27 @@ class Driver:
                     f"Progress in Time {(newTime / timeMax * 100):.3f} %"
                 )
 
+            # Check for NaNs / Infs and abort with a diagnostic if found.
+            diverged = checkSimulationStatus(fluidState, meshData, fluidModel, dt)
+            if diverged:
+                # save diverged step for analysis
+                saveSingleIterResult(
+                    config, deviceGeometryData, meshData, fluidState, resultsSubdirPath, iterationIndex, newTime
+                )
+                # exit the simulation
+                sys.exit("Simulation diverged. Check the output files for the last step for diagnostics.")
+
+            # Re-impose boundary conditions on the halo nodes.
+            fluidState = self.setBoundaryConditions(config, fluidModel, fluidState)
+
+            # # Keep conservative state consistent with the updated fluid state variables at the halos.
+            # conservativeState = self._conservativesFromFluidState(fluidState, fluidModel)
+
             # Periodic file output.
             if iterationIndex % writeInterval == 0:
                 saveSingleIterResult(
                     config, deviceGeometryData, meshData, fluidState, resultsSubdirPath, iterationIndex, time
                 )
-
-            # Check for NaNs / Infs and abort with a diagnostic if found.
-            checkSimulationStatus(fluidState, meshData, fluidModel, dt)
-
-            # Re-impose boundary conditions on the halo nodes.
-            fluidState = self.setBoundaryConditions(config, fluidModel, fluidState)
-            # # Keep conservative state consistent with the updated fluid state variables at the halos.
-            # conservativeState = self._conservativesFromFluidState(fluidState, fluidModel)
 
             # ------------------------------------------------------------------
             # Convergence check: if all fluid state variables have changed by less
@@ -1294,14 +1301,34 @@ class Driver:
             # jump straight to timeMax to finalise the run.
             # ------------------------------------------------------------------
             if expansionDeviceType == "nozzle":
+                # if inletBC, percentage of meshondes next to inletBC to ignore for convergence check
+                percentageInletBC = 5
+                nInletBCNodes = int(percentageInletBC / 100 * meshData["numMeshNodes"])
+                if config.boundaryConditions()[0] == "inlet":
+                    sliceToCheck = slice(nInletBCNodes, None)
+                elif config.boundaryConditions()[1] == "inlet":
+                    sliceToCheck = slice(None, -nInletBCNodes)
+                else:
+                    sliceToCheck = slice(None)  # check all nodes if no inlet BC is present
+
                 # early stopping upon convergence of the fluid state for nozzle geometries. 
                 converged = all(
                     np.max(
-                        np.abs(fluidState[var] - fluidStateOld[var])
-                        / (np.max(np.abs(fluidStateOld[var])) + 1e-300)
+                        np.abs(fluidState[var][sliceToCheck] - fluidStateOld[var][sliceToCheck])
+                        / (np.max(np.abs(fluidStateOld[var][sliceToCheck])) + 1e-300)
                     ) < config.convergenceTolerance()
                     for var in ("Density", "Velocity", "Pressure", 'staticInternalEnergy')
                 )
+                # print index of meshnode at which the maximum relative 
+                # change occurs for each variable as index of the original array
+                # for var in ("Density", "Velocity", "Pressure", 'staticInternalEnergy'):
+                #     maxRelChangeIdx = np.argmax(
+                #         np.abs(fluidState[var][sliceToCheck] - fluidStateOld[var][sliceToCheck])
+                #         / (np.max(np.abs(fluidStateOld[var][sliceToCheck])) + 1e-300)
+                #     )
+                #     originalIdx = maxRelChangeIdx + (sliceToCheck.start if sliceToCheck.start is not None else 0)
+                #     print(f"Max relative change in {var} occurs at mesh node index: {originalIdx}")
+
                 convergenceHist = convergenceHist + [True] if converged else []
                 if len(convergenceHist) >= config.convergencePatience():
                     # Force the loop to end at timeMax on the next iteration.
@@ -1660,19 +1687,26 @@ def _applyInletBC(config, iHalo, iInternal, fluidModel, fluidState,
         # The only information borrowed from the interior domain is the local
         # static pressure, which is used as the starting point for the iterative
         # inversion inside the fluid model.
-        pressure = fluidState["Pressure"][iInternal]
-        totalPressure = inletConditionsValues[0]
+        # pressure = fluidState["Pressure"][iInternal]
+        
 
-        # Guard against the static pressure being at or above total pressure,
-        # which would break the isentropic relation inside the fluid model.
-        if pressure >= totalPressure:
-            pressure = totalPressure
+        velocity = fluidState["Velocity"][iInternal]
+
+        # # Guard against the static pressure being at or above total pressure,
+        # # which would break the isentropic relation inside the fluid model.
+        totalPressure = inletConditionsValues[0]
+        # if pressure >= totalPressure:
+        #     pressure = totalPressure
 
         if inletConditionsVars == "ptTt":
+            
             totalTemperature  = inletConditionsValues[1]
             massFlowDirection = _inferInitialMassFlowDirection(config)
-            density, velocity, energy = fluidModel.computeInletQuantitiesTotal_pt_Tt(
-                pressure, totalPressure, totalTemperature, massFlowDirection
+            # density, velocity, energy = fluidModel.computeInletQuantitiesTotal_pt_Tt(
+            #     pressure, totalPressure, totalTemperature, massFlowDirection
+            # )
+            density, pressure, energy = fluidModel.computeInletQuantitiesTotal_pt_Tt_velocity(
+                velocity, totalPressure, totalTemperature
             )
         elif inletConditionsVars == "ptQ":
             staticQuality      = inletConditionsValues[1]
@@ -2362,7 +2396,10 @@ def computeSourceTerms(config, meshData, fluidModel, fluidState):
             mu_2phase = fluidModel.computeDynamicViscosity_p_rho(p, rho)    
             mu = mu_2phase 
         Re_2phase = rho * np.abs(u) * (2*meshData["yMeshNodes"]) / mu
-        f = (-1.81 * np.log10(6.9/Re_2phase))**-2  # Darcy-Weisbach friction factor
+        # extract surface roughness and compute contribution to friction factor
+        eta = np.ones_like(meshData["yMeshNodes"]) * config.deviceSurfaceRoughness()
+        roughness_term = ((eta / (meshData["yMeshNodes"] * 2))/3.7)**1.11
+        f = (-1.81 * np.log10(6.9/Re_2phase + roughness_term))**-2  # Darcy-Weisbach friction factor
         if config.deviceTopology() == "planar":
             P_w = 2 * (2 * meshData["yMeshNodes"]) + 2
         elif config.deviceTopology() == "axissymmetric":
@@ -2400,7 +2437,7 @@ def checkSimulationStatus(fluidState, meshData, fluidModel, dt):
     pressureBad = np.any(np.isnan(fluidState["Pressure"])) or np.any(np.isinf(fluidState["Pressure"]))
 
     if not (densityBad or pressureBad):
-        return
+        return False
 
     print()
     print("######################  SIMULATION DIVERGED ############################")
@@ -2417,6 +2454,9 @@ def checkSimulationStatus(fluidState, meshData, fluidModel, dt):
     print("###############################  EXIT ##################################")
     print()
 
+    # save the diverged step for analysis
+    
+
     plt.figure()
     plt.plot(meshData["xMeshNodes"][1:-1], cfl)
     plt.xlabel("x [m]")
@@ -2424,7 +2464,7 @@ def checkSimulationStatus(fluidState, meshData, fluidModel, dt):
     plt.grid(alpha=0.3)
     plt.show()
 
-    sys.exit()
+    return True
 
 
 def _computeCFLField(fluidState, meshData, fluidModel, dt):

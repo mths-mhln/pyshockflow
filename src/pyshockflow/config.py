@@ -51,7 +51,7 @@ class Config:
             raise ConfigError(
                 f"{self.config_file} [{section}]: '{key}' must be one of {inputOptions}, got '{value}'"
             )
-        if positive and value <= 0:
+        if positive and value < 0:
             raise ValueError(
                 f"{self.config_file} [{section}]: '{key}' must be positive, got {value}"
             )
@@ -84,7 +84,7 @@ class Config:
             raise ConfigError(
                 f"{self.config_file} [{section}]: '{key}' must be one of {inputOptions}, got '{value}'"
             )
-        if positive and value <= 0:
+        if positive and value < 0:
             raise ValueError(
                 f"{self.config_file} [{section}]: '{key}' must be positive, got {value}"
             )
@@ -294,7 +294,10 @@ class Config:
                 {"FLUID": ["FLUID_GAMMA", "GAS_R_CONSTANT"]}),
 
             ("FLUID", "FLUID_MODEL_TYPE", ["real"],
-                {"FLUID": ["FLUID_LIBRARY"]})
+                {"FLUID": ["FLUID_LIBRARY"]}), 
+
+            ("NUMERICS", "WALL_FRICTION_MODELLING_BOOL", [True],
+                {"NUMERICS": ["DEVICE_SURFACE_ROUGHNESS"]})
         ]
         for section, key, trigger_values, required in condRequiredCommon: 
             if type(trigger_values[0]) == bool:
@@ -415,7 +418,7 @@ class Config:
                 "FLUID_MODEL_TYPE is 'real'"),
 
             ("NUMERICS", "WALL_FRICTION_MODELLING_BOOL", [False],
-                {"NUMERICS": ["FLUID_VISCOSITY"]},
+                {"NUMERICS": ["FLUID_VISCOSITY", "DEVICE_SURFACE_ROUGHNESS"]},
                 "WALL_FRICTION_MODELLING_BOOL is False")
         ]
         for section, key, trigger_values, prohibited, reason in condProhibitedCommon:
@@ -590,6 +593,9 @@ class Config:
 
     def wallFrictionModellingBool(self) -> bool:
         return self._get_bool("NUMERICS", "WALL_FRICTION_MODELLING_BOOL", default = False)
+
+    def deviceSurfaceRoughness(self) -> float:
+        return self._get_float("NUMERICS", "DEVICE_SURFACE_ROUGHNESS", positive=True, default=0.0)
 
     def fluidViscosity(self) -> float:
         return self._get_float("NUMERICS", "FLUID_VISCOSITY", positive=True)

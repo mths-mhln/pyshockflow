@@ -260,7 +260,6 @@ class FluidReal():
             a[mask_two_phase] = _computeSoundSpeed_p_rho_two_phase(p[mask_two_phase], rho[mask_two_phase])
         if (~mask_two_phase).any():
             a[~mask_two_phase] = _computeSoundSpeed_p_rho_single_phase(p[~mask_two_phase], rho[~mask_two_phase])
-
         return a
 
     def computeMach_u_p_rho(self, u, p, rho):
@@ -349,6 +348,24 @@ class FluidReal():
         velocity = direction * np.sqrt(2 * (enthalpyTotal - enthalpyStatic))
         energy = self.computeInternalEnergy_p_rho(pressure, density)
         return density, velocity, energy
+
+    def computeDensity_h_s(self, h, s):
+        rho = FP.PropsSI('D', 'H', h, 'S', s, self.fluid)
+        return rho
+
+    def computePressure_h_s(self, h, s):
+        P = FP.PropsSI("P", "H", h, "S", s, self.fluid)
+        return P
+
+    def computeInletQuantitiesTotal_pt_Tt_velocity(self, velocity, totPressure, totTemperature):
+        totalEntropy = self.computeEntropy_p_T(totPressure, totTemperature)
+        totalEnthalpy = self.computeEnthalpy_p_T(totPressure, totTemperature)
+        # compute static enthalpy from total enthalpy and velocity
+        staticEnthalpy = totalEnthalpy - 0.5*velocity**2
+        density = self.computeDensity_h_s(staticEnthalpy, totalEntropy)
+        pressure = self.computePressure_h_s(staticEnthalpy, totalEntropy)
+        energy = self.computeInternalEnergy_p_rho(pressure, density)
+        return density, pressure, energy
 
     def computeInletQuantitiesTotal_pt_Q(self, pressure, totPressure, staticQuality, direction):
         staticEntropy = self.computeEntropy_p_Q(pressure, staticQuality)

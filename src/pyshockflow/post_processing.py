@@ -1,10 +1,14 @@
 import pickle 
 import sys
 import os
+import shutil
+import tempfile
 
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+from matplotlib.animation import FuncAnimation
+from matplotlib.widgets import Slider
 
 from numpy.compat import Path
 from scipy.optimize import fsolve
@@ -38,7 +42,10 @@ class HiddenPrints:
 
 
         
-def collect_results_by_folder(resultsFolders: list[str]) -> dict:
+def collect_results_by_folder(
+    resultsFolders: list[str],
+    iterationIndexes: list[int] | None = None,
+) -> dict:
     """
     Convert result folder paths into a nested dictionary, where each subdictionary contains the 
     simulation results for the corresponding folder. 
@@ -54,17 +61,42 @@ def collect_results_by_folder(resultsFolders: list[str]) -> dict:
     #instantiate dictionary to store the results histories for each folder. 
     simulationResultsHistories = {}
 
-    for resultsFolder in resultsFolders:
+    if iterationIndexes is not None and len(iterationIndexes) != len(resultsFolders):
+        raise ValueError(
+            "iterationIndexes must contain one index for each results folder."
+        )
+
+    for folderIndex, resultsFolder in enumerate(resultsFolders):
         # check if results files have already been grouped
         if Path(resultsFolder / "Results.pik").is_file():
             with open(str(Path(resultsFolder / "Results.pik")), 'rb') as file:
                 simulationResultsHisotry = pickle.load(file)
+        elif iterationIndexes is not None:
+            iterIdx = iterationIndexes[folderIndex]
+            available = sorted(int(f.stem.split("_")[1]) for f in resultsFolder.glob("step_*.pik"))
+            if iterIdx == -1:
+                iterIdx = available[-1]
+            stepPath = resultsFolder / f"step_{iterIdx:06d}.pik"
+            if not stepPath.is_file():
+                available = sorted(int(f.stem.split("_")[1]) for f in resultsFolder.glob("step_*.pik"))
+                raise ValueError(
+                    f"\n"
+                    f"{resultsFolder}: No results available for iteration index {iterIdx}.\n"
+                    f"Available iteration indexes ({len(available)} total):\n"
+                    f"{np.array2string(np.asarray(available), threshold=15, edgeitems=7)}\n"
+                )
+            with tempfile.TemporaryDirectory() as temporaryDirectory:
+                temporaryStepPath = Path(temporaryDirectory) / stepPath.name
+                shutil.copy2(stepPath, temporaryStepPath)
+                simulationResultsHisotry = Driver.assembleResultHistory(
+                    Path(temporaryDirectory), verbose=False
+                )
         else:
             # if not, apply driver assembleResultHistory() method to the unfinished folder
             # to create a dictionary of similar structure to the grouped results file.
             # this will simplify future operations. 
             simulationResultsHisotry = Driver.assembleResultHistory(resultsFolder, verbose=False)
-        simulationResultsHistories[resultsFolder] = simulationResultsHisotry
+        simulationResultsHistories[str(resultsFolder)] = simulationResultsHisotry
 
     return simulationResultsHistories
 
@@ -94,8 +126,16 @@ def extract_results_at_iteration_indexes(simulationResultsHistories: dict, itera
     
     for iterIdx, (resultsFolder, iterResultsHistory) in zip(iterationIndexes, simulationResultsHistories.items()):
         # Check if information is available for the specified iteration index
+        if Path(Path(resultsFolder) / "Results.pik").is_file():
+            iterIdxHistory = iterResultsHistory["iterIdxHistory"]
+            if iterIdx == -1:
+                iterIdx = iterIdxHistory[-1]
+        else:
+            available = sorted(int(f.stem.split("_")[1]) for f in Path(resultsFolder).glob("step_*.pik"))
+            if iterIdx == -1:
+                iterIdx = available[-1]
         if iterIdx not in iterResultsHistory["iterIdxHistory"]:
-            raise ValueError(f"{resultsFolder}: No results available for iteration index {iterIdx}. Available iteration indexes are: {iterResultsHistory['iterIdxHistory']}")
+            raise ValueError(f"{resultsFolder}: No results available for iteration index {iterIdx}. Available iteration indexes are: {np.array2string(np.asarray(iterResultsHistory['iterIdxHistory']), threshold=15, edgeitems=7)}")
 
         # check if iterationIdxs are specified for all result folders. If not, raise an error.
         if len(iterationIndexes) != len(simulationResultsHistories):
@@ -127,7 +167,7 @@ def extract_results_at_iteration_indexes(simulationResultsHistories: dict, itera
 # ========================================================
 #  Simple Plot showing the nozzle geometry and meshnodes
 # ========================================================
-def expansion_device_geometry_plot(config: Config = None, resultsFolder: dict = None) -> None:
+def expansion_device_geometry_plot(config: Config = None, resultsFolder: dict = None, showGhostNodes: bool = False) -> None:
         """
         Plot the expansion device geometry and numerical grid.
 
@@ -157,6 +197,9 @@ def expansion_device_geometry_plot(config: Config = None, resultsFolder: dict = 
             deviceX = simulationResultsHistory[resultsFolder]["deviceGeometryData"]["deviceX"]
             deviceY = simulationResultsHistory[resultsFolder]["deviceGeometryData"]["deviceY"]
             meshX = simulationResultsHistory[resultsFolder]["meshData"]["xMeshNodes"]
+
+        if not showGhostNodes:
+            meshX = meshX[1:-1]
 
         # Scale plot axes according to the nozzle geometry
         x_scale = np.max(deviceX)
@@ -315,22 +358,28 @@ _AXIS_LABELS = {
 _DIRECT_FLUID_STATE_VARS = {"Density", "Pressure", "Velocity", "internalEnergy"}
 
 
-def _compute_fluid_state_var_profile(fluidStateVarName: str, resultsAtIterIdx: dict) -> np.ndarray:
+def _compute_fluid_state_var_profile(
+    fluidStateVarName: str,
+    resultsAtIterIdx: dict,
+    showGhostNodes: bool = False,
+) -> np.ndarray:
     """Extract or derive the requested fluid state variable's spatial
     profile (interior mesh nodes only) for a single simulation snapshot."""
     fluidState = resultsAtIterIdx["fluidState"]
 
+    node_slice = slice(None) if showGhostNodes else slice(1, -1)
+
     if fluidStateVarName in _DIRECT_FLUID_STATE_VARS:
-        return fluidState[fluidStateVarName][1:-1]
+        return fluidState[fluidStateVarName][node_slice]
 
     # Derived quantities require instantiating the driver/fluid model used
     # for that simulation.
     with pyshockflow.post_processing.HiddenPrints():
         driver = Driver(config=resultsAtIterIdx["config"])
 
-    velocity = fluidState["Velocity"][1:-1]
-    pressure = fluidState["Pressure"][1:-1]
-    density = fluidState["Density"][1:-1]
+    velocity = fluidState["Velocity"][node_slice]
+    pressure = fluidState["Pressure"][node_slice]
+    density = fluidState["Density"][node_slice]
 
     if fluidStateVarName == "Mach":
         return driver.fluidModel.computeMach_u_p_rho(velocity, pressure, density)
@@ -357,6 +406,7 @@ def generate_fluid_state_var_profile_figs(
     verificationData: Optional[VandVSpec] = None,
     validationData: Optional[VandVSpec] = None,
     showNozzleGeometry: bool = False,
+    showGhostNodes: bool = False,
 ) -> list[plt.Figure]:
     """Plot spatial profiles of one or more fluid state variables across one
     or more simulation results, optionally overlaid with verification and/or
@@ -404,16 +454,18 @@ def generate_fluid_state_var_profile_figs(
         common nozzle geometry, or if provided verification/validation data
         does not actually contain the variable it's associated with.
     """
-    # Extract simulationResultsHistories from resultsFolders
-    simulationResultsHistories = collect_results_by_folder(resultsFolders)
+    # Load only the requested step files when the simulation is unfinished.
+    simulationResultsHistories = collect_results_by_folder(
+        resultsFolders, iterationIndexes=iterationIndexes
+    )
 
     if simulationLegendLabels is None:
         simulationLegendLabels = list(simulationResultsHistories.keys())
 
-    if len(iterationIndexes) != len(simulationResultsHistories):
-        raise ValueError("iterationIndexes must be specified for all result folders.")
-    if len(simulationLegendLabels) != len(simulationResultsHistories):
-        raise ValueError("simulationLegendLabels must be specified for all result folders.")
+    if len(simulationLegendLabels) < len(simulationResultsHistories):
+        raise ValueError("simulationLegendLabels must be specified for all result folders. These must match one-to-one in order.")
+    elif len(simulationLegendLabels) > len(simulationResultsHistories):
+        raise ValueError("Too many simulationLegendLabels specified for the number of result folders. These must match one-to-one in order.")
 
     unsupported = set(fluidStateVarNames) - set(_AXIS_LABELS)
     if unsupported:
@@ -421,7 +473,7 @@ def generate_fluid_state_var_profile_figs(
             f"Unsupported fluidStateVarNames: {sorted(unsupported)}. "
             f"Supported variables are: {sorted(_AXIS_LABELS)}."
         )
-
+    
     simulationResultsAtIterIdxs = extract_results_at_iteration_indexes(
         simulationResultsHistories, iterationIndexes
     )
@@ -475,12 +527,16 @@ def generate_fluid_state_var_profile_figs(
         for simLabel, (resultsFolder, resultsAtIterIdx) in zip(
             simulationLegendLabels, simulationResultsAtIterIdxs.items()
         ):
-            profile = _compute_fluid_state_var_profile(fluidStateVarName, resultsAtIterIdx)
+            profile = _compute_fluid_state_var_profile(
+                fluidStateVarName, resultsAtIterIdx, showGhostNodes=showGhostNodes
+            )
             max_y.append(np.abs(profile).max())
 
             step = resultsAtIterIdx["iterIdx"]
             ax.plot(
-                resultsAtIterIdx["meshData"]["xMeshNodes"][1:-1],
+                resultsAtIterIdx["meshData"]["xMeshNodes"]
+                if showGhostNodes
+                else resultsAtIterIdx["meshData"]["xMeshNodes"][1:-1],
                 profile,
                 label=r"$%s: iteration=%s$" % (simLabel, step),
             )
@@ -493,9 +549,10 @@ def generate_fluid_state_var_profile_figs(
 
         if showNozzleGeometry:
             max_y_val = max(max_y)
-            deviceArea = last_resultsAtIterIdx["meshData"]["deviceAreaAtMeshNodes"][1:-1]
+            node_slice = slice(None) if showGhostNodes else slice(1, -1)
+            deviceArea = last_resultsAtIterIdx["meshData"]["deviceAreaAtMeshNodes"][node_slice]
             ax.plot(
-                last_resultsAtIterIdx["meshData"]["xMeshNodes"][1:-1],
+                last_resultsAtIterIdx["meshData"]["xMeshNodes"][node_slice],
                 deviceArea * max_y_val * 1.2 * 0.3 / deviceArea.max(),
                 label="Nozzle Geometry",
                 color="gray",
@@ -520,7 +577,7 @@ def generate_fluid_state_var_profile_figs(
                 color="black",
             )
 
-        fig.legend(loc="lower center", bbox_to_anchor=(0.5, 0.02), ncol=3, fontsize=6)
+        fig.legend(loc="lower center", bbox_to_anchor=(0.5, 0.1), ncol=3, fontsize=12)
         fig.subplots_adjust(bottom=0.25)
         fig.savefig(out_root / f"{fluidStateVarName}.pdf", bbox_inches="tight")
 
@@ -535,9 +592,6 @@ def generate_fluid_state_var_profile_figs(
         fluidStateVarProfileFigs.append(fig)
 
     return fluidStateVarProfileFigs
-
-
-
 
 
 
@@ -588,15 +642,15 @@ def compute_v_and_v_metrics(
             f"validationData ({len(validationData)} entries) must match "
             f"resultsFolders ({len(resultsFolders)} entries)."
         )
- 
-    simulationResultsHistories = collect_results_by_folder(resultsFolders)
+
+    simulationResultsHistories = collect_results_by_folder(resultsFolders, iterationIndexes=[-1]*len(resultsFolders))
     finalIterationIndexes = [
         history["iterIdxHistory"][-1] for history in simulationResultsHistories.values()
     ]
     resultsAtFinalIdxs = extract_results_at_iteration_indexes(
         simulationResultsHistories, finalIterationIndexes
     )
- 
+
     table = Table(title="Verification and Validation")
     table.add_column("Results Folder", style="blue")
     table.add_column("Variable", style="cyan")
@@ -671,7 +725,8 @@ def generate_expansion_thermoplot(
     resultsFolders: list[str], 
     iterationIndexes: list[int],
     legend_labels: list[str],
-    thermoplotConfigFilePath: str
+    thermoplotConfigFilePath: str,
+    showGhostNodes: bool = False,
     ) -> type[plt.Figure]:
     """
     Plot expansion paths from multiple simulation results on a single thermoplot.
@@ -684,7 +739,9 @@ def generate_expansion_thermoplot(
         thermoplotConfigFilePath: Path to the thermoplot configuration file.
     """
     # Extract simulationResultsHistories from resultsFolders
-    simulationResultsHistories = collect_results_by_folder(resultsFolders)
+    simulationResultsHistories = collect_results_by_folder(
+        resultsFolders, iterationIndexes=iterationIndexes
+    )
 
     # extact the iterIdx of interest from each of the results histories. and convert the 
     # collectdResultsHistories dict from a nested dict with subdicts according to the dicts
@@ -717,17 +774,25 @@ def generate_expansion_thermoplot(
         with pyshockflow.post_processing.HiddenPrints():
             driver = Driver(config=resultsAtIterIdx["config"])
 
+        node_slice = slice(None) if showGhostNodes else slice(1, -1)
         entropy = driver.fluidModel.computeEntropy_p_rho(
-            resultsAtIterIdx["fluidState"]['Pressure'][1:-1],
-            resultsAtIterIdx["fluidState"]['Density'][1:-1]
+            resultsAtIterIdx["fluidState"]['Pressure'][node_slice],
+            resultsAtIterIdx["fluidState"]['Density'][node_slice]
         )
         temperature = driver.fluidModel.computeTemperature_p_rho(
-            resultsAtIterIdx["fluidState"]['Pressure'][1:-1],
-            resultsAtIterIdx["fluidState"]['Density'][1:-1]
+            resultsAtIterIdx["fluidState"]['Pressure'][node_slice],
+            resultsAtIterIdx["fluidState"]['Density'][node_slice]
         )
 
         all_entropy.append(entropy)
         all_temperature.append(temperature)
+
+    # if nan or inf in any of the entropy or temperature arrays, remove these from the array
+    for i in range(len(all_entropy)):
+        all_entropy[i] = all_entropy[i][~np.isnan(all_entropy[i])]
+        all_entropy[i] = all_entropy[i][~np.isinf(all_entropy[i])]
+        all_temperature[i] = all_temperature[i][~np.isnan(all_temperature[i])]
+        all_temperature[i] = all_temperature[i][~np.isinf(all_temperature[i])]
 
     # adapt thermoplot limits to span all expansion paths with margin
     global_entropy_min = min(s.min() for s in all_entropy)

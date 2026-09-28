@@ -7,6 +7,7 @@ import hashlib
 import pickle
 import tempfile
 from pathlib import Path
+import numpy as np
 
 from configthermoplot import ConfigThermoplot
 from utils import configure_matplotlib, extract_critical_point
