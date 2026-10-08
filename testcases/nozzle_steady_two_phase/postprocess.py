@@ -21,7 +21,7 @@ from pyshockflow.plotly_post_processing import (
 verificationData = VandVSpec(
     paths={
         "Pressure": (
-            # "verification_data/lettieri/L1_smooth__pressure.csv",
+            "verification_data/lettieri/L1_smooth__pressure.csv",
             # "verification_data/lettieri/L5_smooth__pressure.csv",
 
             # "verification_data/lettieri/L1_friction__pressure.csv",
@@ -32,7 +32,7 @@ verificationData = VandVSpec(
             # "verification_data/petruccelli/P3_friction__pressure.csv",
             # "verification_data/petruccelli/P4_friction__pressure.csv",
 
-            "verification_data/berana/B1_friction__pressure.csv",
+            # "verification_data/berana/B1_friction__pressure.csv",
             # "verification_data/berana/B2_friction__pressure.csv",
             # "verification_data/berana/B3_friction__pressure.csv",
         ),
@@ -47,7 +47,7 @@ verificationData = VandVSpec(
     },
     legend_labels={
         "Pressure": (
-            # "L1_smooth_verification",
+            "L1_smooth_verification",
             # "L5_smooth_verification",
 
             # "L1_friction_verification", 
@@ -58,7 +58,7 @@ verificationData = VandVSpec(
             # "P3_verification",
             # "P4_verification"
 
-            "B1_verification",
+            # "B1_verification",
             # "B2_verification",
             # "B3_verification"
         ),
@@ -89,7 +89,7 @@ validationData = VandVSpec(
 
 fluidStateVarProfileFigs = generate_fluid_state_var_profile_figs(
     resultsFolders=[
-        # "Results/lettieri/output_L1_smooth",
+        "Results/lettieri/output_L1_smooth",
         # "Results/lettieri/output_L5_smooth",
 
         # "Results/lettieri/output_L1_friction",
@@ -99,10 +99,10 @@ fluidStateVarProfileFigs = generate_fluid_state_var_profile_figs(
         # "Results/petruccelli/output_P3",
         # "Results/petruccelli/output_P4",
         # "Results/berana/output_B1_amr",
-        "Results/berana/output_B1_200_09",
-        "Results/berana/output_B1_400_09",
-        "Results/berana/output_B1_800_09",
-        "Results/berana/output_B1_1600_09",
+        # "Results/berana/output_B1_200_09",
+        # "Results/berana/output_B1_400_09",
+        # "Results/berana/output_B1_800_09",
+        # "Results/berana/output_B1_1600_09",
         # "Results/berana/output_B1",
         # "Results/berana/output_B2",
         # "Results/berana/output_B3",
@@ -144,11 +144,11 @@ fluidStateVarProfileFigs = generate_fluid_state_var_profile_figs(
     fluidStateVarNames=["Velocity", "Pressure"],
 
     iterationIndexes=[
-        -1, -1, -1, -1
+        -1
     ],
 
     simulationLegendLabels=[
-        # "L1 smooth",
+        "L1 smooth",
         # "L5 smooth",
 
         # "L1 friction",
@@ -158,10 +158,10 @@ fluidStateVarProfileFigs = generate_fluid_state_var_profile_figs(
         # "P3 friction",
         # "P4 friction",
         # "B1 friction amr",
-        "B1 friction 200",
-        "B1 friction 400",
-        "B1 friction 800",
-        "B1 friction 1600",
+        # "B1 friction 200",
+        # "B1 friction 400",
+        # "B1 friction 800",
+        # "B1 friction 1600",
         # "B1 friction amr",
         # "B1 friction",
         # "B2 friction",
@@ -272,9 +272,9 @@ v_and_v_metrics = compute_v_and_v_metrics(
         # "Results/petruccelli/output_P2",
         # "Results/petruccelli/output_P3",
         # "Results/petruccelli/output_P4",
-        "Results/berana/output_B1",
-        "Results/berana/output_B2",
-        "Results/berana/output_B3",
+        # "Results/berana/output_B1",
+        # "Results/berana/output_B2",
+        # "Results/berana/output_B3",
 
         # "Results/lettieri/output_L1_smooth_5_percent",
         # "Results/lettieri/output_L5_smooth_5_percent",

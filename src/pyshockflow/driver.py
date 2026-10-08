@@ -1200,6 +1200,7 @@ class Driver:
         timeMax               = config.maxTime()
         cflMax                = config.CFLMax()
         expansionDeviceType   = config.expansionDeviceType()
+        timeSteppingMethod    = config.timeSteppingMethod()
         fluidModelType        = config.fluidModelType()
         fluidLibrary          = config.fluidLibrary() if fluidModelType == "real" else None
         if musclActiveBool:
@@ -1254,9 +1255,11 @@ class Driver:
             )
 
             # Compute the CFL-limited timestep and clip it so we land exactly on timeMax.
-            dt      = computeTimeStep(fluidState, meshData, cflMax)
-            dt      = min(dt, timeMax - time)
-            newTime = time + dt
+            # Local stepping advances each cell with its own CFL-limited time.
+            dt      = computeTimeStep(fluidState, meshData, cflMax, timeSteppingMethod)
+            dt      = np.minimum(dt, timeMax - time)
+            timeStep = np.min(dt)
+            newTime = time + timeStep
             # Compute residuals (finite-volume right-hand side).
             residuals = computeResiduals(
                 config, meshData, fluidState, 
@@ -1933,7 +1936,7 @@ def _applyOutletBC(location, iHalo, iInternal, config, fluidModel, fluidState):
 #  Time stepping
 # -----------------------------------------------------------------------------
 
-def computeTimeStep(fluidState, meshData, cflMax):
+def computeTimeStep(fluidState, meshData, cflMax, timeSteppingMethod="global"):
     """
     Compute the maximum CFL-limited timestep over all interior nodes.
 
@@ -1953,8 +1956,10 @@ def computeTimeStep(fluidState, meshData, cflMax):
 
     Returns
     -------
-    dtMax : float
-        The largest timestep that keeps every node below cflMax.
+    dtMax : float or np.ndarray
+        The largest timestep that keeps every node below cflMax.  A scalar is
+        returned for global time stepping and one value per interior node for
+        local time stepping.
     """
     # Slice to interior nodes only (exclude the two halo nodes).
     velocity  = fluidState["Velocity"][1:-1]
@@ -1963,8 +1968,10 @@ def computeTimeStep(fluidState, meshData, cflMax):
     # Soundspeed already precomputed at start of iteration. 
     soundSpeed = fluidState["soundSpeed"][1:-1]
 
-    dtMax = np.min(dx * cflMax / (np.abs(velocity) + soundSpeed))
-    return dtMax
+    dtLocal = dx * cflMax / (np.abs(velocity) + soundSpeed)
+    if timeSteppingMethod == "local":
+        return dtLocal
+    return np.min(dtLocal)
 
 
 # -----------------------------------------------------------------------------
@@ -1995,8 +2002,9 @@ def computeResiduals(config, meshData, fluidState,
     meshData : dict
         Mesh data dictionary.
     fluidModel : FluidIdeal or FluidReal
-    dt : float
-        Current timestep.
+    dt : float or np.ndarray
+        Current timestep, either shared by all cells or one value per interior
+        node.
     advectionScheme : str
         One of 'godunov', 'roe', 'roe_arabi', 'roe_vinokur'.
     musclActiveBool : bool
@@ -2077,8 +2085,9 @@ def computeFluxVector(nFaces, fluidState, meshData, fluidModel, dt,
     meshData : dict
         Mesh data dictionary.
     fluidModel : FluidIdeal or FluidReal
-    dt : float
-        Current timestep (only needed by the Godunov scheme).
+    dt : float or np.ndarray
+        Current timestep, shared by all cells or specified per interior node.
+        Only needed by the Godunov scheme.
     advectionScheme : str
     musclActiveBool : bool
     limiter : str
@@ -2096,6 +2105,15 @@ def computeFluxVector(nFaces, fluidState, meshData, fluidModel, dt,
     # for i in [0, nPhysicalNodes], using halo nodes for the boundary interfaces).
     iLeft = np.arange(nFaces, dtype=int)
     iRight = iLeft + 1
+    # A face uses the smaller adjacent-cell timestep for Godunov sampling.
+    if np.isscalar(dt):
+        dtFace = np.full(nFaces, dt)
+    else:
+        dt = np.asarray(dt)
+        dtFace = np.empty(nFaces)
+        dtFace[0] = dt[0]
+        dtFace[-1] = dt[-1]
+        dtFace[1:-1] = np.minimum(dt[:-1], dt[1:])
 
     # construct arrays containing fluid states left and right of the interface. 
     rhoL = fluidState["Density"][iLeft].astype(float, copy=True)
@@ -2138,7 +2156,7 @@ def computeFluxVector(nFaces, fluidState, meshData, fluidModel, dt,
                 float(uL[iFace]), float(uR[iFace]),
                 float(pL[iFace]), float(pR[iFace]),
                 float(dx_left[iFace]), float(dx_right[iFace]),
-                float(dt), fluidModel,
+                float(dtFace[iFace]), fluidModel,
             )
 
     elif advectionScheme == "roe":
@@ -2453,8 +2471,6 @@ def computeSourceTerms(config, meshData, fluidModel, fluidState):
     source[:, 1] = -rho * u**2 * geomFactor
     source[:, 2] = -u   * (rho * totalEnergy + p) * geomFactor
 
-    print("geometry-induced source at first 10 nodes", source[:10, :])
-
     # add wall friction to the momentum equation if enabled
     if config.wallFrictionModellingBool():
         # extract fluid dynamic viscosity for ideal fluid
@@ -2495,7 +2511,7 @@ def checkSimulationStatus(fluidState, meshData, fluidModel, dt):
     fluidState : dict
     meshData : dict
     fluidModel : FluidIdeal or FluidReal
-    dt : float
+    dt : float or np.ndarray
         The timestep that was just used (needed for the CFL diagnostic).
 
     Returns

@@ -524,6 +524,9 @@ class Config:
     def maxTime(self) -> float:
         return self._get_float("TIME", "MAX_TIME", positive=True)
 
+    def timeSteppingMethod(self) -> str:
+        return self._get_str("TIME", "TIME_STEPPING_METHOD", lower = True, inputOptions=["global", "local"], default = 'global')
+
 
 
     # [INITIAL CONDITIONS]
