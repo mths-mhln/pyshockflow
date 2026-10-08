@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import pickle 
 import sys
 import os
@@ -407,6 +409,7 @@ def generate_fluid_state_var_profile_figs(
     validationData: Optional[VandVSpec] = None,
     showNozzleGeometry: bool = False,
     showGhostNodes: bool = False,
+    separatePlots: bool = False,
 ) -> list[plt.Figure]:
     """Plot spatial profiles of one or more fluid state variables across one
     or more simulation results, optionally overlaid with verification and/or
@@ -483,7 +486,9 @@ def generate_fluid_state_var_profile_figs(
         resultsAtIterIdx["deviceGeometryData"]["deviceY"]
         for resultsAtIterIdx in simulationResultsAtIterIdxs.values()
     ]
-    if not all(np.array_equal(nozzleGeometries[0], geom) for geom in nozzleGeometries):
+    if not separatePlots and not all(
+        np.array_equal(nozzleGeometries[0], geom) for geom in nozzleGeometries
+    ):
         raise ValueError(
             "Multiple results folders were specified with differing nozzle "
             "geometries. generate_fluid_state_var_profile_figs() plots all "
@@ -497,101 +502,346 @@ def generate_fluid_state_var_profile_figs(
     fluidStateVarProfileFigs = []
 
     for fluidStateVarName in fluidStateVarNames:
-        fig, ax = plt.subplots(figsize=(12, 6))
-        max_y = []
+        simulation_items = list(simulationResultsAtIterIdxs.items())
+        plot_items = (
+            [simulation_items]
+            if not separatePlots
+            else [[simulation_item] for simulation_item in simulation_items]
+        )
 
-        verificationRecords, verificationLabels = _load_v_and_v_data(
-            verificationData, fluidStateVarName
-        )
-        validationRecords, validationLabels = _load_v_and_v_data(
-            validationData, fluidStateVarName
-        )
+        for plot_index, selected_items in enumerate(plot_items):
+            fig, ax = plt.subplots(figsize=(12, 6))
+            max_y = []
+
+            verificationRecords, verificationLabels = _load_v_and_v_data(
+                verificationData, fluidStateVarName
+            )
+            validationRecords, validationLabels = _load_v_and_v_data(
+                validationData, fluidStateVarName
+            )
 
         # Each V&V record's second key should describe the variable of interest.
-        if not all(fluidStateVarName in list(record.keys())[1] for record in verificationRecords):
-            raise ValueError(
-                f"Verification data provided for '{fluidStateVarName}', but not all "
-                f"verification data files contain this variable. Found variables: "
-                f"{[list(record.keys())[1] for record in verificationRecords]}."
-            )
-        if not all(fluidStateVarName in list(record.keys())[1] for record in validationRecords):
-            raise ValueError(
-                f"Validation data provided for '{fluidStateVarName}', but not all "
-                f"validation data files contain this variable. Found variables: "
-                f"{[list(record.keys())[1] for record in validationRecords]}."
-            )
+            if not all(fluidStateVarName in list(record.keys())[1] for record in verificationRecords):
+                raise ValueError(
+                    f"Verification data provided for '{fluidStateVarName}', but not all "
+                    f"verification data files contain this variable. Found variables: "
+                    f"{[list(record.keys())[1] for record in verificationRecords]}."
+                )
+            if not all(fluidStateVarName in list(record.keys())[1] for record in validationRecords):
+                raise ValueError(
+                    f"Validation data provided for '{fluidStateVarName}', but not all "
+                    f"validation data files contain this variable. Found variables: "
+                    f"{[list(record.keys())[1] for record in validationRecords]}."
+                )
 
-        last_resultsFolder = None
-        last_resultsAtIterIdx = None
-
-        for simLabel, (resultsFolder, resultsAtIterIdx) in zip(
-            simulationLegendLabels, simulationResultsAtIterIdxs.items()
-        ):
-            profile = _compute_fluid_state_var_profile(
-                fluidStateVarName, resultsAtIterIdx, showGhostNodes=showGhostNodes
-            )
-            max_y.append(np.abs(profile).max())
-
-            step = resultsAtIterIdx["iterIdx"]
-            ax.plot(
-                resultsAtIterIdx["meshData"]["xMeshNodes"]
-                if showGhostNodes
-                else resultsAtIterIdx["meshData"]["xMeshNodes"][1:-1],
-                profile,
-                label=r"$%s: iteration=%s$" % (simLabel, step),
+            last_resultsFolder = None
+            last_resultsAtIterIdx = None
+            plot_labels = (
+                simulationLegendLabels
+                if not separatePlots
+                else [simulationLegendLabels[plot_index]]
             )
 
-            last_resultsFolder = resultsFolder
-            last_resultsAtIterIdx = resultsAtIterIdx
+            for simLabel, (resultsFolder, resultsAtIterIdx) in zip(
+                plot_labels, selected_items
+            ):
+                profile = _compute_fluid_state_var_profile(
+                    fluidStateVarName, resultsAtIterIdx, showGhostNodes=showGhostNodes
+                )
+                max_y.append(np.abs(profile).max())
 
-        ax.set_ylabel(_AXIS_LABELS[fluidStateVarName])
-        ax.set_xlabel(r"$x$ [m]")
+                step = resultsAtIterIdx["iterIdx"]
+                ax.plot(
+                    resultsAtIterIdx["meshData"]["xMeshNodes"]
+                    if showGhostNodes
+                    else resultsAtIterIdx["meshData"]["xMeshNodes"][1:-1],
+                    profile,
+                    label=f"{simLabel}: iteration={step}",
+                )
 
-        if showNozzleGeometry:
-            max_y_val = max(max_y)
-            node_slice = slice(None) if showGhostNodes else slice(1, -1)
-            deviceArea = last_resultsAtIterIdx["meshData"]["deviceAreaAtMeshNodes"][node_slice]
-            ax.plot(
-                last_resultsAtIterIdx["meshData"]["xMeshNodes"][node_slice],
-                deviceArea * max_y_val * 1.2 * 0.3 / deviceArea.max(),
-                label="Nozzle Geometry",
-                color="gray",
-                alpha=0.5,
-                zorder=-1,
+                last_resultsFolder = resultsFolder
+                last_resultsAtIterIdx = resultsAtIterIdx
+
+            ax.set_ylabel(_AXIS_LABELS[fluidStateVarName])
+            ax.set_xlabel(r"$x$ [m]")
+
+            if showNozzleGeometry:
+                max_y_val = max(max_y)
+                node_slice = slice(None) if showGhostNodes else slice(1, -1)
+                deviceArea = last_resultsAtIterIdx["meshData"]["deviceAreaAtMeshNodes"][node_slice]
+                ax.plot(
+                    last_resultsAtIterIdx["meshData"]["xMeshNodes"][node_slice],
+                    deviceArea * max_y_val * 1.2 * 0.3 / deviceArea.max(),
+                    label="Nozzle Geometry",
+                    color="gray",
+                    alpha=0.5,
+                    zorder=-1,
+                )
+
+            verification_items = (
+                zip(verificationRecords, verificationLabels)
+                if not separatePlots
+                else zip(
+                    verificationRecords[plot_index:plot_index + 1],
+                    verificationLabels[plot_index:plot_index + 1],
+                )
             )
-
-        for record, label in zip(verificationRecords, verificationLabels):
-            ax.scatter(
-                record["deviceX"],
-                record[list(record.keys())[1]],
-                label=label,
-                marker="x",
-                color="black",
+            for record, label in verification_items:
+                ax.scatter(
+                    record["deviceX"],
+                    record[list(record.keys())[1]],
+                    label=label,
+                    marker="x",
+                    color="black",
+                )
+            validation_items = (
+                zip(validationRecords, validationLabels)
+                if not separatePlots
+                else zip(
+                    validationRecords[plot_index:plot_index + 1],
+                    validationLabels[plot_index:plot_index + 1],
+                )
             )
-        for record, label in zip(validationRecords, validationLabels):
-            ax.scatter(
-                record["deviceX"],
-                record[list(record.keys())[1]],
-                label=label,
-                marker="o",
-                color="black",
-            )
+            for record, label in validation_items:
+                ax.scatter(
+                    record["deviceX"],
+                    record[list(record.keys())[1]],
+                    label=label,
+                    marker="o",
+                    color="black",
+                )
 
-        fig.legend(loc="lower center", bbox_to_anchor=(0.5, 0.1), ncol=3, fontsize=12)
-        fig.subplots_adjust(bottom=0.25)
-        fig.savefig(out_root / f"{fluidStateVarName}.pdf", bbox_inches="tight")
+            fig.legend(loc="lower center", bbox_to_anchor=(0.5, 0.1), ncol=3, fontsize=12)
+            fig.subplots_adjust(bottom=0.25)
+            suffix = f"_{plot_index}" if separatePlots else ""
+            fig.savefig(out_root / f"{fluidStateVarName}{suffix}.pdf", bbox_inches="tight")
 
-        # Window positioning only works on some backends (e.g. TkAgg).
-        try:
-            manager = fig.canvas.manager
-            manager.window.wm_geometry("+50+120")
-            manager.set_window_title(f"{last_resultsFolder}: Simulation Results")
-        except AttributeError:
-            pass
+            # Window positioning only works on some backends (e.g. TkAgg).
+            try:
+                manager = fig.canvas.manager
+                manager.window.wm_geometry("+50+120")
+                manager.set_window_title(f"{last_resultsFolder}: Simulation Results")
+            except AttributeError:
+                pass
 
-        fluidStateVarProfileFigs.append(fig)
+            fluidStateVarProfileFigs.append(fig)
 
     return fluidStateVarProfileFigs
+
+
+
+
+
+
+# ====================
+#  Animation
+# ====================
+"""Smooth MP4 animation of PyShockFlow profiles (pre-rendered, hardware-decoded).
+
+pip install imageio-ffmpeg   # bundles an ffmpeg binary, no system install needed
+"""
+import contextlib
+import io
+from pathlib import Path
+import shutil
+
+import matplotlib.pyplot as plt
+import numpy as np
+from matplotlib.animation import FFMpegWriter, PillowWriter
+
+from pyshockflow.driver import Driver
+from pyshockflow.post_processing import collect_results_by_folder
+
+# NOTE: deliberately NO matplotlib.use("Agg") here.
+# Setting the backend at import time breaks interactive plotting
+# (fig.show / plt.show) for the rest of the module.
+
+_STATE_FIELDS = (
+    ("Density", "Density", "kg/m^3"),
+    ("Pressure", "Pressure", "Pa"),
+    ("Velocity", "Velocity", "m/s"),
+    ("Internal energy", "staticInternalEnergy", "J/kg"),
+    ("Temperature", "Temperature", "K"),
+    ("Entropy", "Entropy", "J/(kg K)"),
+    ("Mach", "Mach", "-"),
+)
+
+_PROFILE_LABELS = {
+    "Density": ("Density", "kg/m^3"),
+    "Pressure": ("Pressure", "Pa"),
+    "Velocity": ("Velocity", "m/s"),
+    "staticInternalEnergy": ("Internal energy", "J/kg"),
+    "Temperature": ("Temperature", "K"),
+    "Entropy": ("Entropy", "J/(kg K)"),
+    "Mach": ("Mach", "-"),
+}
+
+_CONVERGENCE_VARIABLES = ("Density", "Velocity", "Pressure", "staticInternalEnergy")
+
+
+def _profile_key(variable: str) -> str:
+    return "staticInternalEnergy" if variable == "internalEnergy" else variable
+
+
+def _node_slice(show_ghost_nodes: bool) -> slice:
+    return slice(None) if show_ghost_nodes else slice(1, -1)
+
+
+def _unconverged_masks(
+    history: dict,
+    config,
+    show_ghost_nodes: bool,
+) -> np.ndarray:
+    """Convergence test for every stored frame at once.
+
+    Returns a boolean array of shape (nodes, frames).  Entry [i, k] is True
+    when node i failed the configured convergence test in any of the last
+    ``convergencePatience()`` transitions between stored snapshots ending at
+    frame k.  Frames with fewer than ``patience`` preceding transitions are
+    treated as unconverged, because the requested patience cannot be
+    established.
+    """
+    patience = config.convergencePatience()
+    tolerance = config.convergenceTolerance()
+    fluid_history = history["fluidStateHistory"]
+    n_nodes, n_frames = np.asarray(fluid_history["Density"]).shape
+
+    changed = np.zeros((n_nodes, max(n_frames - 1, 0)), dtype=bool)
+    for name in _CONVERGENCE_VARIABLES:
+        values = np.asarray(fluid_history[name])
+        scale = np.max(np.abs(values[:, :-1]), axis=0) + 1e-300
+        changed |= np.abs(np.diff(values, axis=1)) / scale >= tolerance
+
+    csum = np.concatenate(
+        [np.zeros((n_nodes, 1), dtype=np.int32), np.cumsum(changed, axis=1, dtype=np.int32)],
+        axis=1,
+    )
+    masks = np.ones((n_nodes, n_frames), dtype=bool)
+    if n_frames > patience:
+        masks[:, patience:] = (csum[:, patience:] - csum[:, : n_frames - patience]) > 0
+
+    return masks[_node_slice(show_ghost_nodes)]
+
+
+def _make_video_writer(output_path: str, fps: int):
+    """Return (writer, final_path). Prefers MP4, falls back to GIF."""
+    ffmpeg = shutil.which("ffmpeg")
+    if ffmpeg is None:
+        try:
+            import imageio_ffmpeg
+            ffmpeg = imageio_ffmpeg.get_ffmpeg_exe()
+        except ImportError:
+            ffmpeg = None
+    if ffmpeg is not None:
+        matplotlib.rcParams["animation.ffmpeg_path"] = ffmpeg
+        writer = FFMpegWriter(
+            fps=fps, codec="libx264",
+            extra_args=["-pix_fmt", "yuv420p", "-crf", "20",
+                        "-preset", "veryfast", "-movflags", "+faststart"],
+        )
+        return writer, output_path
+    print("ffmpeg not found; falling back to GIF (larger and lower quality).")
+    return PillowWriter(fps=min(fps, 30)), str(Path(output_path).with_suffix(".gif"))
+
+
+def render_profile_video(
+    results_folder: str,
+    fluid_state_var_name: str,
+    output_path: str = "profile.mp4",
+    speed: float = 1.0,          # < 1 slows the video (frames are repeated);
+                                 # > 1 skips frames (faster playback)
+    fps: int = 60,               # playback frame rate of the video
+    show_ghost_nodes: bool = False,
+    show_unconverged_nodes: bool = False,
+    size_px: tuple[int, int] = (1280, 720),
+    write_html: bool = True,
+) -> str:
+    if fluid_state_var_name not in _PROFILE_LABELS:
+        raise ValueError(f"Unsupported variable: {sorted(_PROFILE_LABELS)}")
+    if speed <= 0:
+        raise ValueError("speed must be a positive number")
+
+    history = next(iter(collect_results_by_folder([results_folder]).values()))
+    iters = np.asarray(history["iterIdxHistory"])
+    times = np.asarray(history["timeHistory"])
+    config = history["config"]
+    nodes = _node_slice(show_ghost_nodes)
+    x = np.asarray(history["meshData"]["xMeshNodes"])[nodes]
+
+    # --- batched state computation (one fluid-model call per property) ---
+    fh = history["fluidStateHistory"]
+    key = _profile_key(fluid_state_var_name)
+    if key in ("Temperature", "Entropy", "Mach"):
+        p, rho, u = (np.asarray(fh[n])[nodes] for n in ("Pressure", "Density", "Velocity"))
+        with contextlib.redirect_stdout(io.StringIO()):
+            fm = Driver(config=config).fluidModel
+        shape = p.shape
+        with np.errstate(invalid="ignore", divide="ignore"):
+            if key == "Temperature":
+                prof = fm.computeTemperature_p_rho(p.ravel(), rho.ravel())
+            elif key == "Entropy":
+                prof = fm.computeEntropy_p_rho(p.ravel(), rho.ravel())
+            else:
+                prof = fm.computeMach_u_p_rho(u.ravel(), p.ravel(), rho.ravel())
+        profiles = np.asarray(prof).reshape(shape)
+    else:
+        profiles = np.asarray(fh[key])[nodes]
+
+    masks = _unconverged_masks(history, config, show_ghost_nodes) if show_unconverged_nodes else None
+
+    # Frame selection:
+    #   speed >= 1  → take every int(speed)-th frame
+    #   speed <  1  → keep every frame and repeat it so the clip is longer
+    if speed >= 1:
+        frames = np.arange(0, iters.size, int(round(speed)))
+    else:
+        repeats = max(1, int(round(1.0 / speed)))
+        frames = np.repeat(np.arange(iters.size), repeats)
+
+    finite = profiles[np.isfinite(profiles)]
+    lo, hi = float(finite.min()), float(finite.max())
+    pad = 0.05 * (hi - lo) if hi > lo else max(abs(lo) * 0.05, 1.0)
+
+    # --- static figure, built once; only artists' data change per frame ---
+    label, unit = _PROFILE_LABELS[fluid_state_var_name]
+    dpi = 100
+    fig, ax = plt.subplots(figsize=(size_px[0] / dpi, size_px[1] / dpi), dpi=dpi)
+    ax.set_xlim(x.min(), x.max())
+    ax.set_ylim(lo - pad, hi + pad)
+    ax.set_xlabel("x [m]")
+    ax.set_ylabel(f"{label} [{unit}]" if unit != "-" else label)
+    ax.grid(alpha=0.3)
+    (line,) = ax.plot(x, profiles[:, frames[0]], lw=1.2, color="tab:blue")
+    pts = ax.scatter(x, profiles[:, frames[0]], s=10, zorder=3, color="green")
+    title = ax.set_title("")
+    fig.tight_layout()
+
+    def update(k: int):
+        y = profiles[:, k]
+        line.set_ydata(y)
+        pts.set_offsets(np.column_stack([x, y]))
+        if masks is not None:
+            pts.set_color(np.where(masks[:, k], "red", "green"))
+        title.set_text(f"{label}: iteration={iters[k]}, time={times[k]:.6g} s")
+
+    writer, output_path = _make_video_writer(output_path, fps)
+    with writer.saving(fig, output_path, dpi):
+        for k in frames:
+            update(k)
+            writer.grab_frame()
+    plt.close(fig)
+
+    if write_html:
+        html = Path(output_path).with_suffix(".html")
+        html.write_text(f"""<!doctype html><meta charset="utf-8">
+<body style="margin:0;background:#111;color:#eee;font-family:sans-serif;text-align:center">
+<video id="v" src="{Path(output_path).name}" controls loop autoplay muted
+       style="max-width:100%;max-height:90vh"></video><br>
+{''.join(f'<button onclick="v.playbackRate={s}">{s}x</button> ' for s in (0.25, 0.5, 1, 2, 4))}
+</body>""")
+    return output_path
+
+
 
 
 
@@ -603,8 +853,8 @@ def generate_fluid_state_var_profile_figs(
 def compute_v_and_v_metrics(
     resultsFolders: list[str],
     fluidStateVarNames: list[str],
-    verificationData: list[str] = None,
-    validationData: list[str] = None,
+    verificationData: VandVSpec = None,
+    validationData: VandVSpec = None,
 ) -> dict:
     """Compare each simulation result folder against its corresponding
     verification and/or validation data file, matched by position.
@@ -619,8 +869,9 @@ def compute_v_and_v_metrics(
         to be for; each supplied data file's variable is checked against
         this list.
     verificationData, validationData:
-        Optional lists of file paths, one per entry in `resultsFolders`
-        (same order, same length). At least one of the two must be given.
+        Optional `VandVSpec` objects. Their files are flattened in the
+        declared variable/path order and matched one-to-one with
+        `resultsFolders`. At least one of the two must be given.
  
     Returns
     -------
@@ -631,15 +882,25 @@ def compute_v_and_v_metrics(
     """
     if verificationData is None and validationData is None:
         raise ValueError("At least one of verificationData or validationData must be provided.")
- 
-    if verificationData is not None and len(verificationData) != len(resultsFolders):
+
+    def _records_in_order(spec: Optional[VandVSpec]) -> list[dict]:
+        if spec is None:
+            return []
+        records = []
+        for variable, paths in spec.paths.items():
+            records.extend(_process_v_and_v_data(paths))
+        return records
+
+    verificationRecords = _records_in_order(verificationData)
+    validationRecords = _records_in_order(validationData)
+    if verificationData is not None and len(verificationRecords) != len(resultsFolders):
         raise ValueError(
-            f"verificationData ({len(verificationData)} entries) must match "
+            f"verificationData ({len(verificationRecords)} entries) must match "
             f"resultsFolders ({len(resultsFolders)} entries)."
         )
-    if validationData is not None and len(validationData) != len(resultsFolders):
+    if validationData is not None and len(validationRecords) != len(resultsFolders):
         raise ValueError(
-            f"validationData ({len(validationData)} entries) must match "
+            f"validationData ({len(validationRecords)} entries) must match "
             f"resultsFolders ({len(resultsFolders)} entries)."
         )
 
@@ -664,15 +925,16 @@ def compute_v_and_v_metrics(
         xMeshNodes = resultsAtIterIdx["meshData"]["xMeshNodes"][1:-1]
         entry = {}
  
-        for kind, dataList in (("verification", verificationData), ("validation", validationData)):
-            if dataList is None:
+        for kind, records in (("verification", verificationRecords), ("validation", validationRecords)):
+            if not records:
                 continue
- 
-            record = _process_v_and_v_data((dataList[i],))[0]
+
+            record = records[i]
             var = list(record.keys())[1]
             if var not in fluidStateVarNames:
                 raise ValueError(
-                    f"{kind.capitalize()} data '{dataList[i]}' is for variable '{var}', "
+                    f"{kind.capitalize()} data for result '{resultsFolders[i]}' is "
+                    f"for variable '{var}', "
                     f"which is not in fluidStateVarNames {fluidStateVarNames}."
                 )
  
@@ -724,9 +986,10 @@ def compute_v_and_v_metrics(
 def generate_expansion_thermoplot(
     resultsFolders: list[str], 
     iterationIndexes: list[int],
-    legend_labels: list[str],
+    simulationLegendLabels: list[str],
     thermoplotConfigFilePath: str,
     showGhostNodes: bool = False,
+    separatePlots: bool = False,
     ) -> type[plt.Figure]:
     """
     Plot expansion paths from multiple simulation results on a single thermoplot.
@@ -735,7 +998,7 @@ def generate_expansion_thermoplot(
         thermoplotConfigFilePath: Path to the thermoplot configuration file.
         resultsFolders: List of paths to the results folders.
         iterationIndexes: List of iteration indexes to plot.
-        legend_labels: List of labels for each expansion path.
+        simulationLegendLabels: List of labels for each expansion path.
         thermoplotConfigFilePath: Path to the thermoplot configuration file.
     """
     # Extract simulationResultsHistories from resultsFolders
@@ -818,20 +1081,31 @@ def generate_expansion_thermoplot(
             the simulation results you are trying to analyze.
             """)
 
-    # get plot background
-    fig = thermoplot_cached(thermoplotConfigFilePath, thermoplot_overwrite_settings=thermoplot_overwrite_settings)
-    ax = fig.get_axes()[0]
-
-    # plot each expansion path with a distinct colour
+    # get plot background and plot each expansion path
     color_cycle = plt.rcParams["axes.prop_cycle"].by_key()["color"]
-
-    for i, (entropy, temperature, label) in enumerate(zip(all_entropy, all_temperature, legend_labels)):
+    figures = []
+    plot_items = zip(all_entropy, all_temperature, simulationLegendLabels)
+    for i, (entropy, temperature, label) in enumerate(plot_items):
+        fig = thermoplot_cached(
+            thermoplotConfigFilePath,
+            thermoplot_overwrite_settings=thermoplot_overwrite_settings,
+        )
+        ax = fig.get_axes()[0]
         color = color_cycle[i % len(color_cycle)]
         ax.plot(entropy, temperature, color=color, marker='o', markersize=2, label=label)
+        ax.legend()
+        try:
+            manager = fig.canvas.manager
+            manager.window.wm_geometry("+50+120")
+            window_name = resultsFolders[i] if separatePlots else "Multiple simulations"
+            manager.set_window_title(f"{window_name}: Expansion Path")
+        except AttributeError:
+            pass
+        figures.append(fig)
+        if not separatePlots:
+            break
 
-    ax.legend()
-
-    return fig
+    return figures if separatePlots else figures[0]
 
 
 

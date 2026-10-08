@@ -13,8 +13,8 @@ from pyshockflow import Config
 # configFile = "inputs/config_files/petruccelli/P1.ini"
 # configFile = "inputs/config_files/petruccelli/P2.ini"
 # configFile = "inputs/config_files/petruccelli/P3.ini"
-configFile = "inputs/config_files/petruccelli/P4.ini"
-# configFile = "inputs/config_files/berana/B1.ini"
+# configFile = "inputs/config_files/petruccelli/P4.ini"
+configFile = "inputs/config_files/berana/B1.ini"
 # configFile = "inputs/config_files/berana/B2.ini"
 # configFile = "inputs/config_files/berana/B3.ini"
 
@@ -36,6 +36,7 @@ configFile = "inputs/config_files/petruccelli/P4.ini"
 # driver.solve()
  
 config = Config(configFilePath = configFile)
+# driver = Driver(config = config, restartFilePath = "Results/lettieri/output_L5_friction/step_002000.pik")
 driver = Driver(config = config)
 # driver = Driver(config = config,restartFilePath = "Results/lettieri/output_L1_smooth/step_000250.pik") 
 driver.solve()

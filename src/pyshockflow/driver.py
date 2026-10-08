@@ -276,7 +276,7 @@ class Driver:
         return deviceGeometryData
 
 
-    def generateMesh(self, config, deviceGeometryData):
+    def generateMesh(self, config, deviceGeometryData, meshScale=1):
         """
         Build the 1D mesh node positions along the shock tube. Generation is based on the
         expansion device start and end coordinates (taken from the geometry data) and the
@@ -368,7 +368,7 @@ class Driver:
         # Extract length of the expansion device computational domain and number
         # of mesh nodes the user wants to place in it.
         length       = deviceGeometryData["deviceLength"]
-        numMeshNodes = config.numberOfMeshNodes()
+        numMeshNodes = config.numberOfMeshNodes()*meshScale
 
         # Check if mesh refinement is enabled in the configuration file.
         isMeshRefined = config.meshRefinementBool()
@@ -379,7 +379,7 @@ class Driver:
             refinementCoords = config.refinementBoundaries()
             print("Mesh is refined between the two boundaries [m]: ", refinementCoords)
 
-            numMeshNodesRef = config.numberOfRefMeshNodes()
+            numMeshNodesRef = config.numberOfRefMeshNodes()*meshScale
             x0_ref, x1_ref = refinementCoords
 
             # dx_refined: uniform spacing inside the refinement zone, used as the fine
@@ -1237,6 +1237,12 @@ class Driver:
         convergenceHist = []
         convergedSimulation = False
 
+        # if amr
+        if config.adaptiveMeshRefinementBool():
+            amrVars = ("Density", "Velocity", "Pressure")
+            amrPrev = None   # (x, state) of the previous converged mesh
+            amrLevel = 0
+
         # -----------------------------------------
         # Iterative solution of governing equations
         # -----------------------------------------
@@ -1284,16 +1290,7 @@ class Driver:
                 sys.exit("Simulation diverged. Check the output files for the last step for diagnostics.")
 
             # Re-impose boundary conditions on the halo nodes.
-            fluidState = self.setBoundaryConditions(config, fluidModel, fluidState)
-
-            # # Keep conservative state consistent with the updated fluid state variables at the halos.
-            # conservativeState = self._conservativesFromFluidState(fluidState, fluidModel)
-
-            # Periodic file output.
-            if iterationIndex % writeInterval == 0:
-                saveSingleIterResult(
-                    config, deviceGeometryData, meshData, fluidState, resultsSubdirPath, iterationIndex, time
-                )
+            fluidState = self.setBoundaryConditions(config, fluidModel, fluidState)            
 
             # ------------------------------------------------------------------
             # Convergence check: if all fluid state variables have changed by less
@@ -1302,7 +1299,7 @@ class Driver:
             # ------------------------------------------------------------------
             if expansionDeviceType == "nozzle":
                 # if inletBC, percentage of meshondes next to inletBC to ignore for convergence check
-                percentageInletBC = 5
+                percentageInletBC = 0
                 nInletBCNodes = int(percentageInletBC / 100 * meshData["numMeshNodes"])
                 if config.boundaryConditions()[0] == "inlet":
                     sliceToCheck = slice(nInletBCNodes, None)
@@ -1321,23 +1318,83 @@ class Driver:
                 )
                 # print index of meshnode at which the maximum relative 
                 # change occurs for each variable as index of the original array
-                # for var in ("Density", "Velocity", "Pressure", 'staticInternalEnergy'):
-                #     maxRelChangeIdx = np.argmax(
-                #         np.abs(fluidState[var][sliceToCheck] - fluidStateOld[var][sliceToCheck])
-                #         / (np.max(np.abs(fluidStateOld[var][sliceToCheck])) + 1e-300)
-                #     )
-                #     originalIdx = maxRelChangeIdx + (sliceToCheck.start if sliceToCheck.start is not None else 0)
+                maxRelChanges = []
+                maxRelChangeIdxs = []
+                for var in ("Density", "Velocity", "Pressure", 'staticInternalEnergy'):
+                    maxRelChange = np.max(
+                        np.abs(fluidState[var][sliceToCheck] - fluidStateOld[var][sliceToCheck])
+                        / (np.max(np.abs(fluidStateOld[var][sliceToCheck])) + 1e-300)
+                    )
+                    maxRelChanges.append(maxRelChange)
+                    maxRelChangeIdx = np.argmax(
+                        np.abs(fluidState[var][sliceToCheck] - fluidStateOld[var][sliceToCheck])
+                        / (np.max(np.abs(fluidStateOld[var][sliceToCheck])) + 1e-300)
+                    )
+                    maxRelChangeIdxs.append(maxRelChangeIdx)
+                    originalIdx = maxRelChangeIdx + (sliceToCheck.start if sliceToCheck.start is not None else 0)
+                    
                 #     print(f"Max relative change in {var} occurs at mesh node index: {originalIdx}")
+                #     print(f"Max relative change in {var}: {maxRelChange:.6e}")
 
+                #     print(f"fluidstate val at that index: {fluidState[var][originalIdx]:.6e}")
+                #     print(f"fluidstateOld val at that index: {fluidStateOld[var][originalIdx]:.6e}")
+                #     print(f"divisor at that index: {np.max(np.abs(fluidStateOld[var][sliceToCheck])) + 1e-300:.6e}")
+
+                # print(f"max relative change out of all variables is in {('Density', 'Velocity', 'Pressure', 'staticInternalEnergy')[np.argmax(maxRelChanges)]} with value {max(maxRelChanges):.6e}")
+                # print(f"max relative change occurs at mesh node index: {maxRelChangeIdxs[np.argmax(maxRelChanges)] + (sliceToCheck.start if sliceToCheck.start is not None else 0)}")
+                
                 convergenceHist = convergenceHist + [True] if converged else []
                 if len(convergenceHist) >= config.convergencePatience():
-                    # Force the loop to end at timeMax on the next iteration.
-                    newTime = timeMax
-                    convergedSimulation = True
+                    if not config.adaptiveMeshRefinementBool():
+                        newTime = timeMax
+                        convergedSimulation = True
+                    else:
+                        xOld = meshData["xMeshNodes"]
+                        if amrPrev is not None:
+                            # Change relative to the previous (coarser) converged solution.
+                            relDiff = max(
+                                np.max(np.abs(fluidState[v][1:-1]
+                                                - np.interp(xOld[1:-1], amrPrev[0], amrPrev[1][v])))
+                                / (np.max(np.abs(fluidState[v][1:-1])) + 1e-300)
+                                for v in amrVars
+                            )
+                            print(f"AMR: {meshData['numMeshNodes']} nodes, change vs previous mesh: {relDiff:.3e}")
+                            if relDiff < config.relativeAMRTolerance():
+                                newTime = timeMax
+                                convergedSimulation = True
+
+                        if not convergedSimulation:
+                            # Keep the converged coarse state, then bump the index so the
+                            # new mesh's files cannot overwrite it.
+                            saveSingleIterResult(
+                                config, deviceGeometryData, meshData, fluidState,
+                                resultsSubdirPath, iterationIndex, newTime
+                            )
+                            iterationIndex += 1
+                            amrPrev = (xOld, {v: fluidState[v].copy() for v in amrVars})
+
+                            amrLevel += 1
+                            meshData = self.generateMesh(config, deviceGeometryData, 2 ** amrLevel)
+                            fluidState = {v: np.interp(meshData["xMeshNodes"], *amrPrev[:1], amrPrev[1][v])
+                                            for v in amrVars}
+                            fluidState["staticInternalEnergy"] = fluidModel.computeInternalEnergy_p_rho(
+                                fluidState["Pressure"], fluidState["Density"]
+                            )
+                            fluidState = self.setBoundaryConditions(config, fluidModel, fluidState)
+                            conservativeState = self._conservativesFromFluidState(fluidState, fluidModel)
+                            convergenceHist = []
+                            print(f"AMR: refining mesh to {meshData['numMeshNodes']} nodes, restarting from interpolated state")
+
+            # Periodic file output.
+            if iterationIndex % writeInterval == 0:
+                saveSingleIterResult(
+                    config, deviceGeometryData, meshData, fluidState, resultsSubdirPath, iterationIndex, time
+                )
 
             # Advance physical time.
             time          = newTime
             fluidStateOld = copy.deepcopy(fluidState)
+            self.meshData = meshData
 
             
 
@@ -1701,7 +1758,7 @@ def _applyInletBC(config, iHalo, iInternal, fluidModel, fluidState,
         if inletConditionsVars == "ptTt":
             
             totalTemperature  = inletConditionsValues[1]
-            massFlowDirection = _inferInitialMassFlowDirection(config)
+            # massFlowDirection = _inferInitialMassFlowDirection(config)
             # density, velocity, energy = fluidModel.computeInletQuantitiesTotal_pt_Tt(
             #     pressure, totalPressure, totalTemperature, massFlowDirection
             # )
@@ -1741,6 +1798,9 @@ def _applyInletBC(config, iHalo, iInternal, fluidModel, fluidState,
     fluidState["Velocity"][iHalo] = velocity
     fluidState["Pressure"][iHalo] = pressure
     fluidState['staticInternalEnergy'][iHalo]   = energy
+
+    # print("pressure: ", pressure)
+    # print("internal pressure: ", fluidState["Pressure"][iInternal])
 
     return fluidState
 
@@ -1967,6 +2027,7 @@ def computeResiduals(config, meshData, fluidState,
         advectionScheme, musclActiveBool, limiter,
         entropyFixActiveBool, entropyFixCoefficient,
     )
+    # print("flux at first 10 interfaces", flux[:10, :])
 
     # Compute quasi-1D source terms for nozzle geometries; zero for constant area.
     if expansionDeviceType == "nozzle":
@@ -1983,6 +2044,12 @@ def computeResiduals(config, meshData, fluidState,
             dt / dx[1:-1]
             * ((flux[:-1, iDim] - flux[1:, iDim]) + source[1:-1, iDim] * dx[1:-1])
         )
+    #multidim dx array
+    dx_multidim = np.tile(dx[1:-1].reshape(-1, 1), (1, 3))
+    # print("residuals[:10, :]", residuals[:10, :])
+    # print("dt, dx[:10]", dt, dx[:10])
+    # print("flux contribution", (dt / dx_multidim * ((flux[:-1, :] - flux[1:, :])) )[:10, :])
+    # print("source contribution", (dt / dx_multidim * (source[1:-1, :] * dx_multidim))[:10, :])
 
     return residuals
 
@@ -2386,6 +2453,8 @@ def computeSourceTerms(config, meshData, fluidModel, fluidState):
     source[:, 1] = -rho * u**2 * geomFactor
     source[:, 2] = -u   * (rho * totalEnergy + p) * geomFactor
 
+    print("geometry-induced source at first 10 nodes", source[:10, :])
+
     # add wall friction to the momentum equation if enabled
     if config.wallFrictionModellingBool():
         # extract fluid dynamic viscosity for ideal fluid
@@ -2405,7 +2474,7 @@ def computeSourceTerms(config, meshData, fluidModel, fluidState):
         elif config.deviceTopology() == "axissymmetric":
             P_w = 2 * np.pi * meshData["yMeshNodes"]
         source[:, 1] -= 0.125 * f * rho * u**2 * P_w / area
-
+    # print("source at first 10 nodes after friction contribution", source[:10, :])
     return source
 
 

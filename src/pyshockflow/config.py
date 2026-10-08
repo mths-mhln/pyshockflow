@@ -272,6 +272,9 @@ class Config:
             ("MESH", "MESH_REFINEMENT_BOOL", [True],
                 {"MESH": ["X_START_REFINEMENT", "X_END_REFINEMENT", "NUM_REFINEMENT_MESH_NODES"]}),
 
+            ("MESH", "ADAPTIVE_MESH_REFINEMENT_BOOL", [True],
+                {"MESH": ["RELATIVE_AMR_TOLERANCE"]}),
+
             ("NUMERICS", "INTERCELL_FLUX_SCHEME", ["roe", "roe_arabi", "roe_vinokur"],
                 {"NUMERICS": ["ENTROPY_FIX_ACTIVE_BOOL"]}),
 
@@ -405,6 +408,10 @@ class Config:
                 {"MESH": ["X_START_REFINEMENT", "X_END_REFINEMENT", "NUM_REFINEMENT_MESH_NODES"]},
                 "MESH_REFINEMENT_BOOL is False"),
 
+            ("MESH", "ADAPTIVE_MESH_REFINEMENT_BOOL", [False],
+                {"MESH": ["RELATIVE_AMR_TOLERANCE"]},
+                "ADAPTIVE_MESH_REFINEMENT_BOOL is False"),
+
             ("NUMERICS", "INTERCELL_FLUX_SCHEME", ["godunov"], 
                 {"NUMERICS": ["ENTROPY_FIX_ACTIVE_BOOL", "ENTROPY_FIX_COEFFICIENT"]},
                 "INTERCELL_FLUX_SCHEME is not a Roe-family scheme"),
@@ -503,6 +510,12 @@ class Config:
 
     def numberOfRefMeshNodes(self) -> int:
         return self._get_int("MESH", "NUM_REFINEMENT_MESH_NODES", positive=True)
+
+    def adaptiveMeshRefinementBool(self) -> bool:
+        return self._get_bool("MESH", "ADAPTIVE_MESH_REFINEMENT_BOOL", default=False)
+
+    def relativeAMRTolerance(self) -> float:
+        return self._get_float("MESH", "RELATIVE_AMR_TOLERANCE", positive=True)
 
 
 
