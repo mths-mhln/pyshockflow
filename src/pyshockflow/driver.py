@@ -38,6 +38,54 @@ from pyshockflow.math_utils import (
 )
 
 
+def _normalCurveDistance(xCurrent, currentValues, xPrevious, previousValues):
+    """Measure the local normal distance between two piecewise-linear curves."""
+    xScale = xCurrent[-1] - xCurrent[0]
+    yScale = np.max(np.abs(currentValues)) + 1e-300
+    xOrigin = xCurrent[0]
+    xCurrent = (xCurrent - xOrigin) / xScale
+    xPrevious = (xPrevious - xOrigin) / xScale
+    currentValues = currentValues / yScale
+    previousValues = previousValues / yScale
+    slopes = np.gradient(currentValues, xCurrent)
+    distances = np.full(xCurrent.size, np.inf)
+
+    for i, (xPoint, yPoint) in enumerate(zip(xCurrent, currentValues)):
+        normal = np.array([-slopes[i], 1.0])
+        point = np.array([xPoint, yPoint])
+        for j in range(xPrevious.size - 1):
+            segmentStart = np.array([xPrevious[j], previousValues[j]])
+            segment = np.array([
+                xPrevious[j + 1] - xPrevious[j],
+                previousValues[j + 1] - previousValues[j],
+            ])
+            matrix = np.column_stack((normal, -segment))
+            if abs(np.linalg.det(matrix)) < 1e-14:
+                continue
+            normalParameter, segmentParameter = np.linalg.solve(matrix, segmentStart - point)
+            if -1e-12 <= segmentParameter <= 1.0 + 1e-12:
+                distances[i] = min(distances[i], abs(normalParameter) * np.linalg.norm(normal))
+        if not np.isfinite(distances[i]):
+            for j in range(xPrevious.size - 1):
+                segmentStart = np.array([xPrevious[j], previousValues[j]])
+                segment = np.array([
+                    xPrevious[j + 1] - xPrevious[j],
+                    previousValues[j + 1] - previousValues[j],
+                ])
+                segmentLengthSquared = np.dot(segment, segment)
+                segmentParameter = np.clip(
+                    np.dot(point - segmentStart, segment) / segmentLengthSquared,
+                    0.0,
+                    1.0,
+                )
+                distances[i] = min(
+                    distances[i],
+                    np.linalg.norm(point - (segmentStart + segmentParameter * segment)),
+                )
+
+    return distances
+
+
 class Driver:
     def __init__(self, config=None, restartFilePath=None):
         """
@@ -118,6 +166,84 @@ class Driver:
         self.restartFilePath     = None
 
 
+    @staticmethod
+    def _selectRestartFile(restartFilePath):
+        """Select a saved iteration when restarting from a result directory or history."""
+        restartPath = Path(restartFilePath)
+        if restartPath.is_file() and restartPath.name != "Results.pik":
+            return restartPath, None
+
+        resultsPath = restartPath / "Results.pik" if restartPath.is_dir() else restartPath
+        if resultsPath.is_file():
+            with open(resultsPath, "rb") as file:
+                results = pickle.load(file)
+            available = np.asarray(results["iterIdxHistory"], dtype=int)
+            restartSource = resultsPath
+        elif restartPath.is_dir():
+            available = np.asarray(
+                sorted(int(path.stem.split("_")[1]) for path in restartPath.glob("step_*.pik")),
+                dtype=int,
+            )
+            restartSource = restartPath
+        else:
+            raise FileNotFoundError(f"Restart path not found: {restartFilePath}")
+
+        if available.size == 0:
+            raise ValueError(f"No restart iterations found in {restartSource}.")
+
+        print(
+            f"Available restart iterations ({len(available)} total):\n"
+            f"{np.array2string(available, threshold=15, edgeitems=7)}"
+        )
+        availableSet = set(available.tolist())
+        while True:
+            try:
+                iterationIndex = int(input("Select the restart iteration: "))
+            except ValueError:
+                print("Please enter one of the available iteration indexes.")
+                continue
+            if iterationIndex in availableSet:
+                break
+            print("Please enter one of the available iteration indexes.")
+
+        if restartSource.name == "Results.pik":
+            return restartSource, iterationIndex
+        return restartSource / f"step_{iterationIndex:06d}.pik", None
+
+
+    @staticmethod
+    def _materializeRestartHistory(resultsPath, restartIteration):
+        """Restore grouped history entries up to the selected restart iteration."""
+        with open(resultsPath, "rb") as file:
+            results = pickle.load(file)
+
+        iterationIndexes = np.asarray(results["iterIdxHistory"], dtype=int)
+        selected = np.flatnonzero(iterationIndexes == restartIteration)
+        if selected.size == 0:
+            raise ValueError(f"No results available for iteration index {restartIteration}.")
+
+        selected = selected[0]
+        outputDirectory = Path(resultsPath).parent
+        for historyIndex in range(selected + 1):
+            iterationIndex = int(iterationIndexes[historyIndex])
+            stepResult = {
+                "config": results["config"],
+                "deviceGeometryData": results["deviceGeometryData"],
+                "meshData": results["meshData"],
+                "iterIdx": iterationIndex,
+                "time": results["timeHistory"][historyIndex],
+                "fluidState": {
+                    variable: values[:, historyIndex]
+                    for variable, values in results["fluidStateHistory"].items()
+                },
+            }
+            with open(outputDirectory / f"step_{iterationIndex:06d}.pik", "wb") as file:
+                pickle.dump(stepResult, file)
+
+        Path(resultsPath).unlink()
+        return outputDirectory / f"step_{restartIteration:06d}.pik"
+
+
     def prepareRestart(self, config, restartFilePath):
         """
         Prepare a simulation that continues from a previously saved restart file.
@@ -136,8 +262,11 @@ class Driver:
         -------
         None, but populates all attributes needed by solve().
         """
-        timeElapsed, fluidStateRestart, configRestart, iterationIndex = \
-            self.extractRestartData(restartFilePath)
+        restartFilePath, restartIteration = self._selectRestartFile(restartFilePath)
+        if restartIteration is not None:
+            restartFilePath = self._materializeRestartHistory(restartFilePath, restartIteration)
+        timeElapsed, fluidStateRestart, configRestart, iterationIndex, meshData = \
+            self.extractRestartData(restartFilePath, restartIteration)
 
         # Allow the user to override the stored config by supplying a new file.
         config = config if config is not None else configRestart
@@ -150,11 +279,17 @@ class Driver:
         )
 
         deviceGeometryData = self.extractDeviceGeometricalFeatures(config)
-        meshData           = self.generateMesh(config, deviceGeometryData)
         fluidModel         = self.instantiateFluidModel(config)
 
         # Fluid state comes from the restart file, not from initializeFluidStateArrays.
         fluidState         = fluidStateRestart
+        expectedNodes = meshData["numMeshNodes"]
+        for variable, values in fluidState.items():
+            if np.ndim(values) == 1 and len(values) != expectedNodes:
+                raise ValueError(
+                    f"Restart mesh has {expectedNodes} nodes, but fluid state "
+                    f"'{variable}' has {len(values)} values."
+                )
         fluidState         = self.setBoundaryConditions(config, fluidModel, fluidState)
 
         # Conservative variables are derived from the fluidState variables; initialise them
@@ -162,7 +297,7 @@ class Driver:
         conservativeState  = self._conservativesFromFluidState(fluidState, fluidModel)
 
         # Append new iterations to the same directory as the restart file.
-        resultsSubdirPath = self._prepareResultsSubdirPath(config, restartFilePath=None)
+        resultsSubdirPath = self._prepareResultsSubdirPath(config, restartFilePath)
 
         # Pack everything the solver needs into attributes.
         self.config             = config
@@ -1032,7 +1167,7 @@ class Driver:
     # =========================================================================
 
     @staticmethod
-    def extractRestartData(restartFilePath):
+    def extractRestartData(restartFilePath, restartIteration=None):
         """
         Extract restart data from a previously saved simulation step.  The output
         pickle file produced by assembleSingleIterResults() doubles as the restart file.
@@ -1056,12 +1191,25 @@ class Driver:
         with open(restartFilePath, "rb") as fh:
             restartData = pickle.load(fh)
 
-        timeElapsed        = restartData["time"]
-        fluidStateRestart  = restartData["fluidState"]
         configRestart      = restartData["config"]
-        iterationIndex     = restartData["iterIdx"]
+        if "time" in restartData:
+            timeElapsed = restartData["time"]
+            fluidStateRestart = restartData["fluidState"]
+            iterationIndex = restartData["iterIdx"]
+        else:
+            iterationIndexes = np.asarray(restartData["iterIdxHistory"], dtype=int)
+            selectedIndex = -1 if restartIteration is None else np.where(
+                iterationIndexes == restartIteration
+            )[0][0]
+            timeElapsed = restartData["timeHistory"][selectedIndex]
+            fluidStateRestart = {
+                variable: values[:, selectedIndex]
+                for variable, values in restartData["fluidStateHistory"].items()
+            }
+            iterationIndex = iterationIndexes[selectedIndex]
+        meshData = restartData["meshData"]
 
-        return timeElapsed, fluidStateRestart, configRestart, iterationIndex
+        return timeElapsed, fluidStateRestart, configRestart, iterationIndex, meshData
 
 
     # =========================================================================
@@ -1226,9 +1374,27 @@ class Driver:
         # prepare output directory
         self.prepareOutputDirectory(config, resultsSubdirPath, restartFilePath, iterationIndex)
 
+        if config.adaptiveMeshRefinementBool():
+            amrVars = ("Density", "Velocity", "Pressure")
+            amrLevel = int(meshData.get("amrLevel", 0))
+            if restartFilePath is not None and "amrLevel" not in meshData and not config.meshRefinementBool():
+                baseNodes = config.numberOfMeshNodes()
+                refinedNodes = meshData["numMeshNodes"] - 2
+                levelEstimate = refinedNodes / baseNodes
+                if levelEstimate >= 1 and np.isclose(levelEstimate, 2 ** round(np.log2(levelEstimate))):
+                    amrLevel = round(np.log2(levelEstimate))
+            meshData["amrLevel"] = amrLevel
+            if restartFilePath is not None:
+                amrPrev = (
+                    meshData["xMeshNodes"].copy(),
+                    {v: fluidState[v].copy() for v in amrVars},
+                )
+            else:
+                amrPrev = None
+
         # Save the initial state (iteration 0, t = 0) for a clean start; a restart
         # already has its initial file so we skip this.
-        if time == 0.0:
+        if time == 0.0 and restartFilePath is None:
             saveSingleIterResult(
                 config, deviceGeometryData, meshData, fluidState, resultsSubdirPath, 0, 0.0
             )
@@ -1237,12 +1403,6 @@ class Driver:
         fluidStateOld   = copy.deepcopy(fluidState)
         convergenceHist = []
         convergedSimulation = False
-
-        # if amr
-        if config.adaptiveMeshRefinementBool():
-            amrVars = ("Density", "Velocity", "Pressure")
-            amrPrev = None   # (x, state) of the previous converged mesh
-            amrLevel = 0
 
         # -----------------------------------------
         # Iterative solution of governing equations
@@ -1319,32 +1479,6 @@ class Driver:
                     ) < config.convergenceTolerance()
                     for var in ("Density", "Velocity", "Pressure", 'staticInternalEnergy')
                 )
-                # print index of meshnode at which the maximum relative 
-                # change occurs for each variable as index of the original array
-                maxRelChanges = []
-                maxRelChangeIdxs = []
-                for var in ("Density", "Velocity", "Pressure", 'staticInternalEnergy'):
-                    maxRelChange = np.max(
-                        np.abs(fluidState[var][sliceToCheck] - fluidStateOld[var][sliceToCheck])
-                        / (np.max(np.abs(fluidStateOld[var][sliceToCheck])) + 1e-300)
-                    )
-                    maxRelChanges.append(maxRelChange)
-                    maxRelChangeIdx = np.argmax(
-                        np.abs(fluidState[var][sliceToCheck] - fluidStateOld[var][sliceToCheck])
-                        / (np.max(np.abs(fluidStateOld[var][sliceToCheck])) + 1e-300)
-                    )
-                    maxRelChangeIdxs.append(maxRelChangeIdx)
-                    originalIdx = maxRelChangeIdx + (sliceToCheck.start if sliceToCheck.start is not None else 0)
-                    
-                #     print(f"Max relative change in {var} occurs at mesh node index: {originalIdx}")
-                #     print(f"Max relative change in {var}: {maxRelChange:.6e}")
-
-                #     print(f"fluidstate val at that index: {fluidState[var][originalIdx]:.6e}")
-                #     print(f"fluidstateOld val at that index: {fluidStateOld[var][originalIdx]:.6e}")
-                #     print(f"divisor at that index: {np.max(np.abs(fluidStateOld[var][sliceToCheck])) + 1e-300:.6e}")
-
-                # print(f"max relative change out of all variables is in {('Density', 'Velocity', 'Pressure', 'staticInternalEnergy')[np.argmax(maxRelChanges)]} with value {max(maxRelChanges):.6e}")
-                # print(f"max relative change occurs at mesh node index: {maxRelChangeIdxs[np.argmax(maxRelChanges)] + (sliceToCheck.start if sliceToCheck.start is not None else 0)}")
                 
                 convergenceHist = convergenceHist + [True] if converged else []
                 if len(convergenceHist) >= config.convergencePatience():
@@ -1355,12 +1489,34 @@ class Driver:
                         xOld = meshData["xMeshNodes"]
                         if amrPrev is not None:
                             # Change relative to the previous (coarser) converged solution.
-                            relDiff = max(
-                                np.max(np.abs(fluidState[v][1:-1]
-                                                - np.interp(xOld[1:-1], amrPrev[0], amrPrev[1][v])))
-                                / (np.max(np.abs(fluidState[v][1:-1])) + 1e-300)
-                                for v in amrVars
-                            )
+                            toleranceMethod = config.toleranceCalculationMethod()
+                            if toleranceMethod == "vertical":
+                                relDiff = max(
+                                    np.max(np.abs(fluidState[v][1:-1]
+                                                    - np.interp(xOld[1:-1], amrPrev[0], amrPrev[1][v])))
+                                    / (np.max(np.abs(fluidState[v][1:-1])) + 1e-300)
+                                    for v in amrVars
+                                )
+                            elif toleranceMethod == "l2_norm":
+                                # The L2 metric measures the cumulative spatial difference.
+                                relDiff = max(
+                                    np.linalg.norm(
+                                        fluidState[v][1:-1]
+                                        - np.interp(xOld[1:-1], amrPrev[0], amrPrev[1][v])
+                                    )
+                                    / (np.linalg.norm(fluidState[v][1:-1]) + 1e-300)
+                                    for v in amrVars
+                                )
+                            else:
+                                relDiff = max(
+                                    np.max(_normalCurveDistance(
+                                        xOld[1:-1],
+                                        fluidState[v][1:-1],
+                                        amrPrev[0][1:-1],
+                                        amrPrev[1][v][1:-1],
+                                    ))
+                                    for v in amrVars
+                                )
                             print(f"AMR: {meshData['numMeshNodes']} nodes, change vs previous mesh: {relDiff:.3e}")
                             if relDiff < config.relativeAMRTolerance():
                                 newTime = timeMax
@@ -1378,6 +1534,7 @@ class Driver:
 
                             amrLevel += 1
                             meshData = self.generateMesh(config, deviceGeometryData, 2 ** amrLevel)
+                            meshData["amrLevel"] = amrLevel
                             fluidState = {v: np.interp(meshData["xMeshNodes"], *amrPrev[:1], amrPrev[1][v])
                                             for v in amrVars}
                             fluidState["staticInternalEnergy"] = fluidModel.computeInternalEnergy_p_rho(
@@ -1578,6 +1735,7 @@ class Driver:
 
         nTimes = len(iterResultFilesSorted)
         fluidStateHistory = {}
+        singleIterResults = []
 
         if verbose:
             print("Regrouping all the results in a single file...")
@@ -1585,30 +1743,35 @@ class Driver:
             if verbose:
                 print(f"Reading File {iFile+1} of {len(iterResultFilesSorted)}")
             with open(ResultsSubdirPath / iterResultFilesSorted[iFile], 'rb') as file:
-                singleIterResult = pickle.load(file)
-                
-                if iFile == 0:
-                    numMeshNodes = singleIterResult['meshData']['numMeshNodes'] 
-                    config = singleIterResult['config']
-                    
-                    timeHistory = np.zeros(nTimes)
-                    iterIdxHistory = np.zeros(nTimes, dtype=int)
-                    fluidStateHistory['Density']  = np.zeros((numMeshNodes, nTimes))
-                    fluidStateHistory['Velocity'] = np.zeros((numMeshNodes, nTimes))
-                    fluidStateHistory['Pressure'] = np.zeros((numMeshNodes, nTimes))
-                    fluidStateHistory['staticInternalEnergy'] = np.zeros((numMeshNodes, nTimes))
-                
-                timeHistory[iFile] = singleIterResult['time']
-                iterIdxHistory[iFile] = singleIterResult['iterIdx']
-                fluidStateHistory['Density'][:, iFile]  = singleIterResult['fluidState']['Density']
-                fluidStateHistory['Velocity'][:, iFile] = singleIterResult['fluidState']['Velocity']
-                fluidStateHistory['Pressure'][:, iFile] = singleIterResult['fluidState']['Pressure']
-                fluidStateHistory['staticInternalEnergy'][:, iFile] = singleIterResult['fluidState']['staticInternalEnergy']
+                singleIterResults.append(pickle.load(file))
+
+        finalIterResult = singleIterResults[-1]
+        finalMeshNodes = finalIterResult['meshData']['xMeshNodes']
+        numMeshNodes = len(finalMeshNodes)
+        config = singleIterResults[0]['config']
+        timeHistory = np.zeros(nTimes)
+        iterIdxHistory = np.zeros(nTimes, dtype=int)
+        for variable in ('Density', 'Velocity', 'Pressure', 'staticInternalEnergy'):
+            fluidStateHistory[variable] = np.zeros((numMeshNodes, nTimes))
+
+        for iFile, singleIterResult in enumerate(singleIterResults):
+            timeHistory[iFile] = singleIterResult['time']
+            iterIdxHistory[iFile] = singleIterResult['iterIdx']
+            sourceMeshNodes = singleIterResult['meshData']['xMeshNodes']
+            for variable in fluidStateHistory:
+                sourceValues = singleIterResult['fluidState'][variable]
+                if np.array_equal(sourceMeshNodes, finalMeshNodes):
+                    fluidStateHistory[variable][:, iFile] = sourceValues
+                else:
+                    # Store all states on the final mesh so histories remain rectangular after AMR.
+                    fluidStateHistory[variable][:, iFile] = np.interp(
+                        finalMeshNodes, sourceMeshNodes, sourceValues
+                    )
         
         simulationResultsHistory = {
             "config": config,
-            "deviceGeometryData": singleIterResult['deviceGeometryData'],
-            "meshData": singleIterResult['meshData'],
+            "deviceGeometryData": finalIterResult['deviceGeometryData'],
+            "meshData": finalIterResult['meshData'],
             "iterIdxHistory": iterIdxHistory,
             "timeHistory": timeHistory,
             "fluidStateHistory": fluidStateHistory
@@ -1745,26 +1908,13 @@ def _applyInletBC(config, iHalo, iInternal, fluidModel, fluidState,
     """
     if isTotalInlet:
         # The only information borrowed from the interior domain is the local
-        # static pressure, which is used as the starting point for the iterative
+        # fluid velocity, which is used as the starting point for the iterative
         # inversion inside the fluid model.
-        # pressure = fluidState["Pressure"][iInternal]
-        
-
         velocity = fluidState["Velocity"][iInternal]
-
-        # # Guard against the static pressure being at or above total pressure,
-        # # which would break the isentropic relation inside the fluid model.
         totalPressure = inletConditionsValues[0]
-        # if pressure >= totalPressure:
-        #     pressure = totalPressure
 
         if inletConditionsVars == "ptTt":
-            
             totalTemperature  = inletConditionsValues[1]
-            # massFlowDirection = _inferInitialMassFlowDirection(config)
-            # density, velocity, energy = fluidModel.computeInletQuantitiesTotal_pt_Tt(
-            #     pressure, totalPressure, totalTemperature, massFlowDirection
-            # )
             density, pressure, energy = fluidModel.computeInletQuantitiesTotal_pt_Tt_velocity(
                 velocity, totalPressure, totalTemperature
             )

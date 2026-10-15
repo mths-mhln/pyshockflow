@@ -273,7 +273,7 @@ class Config:
                 {"MESH": ["X_START_REFINEMENT", "X_END_REFINEMENT", "NUM_REFINEMENT_MESH_NODES"]}),
 
             ("MESH", "ADAPTIVE_MESH_REFINEMENT_BOOL", [True],
-                {"MESH": ["RELATIVE_AMR_TOLERANCE"]}),
+                {"MESH": ["RELATIVE_AMR_TOLERANCE", "TOLERANCE_CALCULATION_METHOD"]}),
 
             ("NUMERICS", "INTERCELL_FLUX_SCHEME", ["roe", "roe_arabi", "roe_vinokur"],
                 {"NUMERICS": ["ENTROPY_FIX_ACTIVE_BOOL"]}),
@@ -409,7 +409,7 @@ class Config:
                 "MESH_REFINEMENT_BOOL is False"),
 
             ("MESH", "ADAPTIVE_MESH_REFINEMENT_BOOL", [False],
-                {"MESH": ["RELATIVE_AMR_TOLERANCE"]},
+                {"MESH": ["RELATIVE_AMR_TOLERANCE", "TOLERANCE_CALCULATION_METHOD"]},
                 "ADAPTIVE_MESH_REFINEMENT_BOOL is False"),
 
             ("NUMERICS", "INTERCELL_FLUX_SCHEME", ["godunov"], 
@@ -516,6 +516,9 @@ class Config:
 
     def relativeAMRTolerance(self) -> float:
         return self._get_float("MESH", "RELATIVE_AMR_TOLERANCE", positive=True)
+    
+    def toleranceCalculationMethod(self) -> str:
+        return self._get_str("MESH", "TOLERANCE_CALCULATION_METHOD", lower = True, inputOptions=["vertical", "l2_norm", "normal"])
 
 
 

@@ -98,7 +98,11 @@ def collect_results_by_folder(
             # to create a dictionary of similar structure to the grouped results file.
             # this will simplify future operations. 
             simulationResultsHisotry = Driver.assembleResultHistory(resultsFolder, verbose=False)
-        simulationResultsHistories[str(resultsFolder)] = simulationResultsHisotry
+        resultKey = str(resultsFolder)
+        if resultKey in simulationResultsHistories:
+            # Keep repeated folders as separate entries for different iterations.
+            resultKey = f"{resultKey}::entry-{folderIndex}"
+        simulationResultsHistories[resultKey] = simulationResultsHisotry
 
     return simulationResultsHistories
 
@@ -127,17 +131,18 @@ def extract_results_at_iteration_indexes(simulationResultsHistories: dict, itera
     simulationResultsAtIterIdxs = {}
     
     for iterIdx, (resultsFolder, iterResultsHistory) in zip(iterationIndexes, simulationResultsHistories.items()):
+        resultsFolderPath = Path(resultsFolder.split("::entry-", 1)[0])
         # Check if information is available for the specified iteration index
-        if Path(Path(resultsFolder) / "Results.pik").is_file():
+        if Path(resultsFolderPath / "Results.pik").is_file():
             iterIdxHistory = iterResultsHistory["iterIdxHistory"]
             if iterIdx == -1:
                 iterIdx = iterIdxHistory[-1]
         else:
-            available = sorted(int(f.stem.split("_")[1]) for f in Path(resultsFolder).glob("step_*.pik"))
+            available = sorted(int(f.stem.split("_")[1]) for f in resultsFolderPath.glob("step_*.pik"))
             if iterIdx == -1:
                 iterIdx = available[-1]
         if iterIdx not in iterResultsHistory["iterIdxHistory"]:
-            raise ValueError(f"{resultsFolder}: No results available for iteration index {iterIdx}. Available iteration indexes are: {np.array2string(np.asarray(iterResultsHistory['iterIdxHistory']), threshold=15, edgeitems=7)}")
+            raise ValueError(f"{resultsFolderPath}: No results available for iteration index {iterIdx}. Available iteration indexes are: {np.array2string(np.asarray(iterResultsHistory['iterIdxHistory']), threshold=15, edgeitems=7)}")
 
         # check if iterationIdxs are specified for all result folders. If not, raise an error.
         if len(iterationIndexes) != len(simulationResultsHistories):

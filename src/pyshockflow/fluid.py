@@ -100,6 +100,14 @@ class FluidIdeal():
         energy = self.computeInternalEnergy_p_rho(pressure, density)
         return density, velocity, energy
 
+    def computeInletQuantitiesTotal_pt_Tt_velocity(self, velocity, totPressure, totTemperature):
+        mach = np.abs(velocity)/self.computeSoundSpeed_p_rho(totPressure, self.computeDensity_p_T(totPressure, totTemperature))
+        temperature = self.computeTemperature_Tt_M(totTemperature, mach)
+        density = self.computeDensity_p_T(totPressure, temperature)
+        pressure = self.computePressure_Pt_M(totPressure, mach)
+        energy = self.computeInternalEnergy_p_rho(pressure, density)
+        return density, pressure, energy
+
     def computeInletQuantitiesTotal_pt_Q(self, pressure, totPressure, quality, direction):
         """non-used inputs present for same reason as computeComprFactorZ_p_rho."""
         raise NotImplementedError("Two-phase flow is not supported for ideal fluids.")
