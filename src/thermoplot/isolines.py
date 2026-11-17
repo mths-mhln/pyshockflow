@@ -4,8 +4,8 @@
 import copy
 
 from utils import extract_critical_point
-from configthermoplot import ConfigThermoplot
-from coolprop_interface_thermoplot import CoolPropAbstractState
+from config import Config
+from coolprop_interface import CoolPropAbstractState
 
 import numpy as np
 
@@ -16,17 +16,17 @@ import numpy as np
 ###########################################
 # Isoline generation - General
 ###########################################
-def construct_saturation_dome(config: type[ConfigThermoplot], AS: type[CoolPropAbstractState]) -> np.ndarray:
+def construct_saturation_dome(config: type[Config], AS: type[CoolPropAbstractState]) -> np.ndarray:
     """
     Constructs the saturation dome by evaluating the saturation branches at control points of the independent variable, and combining these with the critical point coordinates. 
     The saturation dome is returned as an array of coordinates.
 
     Attributes
     ----------
-    config: ConfigThermoplot
-        Configuration object containing thermoplot settings, extracted from a .ini file. For more information please refer to configthermoplot.py
+    config: Config
+        Configuration object containing thermoplot settings, extracted from a .ini file. For more information please refer to config.py
     AS: CoolPropAbstractState
-        Abstract state object for property calculations. Created in coolprop_interface_thermoplot.py. See file for more information.
+        Abstract state object for property calculations. Created in coolprop_interface.py. See file for more information.
 
     Returns
     -------
@@ -60,17 +60,17 @@ def construct_saturation_dome(config: type[ConfigThermoplot], AS: type[CoolPropA
 
 
 
-def construct_quality_isolines(config: type[ConfigThermoplot], AS: type[CoolPropAbstractState], n_iq_lines: float) -> np.ndarray:
+def construct_quality_isolines(config: type[Config], AS: type[CoolPropAbstractState], n_iq_lines: float) -> np.ndarray:
     """
     Constructs quality isolines by evaluating the quality isoline at control points of the independent variable. The quality isolines are returned as a list of dictionaries 
     containing the isoline value and coordinates.
 
     Arguments
     ---------
-    config: ConfigThermoplot
-        Configuration object containing thermoplot settings, extracted from a .ini file. For more information please refer to configthermoplot.py
+    config: Config
+        Configuration object containing thermoplot settings, extracted from a .ini file. For more information please refer to config.py
     AS: CoolPropAbstractState
-        Abstract state object for property calculations. Created in coolprop_interface_thermoplot.py. See file for more information.
+        Abstract state object for property calculations. Created in coolprop_interface.py. See file for more information.
     n_iq_lines: int
         Number of quality isolines to construct. Quality isolines are constructed for quality values between 0 and 1, so the quality values at which to construct the isolines are 
         determined by dividing the range [0,1] into n_iq_lines evenly spaced intervals.
@@ -114,16 +114,16 @@ def construct_quality_isolines(config: type[ConfigThermoplot], AS: type[CoolProp
 
 
 
-def construct_critical_isoline(config: type[ConfigThermoplot], AS: type[CoolPropAbstractState], n_pts: int) -> np.ndarray:
+def construct_critical_isoline(config: type[Config], AS: type[CoolPropAbstractState], n_pts: int) -> np.ndarray:
     """
     Constructs the critical isoline by evaluating the critical isoline at control points of the independent variable. The critical isoline is returned as an array of coordinates.
 
     Arguments
     ---------
-    config: ConfigThermoplot
-        Configuration object containing thermoplot settings, extracted from a .ini file. For more information please refer to configthermoplot.py
+    config: Config
+        Configuration object containing thermoplot settings, extracted from a .ini file. For more information please refer to config.py
     AS: CoolPropAbstractState
-        Abstract state object for property calculations. Created in coolprop_interface_thermoplot.py. See file for more information.
+        Abstract state object for property calculations. Created in coolprop_interface.py. See file for more information.
     n_pts: int
         Number of control points at which to evaluate the critical isoline. The control points are evenly spaced between the lower bound of the independent variable range and the critical point.
 
@@ -174,17 +174,17 @@ def construct_critical_isoline(config: type[ConfigThermoplot], AS: type[CoolProp
 ###########################################
 # Isoline generation - TS
 ###########################################
-def isobar_lines_ts(config: type[ConfigThermoplot], AS: type[CoolPropAbstractState], n_lines=12):
+def isobar_lines_ts(config: type[Config], AS: type[CoolPropAbstractState], n_lines=12):
     """
     Construction of isobars in TS diagram starts at the lowest possible isobar for which the pressure is still larger than the triple point pressure, and extends to 3 times the critical pressure. 
     This decision is arbitrary, but provides a good coverage of the fluid-vapour region of the phase diagram.
 
     Arguments
     ---------
-    config: ConfigThermoplot
-        Configuration object containing thermoplot settings, extracted from a .ini file. For more information please refer to configthermoplot.py
+    config: Config
+        Configuration object containing thermoplot settings, extracted from a .ini file. For more information please refer to config.py
     AS: CoolPropAbstractState
-        Abstract state object for property calculations. Created in coolprop_interface_thermoplot.py. See file for more information.
+        Abstract state object for property calculations. Created in coolprop_interface.py. See file for more information.
     n_lines: int
         Number of isobar lines to construct.
 
@@ -252,7 +252,7 @@ def isobar_lines_ts(config: type[ConfigThermoplot], AS: type[CoolPropAbstractSta
     return isobar_lines_data_ts
 
 
-def isenthalp_lines_ts(config: type[ConfigThermoplot], AS: type[CoolPropAbstractState], n_lines=18):
+def isenthalp_lines_ts(config: type[Config], AS: type[CoolPropAbstractState], n_lines=18):
     """
     Construction of isenthalps in TS diagram is more complicated. First a grid is constructed entropy and temperature pairs. The enthalpy is evaluated at each of these pairs, and the 
     thermpdyanmic calls that yield a value (that are not outside of the thdy library's scope) are recorded. Based on the min and max value that is extractable within the plot range, 
@@ -261,10 +261,10 @@ def isenthalp_lines_ts(config: type[ConfigThermoplot], AS: type[CoolPropAbstract
 
     Arguments
     ---------
-    config: ConfigThermoplot
-        Configuration object containing thermoplot settings, extracted from a .ini file. For more information please refer to configthermoplot.py
+    config: Config
+        Configuration object containing thermoplot settings, extracted from a .ini file. For more information please refer to config.py
     AS: CoolPropAbstractState
-        Abstract state object for property calculations. Created in coolprop_interface_thermoplot.py. See file for more information.
+        Abstract state object for property calculations. Created in coolprop_interface.py. See file for more information.
     n_lines: int
         Number of isenthalp lines to construct.
 
@@ -320,17 +320,17 @@ def isenthalp_lines_ts(config: type[ConfigThermoplot], AS: type[CoolPropAbstract
 ###########################################
 # Isoline generation - PH
 ###########################################
-def isotherm_lines_ph(config: type[ConfigThermoplot], AS: type[CoolPropAbstractState], n_lines=18):
+def isotherm_lines_ph(config: type[Config], AS: type[CoolPropAbstractState], n_lines=18):
     """
     Construction of isotherms in PH diagram is similar to the construction of isobars in TS diagram. Starts at the lowest possible isotherm for which the temperature is still larger 
     than the triple point temperature, and extends to 1.5 times the critical temperature. This decision is arbitrary, but provides a good coverage of the fluid-vapour region of the phase diagram.
 
     Arguments
     ---------
-    config: ConfigThermoplot
-        Configuration object containing thermoplot settings, extracted from a .ini file. For more information please refer to configthermoplot.py
+    config: Config
+        Configuration object containing thermoplot settings, extracted from a .ini file. For more information please refer to config.py
     AS: CoolPropAbstractState
-        Abstract state object for property calculations. Created in coolprop_interface_thermoplot.py. See file for more information.
+        Abstract state object for property calculations. Created in coolprop_interface.py. See file for more information.
     n_lines: int
         Number of isotherm lines to construct.
 
@@ -397,7 +397,7 @@ def isotherm_lines_ph(config: type[ConfigThermoplot], AS: type[CoolPropAbstractS
     return isotherm_lines_data_ph
 
 
-def isentrop_lines_ph(config: type[ConfigThermoplot], AS: type[CoolPropAbstractState], n_lines=12):
+def isentrop_lines_ph(config: type[Config], AS: type[CoolPropAbstractState], n_lines=12):
     """
     Construction of isentropes in PH diagram is similar to the construction of isenthalps in TS diagram. First a grid is constructed of enthalpy and pressure pairs. The entropy is 
     evaluated at each of these pairs, and the thermpdyanmic calls that yield a value (that are not outside of the thdy library's scope) are recorded. Based on the min and max value
@@ -406,10 +406,10 @@ def isentrop_lines_ph(config: type[ConfigThermoplot], AS: type[CoolPropAbstractS
 
     Arguments
     ---------
-    config: ConfigThermoplot
-        Configuration object containing thermoplot settings, extracted from a .ini file. For more information please refer to configthermoplot.py
+    config: Config
+        Configuration object containing thermoplot settings, extracted from a .ini file. For more information please refer to config.py
     AS: CoolPropAbstractState
-        Abstract state object for property calculations. Created in coolprop_interface_thermoplot.py
+        Abstract state object for property calculations. Created in coolprop_interface.py
     n_lines: int
         Number of isentrop lines to construct.
 

@@ -1,9 +1,11 @@
-import sys
-
 import numpy as np
 import fluid_properties.fluid_properties as FP
-from functools import lru_cache, partial
-from scipy.optimize import fsolve
+
+"""
+Note to the reader: this method of extracting fluid properties is necessary 
+to maintain the capability of using the ideal gas model. If fluidprop PropsSI
+were to be used directly in the code, the ideal gas model would not be available. 
+"""
 
 class FluidIdeal():
     """

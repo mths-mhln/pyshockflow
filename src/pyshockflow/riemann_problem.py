@@ -4,7 +4,6 @@ from scipy.optimize import fsolve
 import os
 import pickle
 from pathlib import Path
-from pyshockflow.plot_styles import *
 
 
 class RiemannProblem:

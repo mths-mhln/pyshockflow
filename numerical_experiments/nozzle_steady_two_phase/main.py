@@ -1,0 +1,73 @@
+from benchmarking_tools.timing import Timer
+t = Timer()
+t.start()
+
+from pyshockflow import Driver
+from pyshockflow import Config
+
+
+configFile = "inputs/config_files/lettieri/L1_smooth.ini"
+# configFile = "inputs/config_files/lettieri/L1_friction.ini"
+# configFile = "inputs/config_files/lettieri/L5_smooth.ini"
+# configFile = "inputs/config_files/lettieri/L5_friction.ini"
+# configFile = "inputs/config_files/petruccelli/P1.ini"
+# configFile = "inputs/config_files/petruccelli/P2.ini"
+# configFile = "inputs/config_files/petruccelli/P3.ini"
+# configFile = "inputs/config_files/petruccelli/P4.ini"
+# configFile = "inputs/config_files/berana/B1.ini"
+# configFile = "inputs/config_files/berana/B2.ini"
+# configFile = "inputs/config_files/berana/B3.ini"
+
+
+# configFile = "inputs/config_files/CM-15.3/godunov/single_phase_gas.ini"
+# configFile = "inputs/config_files/CM-15.3/roe/single_phase_gas.ini"
+# configFile = "inputs/config_files/CM-15.3/roe_arabi/phase_transition.ini"
+# configFile = "inputs/config_files/CM-15.3/roe_arabi/single_phase_gas.ini"
+# configFile = "inputs/config_files/CM-15.3/roe_arabi/two_phase.ini"
+# configFile = "inputs/config_files/CM-15.3/roe_vinokur/phase_transition.ini"
+# configFile = "inputs/config_files/CM-15.3/roe_vinokur/single_phase_gas.ini"
+# configFile = "inputs/config_files/CM-15.3/roe_vinokur/two_phase.ini"
+
+# configFile = "inputs/config_files/moby_dick/MD_20d.ini"
+# configFile = "inputs/config_files/moby_dick/MD_120a.ini"
+
+# configFile = "inputs/config_files/nakagawa/NA_6b.ini"
+# configFile = "inputs/config_files/nakagawa/NA_7d.ini"
+# configFile = "inputs/config_files/nakagawa/NA_9b.ini"
+
+# configFile = "inputs/config_files/zhu_elbel/ZE_2a.ini"
+# configFile = "inputs/config_files/zhu_elbel/ZE_10a.ini"
+
+# configFile = "inputs/config_files/CM-10.2/test_conf.ini"
+# configFile = "inputs/config_files/CM-11.3/L1_smooth_flipped.ini"
+
+# config = Config(configFile)
+# driver = Driver(config=config)
+# driver.solve()
+ 
+config = Config(configFilePath = configFile)
+# driver = Driver(config = config, restartFilePath = "Results/lettieri/output_L5_friction/step_002000.pik")
+driver = Driver(config = config)
+# driver = Driver(config = config,restartFilePath = "Results/lettieri/output_L1_smooth/step_000250.pik") 
+driver.solve()
+
+
+# config = Config(configFile)
+# # driver = Driver(config, restartFilePath="Results/berana/output_B1_NX_200/step_001700.pik")
+# driver = Driver(config)
+# driver.solve()
+
+# configFile = 'input.ini'
+# config = Config(configFile)
+# driver = Driver(config = config, restartFilePath=restart_file)
+# driver.solve()
+
+
+
+# from fluid_properties.coolprop_interface import CoolPropAbstractState_v2
+
+# fluid = CoolPropAbstractState_v2("REFPROP", "CO2")
+# print(fluid.PropsSI())
+
+
+t.stop()

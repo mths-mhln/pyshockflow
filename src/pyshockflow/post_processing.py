@@ -24,9 +24,9 @@ PathLike = Union[str, Path]
 import pyshockflow
 import pyshockflow.post_processing
 from thermoplot.thermoplot import thermoplot_cached
-from thermoplot.configthermoplot import ConfigThermoplot
+from thermoplot.config import Config as ConfigThermoplot
 from pyshockflow.driver import Driver
-from pyshockflow.config import Config
+from pyshockflow.config import Config as ConfigPyshockflow
 
 
 # ================================
@@ -173,7 +173,7 @@ def extract_results_at_iteration_indexes(simulationResultsHistories: dict, itera
 # ========================================================
 #  Simple Plot showing the nozzle geometry and meshnodes
 # ========================================================
-def expansion_device_geometry_plot(config: Config = None, resultsFolder: dict = None, showGhostNodes: bool = False) -> None:
+def expansion_device_geometry_plot(config: ConfigPyshockflow = None, resultsFolder: dict = None, showGhostNodes: bool = False) -> None:
         """
         Plot the expansion device geometry and numerical grid.
 
@@ -415,6 +415,7 @@ def generate_fluid_state_var_profile_figs(
     showMeshNodes: bool = False,
     showGhostNodes: bool = False,
     separatePlots: bool = False,
+    saveFigures: bool = True,
 ) -> list[plt.Figure]:
     """Plot spatial profiles of one or more fluid state variables across one
     or more simulation results, optionally overlaid with verification and/or
@@ -458,6 +459,10 @@ def generate_fluid_state_var_profile_figs(
     separatePlots:
         If True, each simulation is plotted on its own figure instead of
         all sharing one set of axes.
+    saveFigures:
+        If True, saves each figure to a PDF file in the corresponding results
+        folder. The filename is the fluid state variable name with a `.pdf`
+        extension.
 
     Returns
     -------
@@ -510,9 +515,6 @@ def generate_fluid_state_var_profile_figs(
             "simulations on shared axes, which requires identical nozzle "
             "geometries. Call it separately per geometry instead."
         )
-
-    out_root = Path("Pictures")
-    out_root.mkdir(parents=True, exist_ok=True)
 
     fluidStateVarProfileFigs = []
     temp = []
@@ -648,8 +650,13 @@ def generate_fluid_state_var_profile_figs(
 
             fig.legend(loc="lower center", bbox_to_anchor=(0.5, 0.1), ncol=3, fontsize=12)
             fig.subplots_adjust(bottom=0.25)
-            suffix = f"_{plot_index}" if separatePlots else ""
-            fig.savefig(out_root / f"{fluidStateVarName}{suffix}.pdf", bbox_inches="tight")
+            if saveFigures:
+                output_folder = Path(selected_items[0][0])
+                output_folder.mkdir(parents=True, exist_ok=True)
+                fig.savefig(
+                    output_folder / f"{fluidStateVarName}.pdf",
+                    bbox_inches="tight",
+                )
 
             # Window positioning only works on some backends (e.g. TkAgg).
             try:
@@ -660,14 +667,6 @@ def generate_fluid_state_var_profile_figs(
                 pass
 
             fluidStateVarProfileFigs.append(fig)
-    #sanity check whether continuity equation is satisfied by checking whether the product of density and velocity is constant across the nozzle.
-    if "Density" in fluidStateVarNames and "Velocity" in fluidStateVarNames:
-        density_profile = temp[0]
-        velocity_profile = temp[1]
-        # get area profile
-        area_profile = last_resultsAtIterIdx["meshData"]["deviceAreaAtMeshNodes"][node_slice]
-        mass_flow_rate_profile = density_profile * velocity_profile * area_profile
-        print(f"Warning: Continuity equation may not be satisfied. Mass flow rate profile: {mass_flow_rate_profile} kg/s")
 
     return fluidStateVarProfileFigs
 
@@ -811,8 +810,12 @@ def render_profile_video(
     show_ghost_nodes: bool = False,
     show_unconverged_nodes: bool = False,
     size_px: tuple[int, int] = (1280, 720),
-    write_html: bool = True,
 ) -> str:
+    """Render a profile video into ``results_folder``.
+
+    ``output_path`` supplies the output filename; any directory component is
+    ignored so the generated MP4 or fallback GIF stays with the source data.
+    """
     if fluid_state_var_name not in _PROFILE_LABELS:
         raise ValueError(f"Unsupported variable: {sorted(_PROFILE_LABELS)}")
     if speed <= 0:
@@ -881,6 +884,7 @@ def render_profile_video(
             pts.set_color(np.where(masks[:, k], "red", "green"))
         title.set_text(f"{label}: iteration={iters[k]}, time={times[k]:.6g} s")
 
+    output_path = str(Path(results_folder) / Path(output_path).name)
     writer, output_path = _make_video_writer(output_path, fps)
     with writer.saving(fig, output_path, dpi):
         for k in frames:
@@ -888,14 +892,6 @@ def render_profile_video(
             writer.grab_frame()
     plt.close(fig)
 
-    if write_html:
-        html = Path(output_path).with_suffix(".html")
-        html.write_text(f"""<!doctype html><meta charset="utf-8">
-<body style="margin:0;background:#111;color:#eee;font-family:sans-serif;text-align:center">
-<video id="v" src="{Path(output_path).name}" controls loop autoplay muted
-       style="max-width:100%;max-height:90vh"></video><br>
-{''.join(f'<button onclick="v.playbackRate={s}">{s}x</button> ' for s in (0.25, 0.5, 1, 2, 4))}
-</body>""")
     return output_path
 
 

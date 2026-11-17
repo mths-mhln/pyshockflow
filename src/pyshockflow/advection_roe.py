@@ -1,6 +1,5 @@
 import numpy as np
 from numpy import sqrt
-from pyshockflow import FluidIdeal
 from pyshockflow.math_utils import *
 
 

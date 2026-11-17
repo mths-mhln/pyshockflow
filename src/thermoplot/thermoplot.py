@@ -7,16 +7,14 @@ import hashlib
 import pickle
 import tempfile
 from pathlib import Path
-import numpy as np
 
-from configthermoplot import ConfigThermoplot
+from config import Config
 from utils import configure_matplotlib, extract_critical_point
-from coolprop_interface_thermoplot import CoolPropAbstractState
+from coolprop_interface import CoolPropAbstractState
 from labelling import draw_isolines_labeled
 from isolines import (isobar_lines_ts, isenthalp_lines_ts, isotherm_lines_ph, 
         isentrop_lines_ph, construct_quality_isolines,
         construct_saturation_dome, construct_critical_isoline)
-### Note: in this code I retaliate against the standard use of extracting fluid properties using FP since I think it is silly...
 
 
 
@@ -24,6 +22,9 @@ from isolines import (isobar_lines_ts, isenthalp_lines_ts, isotherm_lines_ph,
 
 # Create temporary dir for caching of thermoplot
 _THERMOPLOT_CACHE_DIR = Path(tempfile.gettempdir()) / "pyshockflow_thermoplot_cache"
+
+def _format_pressure_tick(x, _):
+    return f"${x/1000:.0f}$"
 
 def _thermoplot_cache_path(thermoplot_config_file_path: str, thermoplot_overwrite_settings: dict[str, object] | None) -> Path:
     """
@@ -53,12 +54,18 @@ def thermoplot_cached(thermoplot_config_file_path: str, thermoplot_overwrite_set
     cache_path = _thermoplot_cache_path(thermoplot_config_file_path, thermoplot_overwrite_settings)
     if cache_path.exists():
         with cache_path.open("rb") as cache_file:
-            return pickle.load(cache_file)
+            try:
+                return pickle.load(cache_file)
+            except (EOFError, pickle.UnpicklingError):
+                pass
+
 
     fig = thermoplot(thermoplot_config_file_path, thermoplot_overwrite_settings)
     _THERMOPLOT_CACHE_DIR.mkdir(parents=True, exist_ok=True)
-    with cache_path.open("wb") as cache_file:
+    with tempfile.NamedTemporaryFile(dir=_THERMOPLOT_CACHE_DIR, delete=False) as cache_file:
         pickle.dump(fig, cache_file, protocol=pickle.HIGHEST_PROTOCOL)
+        temporary_cache_path = Path(cache_file.name)
+    temporary_cache_path.replace(cache_path)
     return fig
 
 
@@ -70,7 +77,7 @@ def thermoplot(thermoplot_config_file_path: str, thermoplot_overwrite_settings: 
     Arguments
     ---------
     thermoplot_config_file_path: str
-        File path to the config file with user specifications for the thermoplot. See configthermoplot.py for details on how to specify the config file and which settings are necessary.
+        File path to the config file with user specifications for the thermoplot. See config.py for details on how to specify the config file and which settings are necessary.
     thermoplot_overwrite_settings: dict[str, list], optional
         A dictionary with keys corresponding to thermoplot settings (e.g. "show_isolines") and values corresponding to the value that the user wishes to overwrite this setting with. 
         This allows users to overwrite settings specified in the config file without having to adapt the config file itself. This is useful for example when users want to produce multiple 
@@ -83,7 +90,7 @@ def thermoplot(thermoplot_config_file_path: str, thermoplot_overwrite_settings: 
         The figure object containing the thermodynamic diagram.
     """
     # load configuration 
-    config = ConfigThermoplot(config_file=thermoplot_config_file_path)
+    config = Config(config_file=thermoplot_config_file_path)
     config.get_thermoplot_settings()
 
     # if thermoplot settings are provided, overwrite any setting that is specified to be overwritten through the thermoplot_settings dictionary.  
@@ -184,7 +191,7 @@ def thermoplot(thermoplot_config_file_path: str, thermoplot_overwrite_settings: 
         ax.set_xlabel(r"$h\ [\mathrm{kJ/kg}]$")
         ax.set_ylabel(r"$p\ [\mathrm{Pa}]$")
         ax.xaxis.set_major_formatter(
-            ticker.FuncFormatter(lambda x, _: f"${x/1000:.0f}$"))
+            ticker.FuncFormatter(_format_pressure_tick))
     fig.tight_layout()
 
     return fig
