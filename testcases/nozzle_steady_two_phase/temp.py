@@ -33,7 +33,7 @@ import pickle
 
 
 import pickle
-with open("Results/berana/output_B1_1600_09/Results.pik", "rb") as file:
+with open("Results/berana/output_B1_1600_09/Results.pik", "rb") as file:    
     a = pickle.load(file)
 
 with open("Results/berana/output_B1/Results.pik", "rb") as file:

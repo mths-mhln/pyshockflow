@@ -32,7 +32,7 @@ verificationData = VandVSpec(
             # "verification_data/petruccelli/P3_friction__pressure.csv",
             # "verification_data/petruccelli/P4_friction__pressure.csv",
 
-            "verification_data/berana/B1_friction__pressure.csv",
+            # "verification_data/berana/B1_friction__pressure.csv",
             # "verification_data/berana/B2_friction__pressure.csv",
             # "verification_data/berana/B3_friction__pressure.csv",
         ),
@@ -47,7 +47,7 @@ verificationData = VandVSpec(
     },
     legend_labels={
         "Pressure": (
-            "L1_smooth_verification",
+            # "L1_smooth_verification",
             # "L5_smooth_verification",
 
             # "L1_friction_verification", 
@@ -100,10 +100,10 @@ fluidStateVarProfileFigs = generate_fluid_state_var_profile_figs(
         # "Results/petruccelli/output_P4",
         # "Results/berana/output_B1_amr",
         # "Results/berana/output_B1_amr",
-        "Results/berana/output_B1_200_09",
-        "Results/berana/output_B1_400_09",
-        "Results/berana/output_B1_800_09",
-        "Results/berana/output_B1_1600_09",
+        # "Results/berana/output_B1_200_09",
+        # "Results/berana/output_B1_400_09",
+        # "Results/berana/output_B1_800_09",
+        # "Results/berana/output_B1_1600_09",
         # "Results/berana/output_B1",
         # "Results/berana/output_B2",
         # "Results/berana/output_B3",
@@ -140,12 +140,23 @@ fluidStateVarProfileFigs = generate_fluid_state_var_profile_figs(
         # "Results/petruccelli/output_P2_0_percent_vel_rough",
         # "Results/petruccelli/output_P3_0_percent_vel_rough",
         # "Results/petruccelli/output_P4_0_percent_vel_rough",
+
+        # "Results/nakagawa/output_NA_6b",
+        # "Results/nakagawa/output_NA_7d",
+        # "Results/nakagawa/output_NA_9b",
+
+        # "Results/moby_dick/output_MD_20d",
+        "Results/moby_dick/output_MD_20d_smooth",
+        # "Results/moby_dick/output_MD_120a",
+
+        # "Results/zhu_elbel/output_ZE_2a",
+        # "Results/zhu_elbel/output_ZE_10a",
     ],
 
-    fluidStateVarNames=["Velocity", "Pressure", "Mach"],
+    fluidStateVarNames=["Mach", "Velocity", "Density"],
 
     iterationIndexes=[
-        -1, -1, -1, -1
+        10000
     ],
 
     simulationLegendLabels=[
@@ -159,10 +170,10 @@ fluidStateVarProfileFigs = generate_fluid_state_var_profile_figs(
         # "P3 friction",
         # "P4 friction",
         # "B1 friction amr",
-        "B1 friction 200",
-        "B1 friction 400",
-        "B1 friction 800",
-        "B1 friction 1600",
+        # "B1 friction 200",
+        # "B1 friction 400",
+        # "B1 friction 800",
+        # "B1 friction 1600",
         # "B1 friction amr",
         # "B1 friction amr",
         # "B1 friction",
@@ -191,15 +202,27 @@ fluidStateVarProfileFigs = generate_fluid_state_var_profile_figs(
         # "P2 friction 0 percent vel rough",
         # "P3 friction 0 percent vel rough",
         # "P4 friction 0 percent vel rough",
+
+        # "NA_6b",
+        # "NA_7d",
+        # "NA_9b",
+
+        # "MD_20d",
+        "MD_20d_smooth",
+        # "MD_120a",
+
+        # "ZE_2a",
+        # "ZE_10a"
     ],
 
     verificationData=verificationData,
     # validationData=validationData,
     showNozzleGeometry=True,
+    showMeshNodes=True,
     showGhostNodes=True, 
-    separatePlots=False
+    separatePlots=True
 )
-plt.show()
+# plt.show()
 
 # pressureAnimation = generate_fluid_state_var_profile_animation_plotly(
 #     results_folder="Results/lettieri/output_L5_friction_debug_3",
@@ -214,6 +237,13 @@ plt.show()
 # render_profile_video("Results/berana/output_B1", "Pressure", "Results_berana_output_B1__pressure.mp4", speed=0.25)
 # render_profile_video("Results/berana/output_B3", "Pressure", "Results_berana_output_B3__pressure.mp4", speed=0.25)
 # render_profile_video("Results/berana/output_B1_amr", "Pressure", "Results_berana_output_B1__pressure.mp4", speed=0.25)
+
+# render_profile_video("Results/nakagawa/output_NA_6b", "Pressure", "Results_nakagawa_output_NA_6b__pressure.mp4", speed=0.25)
+# render_profile_video("Results/nakagawa/output_NA_7d", "Pressure", "Results_nakagawa_output_NA_7d__pressure.mp4", speed=0.25)
+# render_profile_video("Results/nakagawa/output_NA_9b", "Pressure", "Results_nakagawa_output_NA_9b__pressure.mp4", speed=0.25)
+
+# render_profile_video("Results/moby_dick/output_MD_20d_smooth", "Pressure", "Results_moby_dick_output_MD_20d_smooth__pressure.mp4", speed=0.05)
+# render_profile_video("Results/moby_dick/output_MD_120a", "Pressure", "Results_moby_dick_output_MD_120a__pressure.mp4", speed=0.25)
 
 
 
@@ -341,14 +371,24 @@ fig = generate_expansion_thermoplot(
         # "Results/petruccelli/output_P3_0_percent_vel",
         # "Results/petruccelli/output_P4_0_percent_vel",
 
-        "Results/petruccelli/output_P1_0_percent_vel_rough",
-        "Results/petruccelli/output_P2_0_percent_vel_rough",
-        "Results/petruccelli/output_P3_0_percent_vel_rough",
-        "Results/petruccelli/output_P4_0_percent_vel_rough",
+        # "Results/petruccelli/output_P1_0_percent_vel_rough",
+        # "Results/petruccelli/output_P2_0_percent_vel_rough",
+        # "Results/petruccelli/output_P3_0_percent_vel_rough",
+        # "Results/petruccelli/output_P4_0_percent_vel_rough",
+
+        # "Results/nakagawa/output_NA_6b",
+        # "Results/nakagawa/output_NA_7d",
+        # "Results/nakagawa/output_NA_9b",
+
+        "Results/moby_dick/output_MD_20d_smooth",
+        # "Results/moby_dick/output_MD_120a",
+
+        # "Results/zhu_elbel/output_ZE_2a",
+        # "Results/zhu_elbel/output_ZE_10a",
     ],
     iterationIndexes=[
         # -1, -1,  # Smooth
-        -1, -1, -1, -1 # Friction
+        9250
         # -1, -1, -1, -1, -1, -1, -1, -1,  # 5 percent
         # -1, -1, -1, -1, -1, -1, -1, -1,  # 0 percent velocity
         # -1, -1, -1, -1,  # 0 percent velocity + rough
@@ -385,12 +425,22 @@ fig = generate_expansion_thermoplot(
         # "P3 friction 0 percent vel",
         # "P4 friction 0 percent vel",
 
-        "P1 friction 0 percent vel rough",
-        "P2 friction 0 percent vel rough",
-        "P3 friction 0 percent vel rough",
-        "P4 friction 0 percent vel rough",
+        # "P1 friction 0 percent vel rough",
+        # "P2 friction 0 percent vel rough",
+        # "P3 friction 0 percent vel rough",
+        # "P4 friction 0 percent vel rough",
+
+        # "NA_6b",
+        # "NA_7d",
+        # "NA_9b",
+
+        "MD_20d_smooth",
+        # "MD_120a",
+
+        # "ZE_2a",
+        # "ZE_10a"
     ],
-    thermoplotConfigFilePath="inputs/thermoplot/CO2.ini", 
+    thermoplotConfigFilePath="inputs/thermoplot/water.ini", 
     showGhostNodes = True, 
     separatePlots = True
     )

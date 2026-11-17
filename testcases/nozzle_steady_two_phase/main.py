@@ -14,7 +14,7 @@ from pyshockflow import Config
 # configFile = "inputs/config_files/petruccelli/P2.ini"
 # configFile = "inputs/config_files/petruccelli/P3.ini"
 # configFile = "inputs/config_files/petruccelli/P4.ini"
-configFile = "inputs/config_files/berana/B1.ini"
+# configFile = "inputs/config_files/berana/B1.ini"
 # configFile = "inputs/config_files/berana/B2.ini"
 # configFile = "inputs/config_files/berana/B3.ini"
 
@@ -27,6 +27,16 @@ configFile = "inputs/config_files/berana/B1.ini"
 # configFile = "inputs/config_files/CM-15.3/roe_vinokur/phase_transition.ini"
 # configFile = "inputs/config_files/CM-15.3/roe_vinokur/single_phase_gas.ini"
 # configFile = "inputs/config_files/CM-15.3/roe_vinokur/two_phase.ini"
+
+# configFile = "inputs/config_files/moby_dick/MD_20d.ini"
+configFile = "inputs/config_files/moby_dick/MD_120a.ini"
+
+# configFile = "inputs/config_files/nakagawa/NA_6b.ini"
+# configFile = "inputs/config_files/nakagawa/NA_7d.ini"
+# configFile = "inputs/config_files/nakagawa/NA_9b.ini"
+
+# configFile = "inputs/config_files/zhu_elbel/ZE_2a.ini"
+# configFile = "inputs/config_files/zhu_elbel/ZE_10a.ini"
 
 # configFile = "inputs/config_files/CM-10.2/test_conf.ini"
 # configFile = "inputs/config_files/CM-11.3/L1_smooth_flipped.ini"

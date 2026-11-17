@@ -2202,12 +2202,6 @@ def computeResiduals(config, meshData, fluidState,
             dt / dx[1:-1]
             * ((flux[:-1, iDim] - flux[1:, iDim]) + source[1:-1, iDim] * dx[1:-1])
         )
-    #multidim dx array
-    dx_multidim = np.tile(dx[1:-1].reshape(-1, 1), (1, 3))
-    # print("residuals[:10, :]", residuals[:10, :])
-    # print("dt, dx[:10]", dt, dx[:10])
-    # print("flux contribution", (dt / dx_multidim * ((flux[:-1, :] - flux[1:, :])) )[:10, :])
-    # print("source contribution", (dt / dx_multidim * (source[1:-1, :] * dx_multidim))[:10, :])
 
     return residuals
 

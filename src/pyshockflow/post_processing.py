@@ -9,8 +9,7 @@ import tempfile
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-from matplotlib.animation import FuncAnimation
-from matplotlib.widgets import Slider
+
 
 from numpy.compat import Path
 from scipy.optimize import fsolve
@@ -413,6 +412,7 @@ def generate_fluid_state_var_profile_figs(
     verificationData: Optional[VandVSpec] = None,
     validationData: Optional[VandVSpec] = None,
     showNozzleGeometry: bool = False,
+    showMeshNodes: bool = False,
     showGhostNodes: bool = False,
     separatePlots: bool = False,
 ) -> list[plt.Figure]:
@@ -449,11 +449,21 @@ def generate_fluid_state_var_profile_figs(
     showNozzleGeometry:
         If True, overlays a schematic of the nozzle geometry (scaled to the
         variable's y-range) on each figure.
+    showMeshNodes:
+        If True, marks the x-location of each mesh node with a marker at
+        y = 0. Independent of `showNozzleGeometry`.
+    showGhostNodes:
+        If True, ghost nodes are included in the profiles (and in the
+        nozzle geometry / mesh node markers).
+    separatePlots:
+        If True, each simulation is plotted on its own figure instead of
+        all sharing one set of axes.
 
     Returns
     -------
     list[matplotlib.figure.Figure]
-        One figure per entry in `fluidStateVarNames`, in the same order.
+        One figure per entry in `fluidStateVarNames` (or per simulation per
+        variable if `separatePlots` is True), in the same order.
 
     Raises
     ------
@@ -505,6 +515,7 @@ def generate_fluid_state_var_profile_figs(
     out_root.mkdir(parents=True, exist_ok=True)
 
     fluidStateVarProfileFigs = []
+    temp = []
 
     for fluidStateVarName in fluidStateVarNames:
         simulation_items = list(simulationResultsAtIterIdxs.items())
@@ -525,7 +536,7 @@ def generate_fluid_state_var_profile_figs(
                 validationData, fluidStateVarName
             )
 
-        # Each V&V record's second key should describe the variable of interest.
+            # Each V&V record's second key should describe the variable of interest.
             if not all(fluidStateVarName in list(record.keys())[1] for record in verificationRecords):
                 raise ValueError(
                     f"Verification data provided for '{fluidStateVarName}', but not all "
@@ -553,6 +564,10 @@ def generate_fluid_state_var_profile_figs(
                 profile = _compute_fluid_state_var_profile(
                     fluidStateVarName, resultsAtIterIdx, showGhostNodes=showGhostNodes
                 )
+                
+                if fluidStateVarName == "Density" or fluidStateVarName == "Velocity":
+                    temp.append(profile)
+                
                 max_y.append(np.abs(profile).max())
 
                 step = resultsAtIterIdx["iterIdx"]
@@ -570,9 +585,10 @@ def generate_fluid_state_var_profile_figs(
             ax.set_ylabel(_AXIS_LABELS[fluidStateVarName])
             ax.set_xlabel(r"$x$ [m]")
 
+            node_slice = slice(None) if showGhostNodes else slice(1, -1)
+
             if showNozzleGeometry:
                 max_y_val = max(max_y)
-                node_slice = slice(None) if showGhostNodes else slice(1, -1)
                 deviceArea = last_resultsAtIterIdx["meshData"]["deviceAreaAtMeshNodes"][node_slice]
                 ax.plot(
                     last_resultsAtIterIdx["meshData"]["xMeshNodes"][node_slice],
@@ -580,6 +596,20 @@ def generate_fluid_state_var_profile_figs(
                     label="Nozzle Geometry",
                     color="gray",
                     alpha=0.5,
+                    zorder=-1,
+                )
+
+            if showMeshNodes:
+                mesh_x = last_resultsAtIterIdx["meshData"]["xMeshNodes"][node_slice]
+                ax.plot(
+                    mesh_x,
+                    np.zeros_like(mesh_x),
+                    linestyle="none",
+                    marker="o",
+                    markersize=2,
+                    color="gray",
+                    label="Mesh Nodes",
+                    clip_on=False,  # keep markers visible if y = 0 is on the axis edge
                     zorder=-1,
                 )
 
@@ -630,6 +660,14 @@ def generate_fluid_state_var_profile_figs(
                 pass
 
             fluidStateVarProfileFigs.append(fig)
+    #sanity check whether continuity equation is satisfied by checking whether the product of density and velocity is constant across the nozzle.
+    if "Density" in fluidStateVarNames and "Velocity" in fluidStateVarNames:
+        density_profile = temp[0]
+        velocity_profile = temp[1]
+        # get area profile
+        area_profile = last_resultsAtIterIdx["meshData"]["deviceAreaAtMeshNodes"][node_slice]
+        mass_flow_rate_profile = density_profile * velocity_profile * area_profile
+        print(f"Warning: Continuity equation may not be satisfied. Mass flow rate profile: {mass_flow_rate_profile} kg/s")
 
     return fluidStateVarProfileFigs
 
@@ -729,23 +767,37 @@ def _unconverged_masks(
 
 
 def _make_video_writer(output_path: str, fps: int):
-    """Return (writer, final_path). Prefers MP4, falls back to GIF."""
+    """Return (writer, final_path). Prefers MP4 via ffmpeg, falls back to GIF."""
+    import matplotlib  # the module only imports matplotlib.pyplot, so `matplotlib` itself was undefined
+
+    # 1) Look for ffmpeg on PATH, then for the binary bundled with imageio-ffmpeg.
     ffmpeg = shutil.which("ffmpeg")
     if ffmpeg is None:
         try:
             import imageio_ffmpeg
             ffmpeg = imageio_ffmpeg.get_ffmpeg_exe()
-        except ImportError:
+        except Exception:  # ImportError, or the bundled binary is missing
             ffmpeg = None
+
+    # 2) Point matplotlib at it and verify it is usable before committing to MP4.
     if ffmpeg is not None:
-        matplotlib.rcParams["animation.ffmpeg_path"] = ffmpeg
-        writer = FFMpegWriter(
-            fps=fps, codec="libx264",
-            extra_args=["-pix_fmt", "yuv420p", "-crf", "20",
-                        "-preset", "veryfast", "-movflags", "+faststart"],
-        )
-        return writer, output_path
-    print("ffmpeg not found; falling back to GIF (larger and lower quality).")
+        matplotlib.rcParams["animation.ffmpeg_path"] = str(ffmpeg)
+        if FFMpegWriter.isAvailable():
+            writer = FFMpegWriter(
+                fps=fps,
+                codec="libx264",
+                extra_args=[
+                    "-pix_fmt", "yuv420p",
+                    "-crf", "20",
+                    "-preset", "veryfast",
+                    "-movflags", "+faststart",
+                    # yuv420p/libx264 require even dimensions; pad if odd.
+                    "-vf", "pad=ceil(iw/2)*2:ceil(ih/2)*2",
+                ],
+            )
+            return writer, str(Path(output_path).with_suffix(".mp4"))
+
+    print("ffmpeg not found or not usable; falling back to GIF (larger and lower quality).")
     return PillowWriter(fps=min(fps, 30)), str(Path(output_path).with_suffix(".gif"))
 
 

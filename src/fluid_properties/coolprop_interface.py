@@ -279,10 +279,7 @@ class CoolPropAbstractState_v2():
         return value is then a tuple of floats/arrays (one per requested property, in the order given), matching the
         order of `prop`.
     """
-    # ------------------------------------------------------------------
-    # Lookup Tables. Replace old computational routines by a simple lookup, 
-    # which allowed for less computations. 
-    # ------------------------------------------------------------------
+    
     _MASS_PROPS = frozenset({"D", "U", "H", "S"})
 
     # Translation from CoolProp PropsSI method syntax to syntax 
@@ -460,12 +457,12 @@ class CoolPropAbstractState_v2():
         else:
             if prop_AS == "drhomassdPcT":
                 val = AS.first_partial_deriv(CP.iP, CP.iDmass, CP.iT)
-            if prop_AS == "dPdDmass_constUmass":
+            elif prop_AS == "dPdDmass_constUmass":
                 val = AS.first_partial_deriv(CP.iP, CP.iDmass, CP.iUmass)
-            if prop_AS == "dPdUmass_constDmass":
+            elif prop_AS == "dPdUmass_constDmass":
                 val = AS.first_partial_deriv(CP.iP, CP.iUmass, CP.iDmass)
-
-            val = getattr(AS, prop_AS)()  
+            else:
+                val = getattr(AS, prop_AS)()  
 
         if prop_AS == "Q":
             if val < 0.0:
