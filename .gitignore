@@ -26,4 +26,4 @@
 
 # github
 actions-runner/
-.github/workflows/
+.github/workflows/src/benchmarking_tools/FlameGraph/
