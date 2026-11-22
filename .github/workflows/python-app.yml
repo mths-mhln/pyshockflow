@@ -1,5 +1,4 @@
-# This workflow will install Python dependencies, run tests and lint with a single version of Python
-# For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-python
+# Runs the regression and integration tests on the self-hosted runner for every push to main.
 
 name: automated_testing
 
@@ -7,53 +6,31 @@ on:
   push:
     branches:
       - main
+  workflow_dispatch:
 
 permissions:
   contents: read
 
 jobs:
-  pre_process:
+  tests:
     runs-on: self-hosted
 
     steps:
-    - name: checkout to directory main
+    - name: Checkout
       uses: actions/checkout@v7
-      with:
-        ref: main
 
-    # - name: Install uv
-    #   uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
-    #   with:
-    #     # Install a specific version of uv.
-    #     version: "0.11.14"
-    
-    - name: create virtual environment w/ uv based on lock file
+    # uv finds .venv in the repository folder by itself, so no activation is needed
+    - name: Create the virtual environment and install the package
       run: |
-        uv venv
-        .venv/Scripts/activate
-
-    - name: Install dependencies in venv
-      run: |
+        uv venv --clear
         uv pip install -e .
 
-  regression_tests:
-    runs-on: self-hosted
-    needs: pre_process
+    - name: Regression tests
+      working-directory: test/regression_tests
+      run: uv run pytest test_cases.py
 
-    steps:
-    - name: Perform regression tests
-      run: |
-        cd test/regression_tests/
-        uv run pytest test_cases.py
-        cd ../..
-
-  integration_tests:
-    runs-on: self-hosted
-    needs: pre_process
-
-    steps:
-    - name: Perform fluid integration test
-      run: |
-        cd test/integration_tests/
-        uv run pytest test_fluid.py
-        cd ../..
+    # also runs when the regression tests fail, so that both results are reported
+    - name: Integration tests
+      if: ${{ !cancelled() }}
+      working-directory: test/integration_tests
+      run: uv run pytest test_fluid.py
