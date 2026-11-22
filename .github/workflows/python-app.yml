@@ -6,7 +6,7 @@ name: automated_testing
 on:
   push:
     branches:
-      - CM_14_6
+      - main
 
 permissions:
   contents: read
@@ -16,10 +16,10 @@ jobs:
     runs-on: self-hosted
 
     steps:
-    - name: checkout to directory CM_14_6
+    - name: checkout to directory main
       uses: actions/checkout@v7
       with:
-        ref: CM_14_6
+        ref: main
 
     # - name: Install uv
     #   uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0

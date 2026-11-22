@@ -1,0 +1,62 @@
+# Builds the Sphinx documentation in docs/ and publishes it on GitHub Pages.
+# Requires Settings > Pages > Source: "GitHub Actions".
+
+name: docs
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "docs/**"
+      - "src/pyshockflow/**"
+      - ".github/workflows/docs.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# never cancel a deployment that is in progress, but skip runs that are still queued
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Install uv and Python 3.12
+        uses: astral-sh/setup-uv@v10.4.0
+        with:
+          python-version: "3.12"
+          activate-environment: true
+
+      # the package is installed so that autodoc can import pyshockflow
+      - name: Install the package and Sphinx
+        run: uv pip install -e . -r docs/requirements.txt
+
+      - name: Build the documentation
+        env:
+          MPLBACKEND: Agg
+        run: sphinx-build -W --keep-going -b html docs/source docs/build/html
+
+      - name: Upload the pages
+        uses: actions/upload-pages-artifact@v5
+        with:
+          path: docs/build/html
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v5
