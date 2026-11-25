@@ -6,7 +6,7 @@ from pyshockflow import Driver
 from pyshockflow import Config
 
 
-configFile = "inputs/config_files/lettieri/L1_smooth.ini"
+# configFile = "inputs/config_files/lettieri/L1_smooth.ini"
 # configFile = "inputs/config_files/lettieri/L1_friction.ini"
 # configFile = "inputs/config_files/lettieri/L5_smooth.ini"
 # configFile = "inputs/config_files/lettieri/L5_friction.ini"
@@ -38,7 +38,7 @@ configFile = "inputs/config_files/lettieri/L1_smooth.ini"
 # configFile = "inputs/config_files/zhu_elbel/ZE_2a.ini"
 # configFile = "inputs/config_files/zhu_elbel/ZE_10a.ini"
 
-# configFile = "inputs/config_files/CM-10.2/test_conf.ini"
+configFile = "inputs/config_files/CM-10.2/test_conf.ini"
 # configFile = "inputs/config_files/CM-11.3/L1_smooth_flipped.ini"
 
 # config = Config(configFile)

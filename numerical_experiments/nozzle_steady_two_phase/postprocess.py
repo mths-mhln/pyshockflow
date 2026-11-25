@@ -14,10 +14,10 @@ from pyshockflow.post_processing import (
 verificationData = VandVSpec(
     paths={
         "Pressure": (
-            "verification_data/lettieri/L1_smooth__pressure.csv",
+            # "verification_data/lettieri/L1_smooth__pressure.csv",
             # "verification_data/lettieri/L5_smooth__pressure.csv",
 
-            # "verification_data/lettieri/L1_friction__pressure.csv",
+            "verification_data/lettieri/L1_friction__pressure.csv",
             # "verification_data/lettieri/L5_friction__pressure.csv",
 
             # "verification_data/petruccelli/P1_friction__pressure.csv",
@@ -40,10 +40,10 @@ verificationData = VandVSpec(
     },
     legend_labels={
         "Pressure": (
-            "L1_smooth_verification",
+            # "L1_smooth_verification",
             # "L5_smooth_verification",
 
-            # "L1_friction_verification", 
+            "Lettieri L1 (friction) Cioffi et al.", 
             # "L5_friction_verification",
 
             # "P1_verification",
@@ -82,9 +82,10 @@ validationData = VandVSpec(
 
 fluidStateVarProfileFigs = generate_fluid_state_var_profile_figs(
     resultsFolders=[
-        "Results/lettieri/output_L1_smooth",
+        # "Results/lettieri/output_L1_smooth",
         # "Results/lettieri/output_L5_smooth",
 
+        # "Results/lettieri/output_L1_friction",
         # "Results/lettieri/output_L1_friction",
         # "Results/lettieri/output_L5_friction",
         # "Results/petruccelli/output_P1",
@@ -144,19 +145,22 @@ fluidStateVarProfileFigs = generate_fluid_state_var_profile_figs(
 
         # "Results/zhu_elbel/output_ZE_2a",
         # "Results/zhu_elbel/output_ZE_10a",
+
+        "Results/CM-10.2"
     ],
 
     fluidStateVarNames=["Mach", "Velocity", "Pressure", "Density"],
 
     iterationIndexes=[
-        -1
+        0
     ],
 
     simulationLegendLabels=[
-        "L1 smooth",
+        # "L1 smooth",
         # "L5 smooth",
 
-        # "L1 friction",
+        "Lettieri L1 (friction) PyShockFlow - initialization",
+        # "Lettieri L1 (friction) PyShockFlow - final solution",
         # "L5 friction",
         # "P1 friction",
         # "P2 friction",
@@ -287,48 +291,48 @@ plt.show()
 
 
 # compute v and v metrics for the simulation results:
-v_and_v_metrics = compute_v_and_v_metrics(
-    resultsFolders= [
-        "Results/lettieri/output_L1_smooth",
-        # "Results/lettieri/output_L5_smooth",
+# v_and_v_metrics = compute_v_and_v_metrics(
+#     resultsFolders= [
+#         # "Results/lettieri/output_L1_smooth",
+#         # "Results/lettieri/output_L5_smooth",
 
-        # "Results/lettieri/output_L1_friction",
-        # "Results/lettieri/output_L5_friction",
-        # "Results/petruccelli/output_P1",
-        # "Results/petruccelli/output_P2",
-        # "Results/petruccelli/output_P3",
-        # "Results/petruccelli/output_P4",
-        # "Results/berana/output_B1",
-        # "Results/berana/output_B2",
-        # "Results/berana/output_B3",
+#         # "Results/lettieri/output_L1_friction",
+#         # "Results/lettieri/output_L5_friction",
+#         # "Results/petruccelli/output_P1",
+#         # "Results/petruccelli/output_P2",
+#         # "Results/petruccelli/output_P3",
+#         # "Results/petruccelli/output_P4",
+#         # "Results/berana/output_B1",
+#         # "Results/berana/output_B2",
+#         # "Results/berana/output_B3",
 
-        # "Results/lettieri/output_L1_smooth_5_percent",
-        # "Results/lettieri/output_L5_smooth_5_percent",
-        # "Results/lettieri/output_L1_friction_5_percent",
-        # "Results/lettieri/output_L5_friction_5_percent",
-        # "Results/petruccelli/output_P1_5_percent",
-        # "Results/petruccelli/output_P2_5_percent",
-        # "Results/petruccelli/output_P3_5_percent",
-        # "Results/petruccelli/output_P4_5_percent",
+#         # "Results/lettieri/output_L1_smooth_5_percent",
+#         # "Results/lettieri/output_L5_smooth_5_percent",
+#         # "Results/lettieri/output_L1_friction_5_percent",
+#         # "Results/lettieri/output_L5_friction_5_percent",
+#         # "Results/petruccelli/output_P1_5_percent",
+#         # "Results/petruccelli/output_P2_5_percent",
+#         # "Results/petruccelli/output_P3_5_percent",
+#         # "Results/petruccelli/output_P4_5_percent",
 
-        # "Results/lettieri/output_L1_smooth_0_percent_vel",
-        # "Results/lettieri/output_L5_smooth_0_percent_vel",
-        # "Results/lettieri/output_L1_friction_0_percent_vel",
-        # "Results/lettieri/output_L5_friction_0_percent_vel",
-        # "Results/petruccelli/output_P1_0_percent_vel",
-        # "Results/petruccelli/output_P2_0_percent_vel",
-        # "Results/petruccelli/output_P3_0_percent_vel",
-        # "Results/petruccelli/output_P4_0_percent_vel",
+#         # "Results/lettieri/output_L1_smooth_0_percent_vel",
+#         # "Results/lettieri/output_L5_smooth_0_percent_vel",
+#         # "Results/lettieri/output_L1_friction_0_percent_vel",
+#         # "Results/lettieri/output_L5_friction_0_percent_vel",
+#         # "Results/petruccelli/output_P1_0_percent_vel",
+#         # "Results/petruccelli/output_P2_0_percent_vel",
+#         # "Results/petruccelli/output_P3_0_percent_vel",
+#         # "Results/petruccelli/output_P4_0_percent_vel",
 
-        # "Results/petruccelli/output_P1_0_percent_vel_rough",
-        # "Results/petruccelli/output_P2_0_percent_vel_rough",
-        # "Results/petruccelli/output_P3_0_percent_vel_rough",
-        # "Results/petruccelli/output_P4_0_percent_vel_rough",
-    ],
-    fluidStateVarNames=["Pressure", "Mach"],
-    verificationData=verificationData,
-    # validationData=validationData
-)
+#         # "Results/petruccelli/output_P1_0_percent_vel_rough",
+#         # "Results/petruccelli/output_P2_0_percent_vel_rough",
+#         # "Results/petruccelli/output_P3_0_percent_vel_rough",
+#         # "Results/petruccelli/output_P4_0_percent_vel_rough",
+#     ],
+#     fluidStateVarNames=["Pressure", "Mach"],
+#     verificationData=verificationData,
+#     # validationData=validationData
+# )
 
 
 # plot the expansion path on top of a thermodynamic diagram.
@@ -374,15 +378,17 @@ fig = generate_expansion_thermoplot(
         # "Results/nakagawa/output_NA_7d",
         # "Results/nakagawa/output_NA_9b",
 
-        "Results/moby_dick/output_MD_20d_smooth",
+        # "Results/moby_dick/output_MD_20d_smooth",
         # "Results/moby_dick/output_MD_120a",
 
         # "Results/zhu_elbel/output_ZE_2a",
         # "Results/zhu_elbel/output_ZE_10a",
+
+        "Results/CM-10.2"
     ],
     iterationIndexes=[
         # -1, -1,  # Smooth
-        9250
+        0
         # -1, -1, -1, -1, -1, -1, -1, -1,  # 5 percent
         # -1, -1, -1, -1, -1, -1, -1, -1,  # 0 percent velocity
         # -1, -1, -1, -1,  # 0 percent velocity + rough
@@ -434,7 +440,7 @@ fig = generate_expansion_thermoplot(
         # "ZE_2a",
         # "ZE_10a"
     ],
-    thermoplotConfigFilePath="inputs/thermoplot/water.ini", 
+    thermoplotConfigFilePath="inputs/thermoplot/CO2.ini", 
     showGhostNodes = True, 
     separatePlots = True
     )
