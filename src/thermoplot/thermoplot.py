@@ -8,11 +8,11 @@ import pickle
 import tempfile
 from pathlib import Path
 
-from config import Config
-from utils import configure_matplotlib, extract_critical_point
-from coolprop_interface import CoolPropAbstractState
-from labelling import draw_isolines_labeled
-from isolines import (isobar_lines_ts, isenthalp_lines_ts, isotherm_lines_ph, 
+from thermoplot.config import Config
+from thermoplot.utils import configure_matplotlib, extract_critical_point
+from thermoplot.coolprop_interface import CoolPropAbstractState
+from thermoplot.labelling import draw_isolines_labeled
+from thermoplot.isolines import (isobar_lines_ts, isenthalp_lines_ts, isotherm_lines_ph, 
         isentrop_lines_ph, construct_quality_isolines,
         construct_saturation_dome, construct_critical_isoline)
 

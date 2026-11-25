@@ -4,8 +4,8 @@
 import matplotlib.pyplot as plt
 import numpy as np
 
-from coolprop_interface import CoolPropAbstractState
-from config import Config
+from thermoplot.coolprop_interface import CoolPropAbstractState
+from thermoplot.config import Config
 
 
 

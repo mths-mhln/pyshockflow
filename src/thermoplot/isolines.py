@@ -3,9 +3,9 @@
 ###########################################
 import copy
 
-from utils import extract_critical_point
-from config import Config
-from coolprop_interface import CoolPropAbstractState
+from thermoplot.utils import extract_critical_point
+from thermoplot.config import Config
+from thermoplot.coolprop_interface import CoolPropAbstractState
 
 import numpy as np
 

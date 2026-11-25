@@ -831,7 +831,7 @@ class Driver:
                         if massFlowDirection == 1:
                             fluidState["Velocity"] = np.interp(
                                 meshData["xMeshNodes"],
-                                [meshData["xMeshNodes"][0], meshData["xMeshNodes"][-1]],c
+                                [meshData["xMeshNodes"][0], meshData["xMeshNodes"][-1]],
                                 [10, 200],
                             )
                         elif massFlowDirection == -1:
@@ -843,7 +843,7 @@ class Driver:
                     
                     fluidState = _applyInletBC(
                         config, iHalo, iInternal, fluidModel, fluidState,
-                        isTotalInlet, inletConditionsVars if isTotalInlet else None,
+                        isTotalInlet, inletConditionsVars,
                         inletConditionsValues,
                     )
                     inletIdx = iHalo
@@ -1919,10 +1919,9 @@ def _applyInletBC(config, iHalo, iInternal, fluidModel, fluidState,
                 velocity, totalPressure, totalTemperature
             )
         elif inletConditionsVars == "ptQ":
-            staticQuality      = inletConditionsValues[1]
-            massFlowDirection = _inferInitialMassFlowDirection(config)
-            density, velocity, energy = fluidModel.computeInletQuantitiesTotal_pt_Q(
-                pressure, totalPressure, staticQuality, massFlowDirection
+            staticQuality = inletConditionsValues[1]
+            density, pressure, energy = fluidModel.computeInletQuantitiesTotal_pt_Q(
+                velocity, totalPressure, staticQuality
             )
         else:
             raise ValueError(

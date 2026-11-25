@@ -110,7 +110,7 @@ class FluidIdeal():
         energy = self.computeInternalEnergy_p_rho(pressure, density)
         return density, pressure, energy
 
-    def computeInletQuantitiesTotal_pt_Q(self, pressure, totPressure, quality, direction):
+    def computeInletQuantitiesTotal_pt_Q(self, velocity, totPressure, quality):
         """non-used inputs present for same reason as computeComprFactorZ_p_rho."""
         raise NotImplementedError("Two-phase flow is not supported for ideal fluids.")
 
@@ -124,8 +124,9 @@ class FluidIdeal():
         raise NotImplementedError("Two-phase flow is not supported for ideal fluids.")
 
     def computeChiKappa_VinokurScheme_p_rho(self, p, rho):
-        chi = 0
-        kappa = self.gmma-1
+        # Return arrays shaped like p, since the Roe-Vinokur flux indexes them per interface.
+        chi = np.zeros_like(p, dtype=float)
+        kappa = np.full_like(p, self.gmma - 1, dtype=float)
         return chi, kappa
 
 
@@ -185,6 +186,10 @@ class FluidReal():
     def computeInternalEnergy_p_T(self, p, T):
         e = FP.PropsSI('U', 'P', p, 'T', T, self.fluid)
         return e
+
+    def computeDensity_p_Q(self, p, Q):
+        rho = FP.PropsSI('D', 'P', p, 'Q', Q, self.fluid)
+        return rho
 
     def computeInternalEnergy_p_Q(self, p, Q):
         e = FP.PropsSI('U', 'P', p, 'Q', Q, self.fluid)
@@ -377,14 +382,29 @@ class FluidReal():
         energy = self.computeInternalEnergy_p_rho(pressure, density)
         return density, pressure, energy
 
-    def computeInletQuantitiesTotal_pt_Q(self, pressure, totPressure, staticQuality, direction):
-        staticEntropy = self.computeEntropy_p_Q(pressure, staticQuality)
-        density = self.computeDensity_p_s(pressure, staticEntropy)
-        enthalpyTotal = self.computeEnthalpy_p_s(totPressure, staticEntropy)
-        enthalpyStatic = self.computeEnthalpy_p_rho(pressure, density)
-        velocity = direction * np.sqrt(2 * (enthalpyTotal - enthalpyStatic))
-        energy = self.computeInternalEnergy_p_rho(pressure, density)
-        return density, velocity, energy
+    def computeInletQuantitiesTotal_pt_Q(self, velocity, totPressure, staticQuality):
+        """
+        Static inlet state from the total pressure, the static vapour quality and the local
+        velocity. The static pressure p solves h(pt, s(p, Q)) - h(p, Q) = u^2/2 with the secant
+        method. The first point, p = pt, needs no property call (its residual is -u^2/2); the
+        second is the incompressible estimate p = pt - rho u^2/2.
+        """
+        kineticEnergy = 0.5 * velocity**2
+        # State at p = pt: the solution for u = 0, and the density for the first estimate.
+        _, _, density, energy = FP.PropsSI(("H", "S", "D", "U"), "P", totPressure, "Q", staticQuality, self.fluid)
+        if kineticEnergy == 0:
+            return density, totPressure, energy
+
+        pressurePrev, residualPrev = totPressure, -kineticEnergy
+        pressure = totPressure - density * kineticEnergy
+        for _ in range(20):
+            enthalpy, entropy, density, energy = FP.PropsSI(("H", "S", "D", "U"), "P", pressure, "Q", staticQuality, self.fluid)
+            residual = self.computeEnthalpy_p_s(totPressure, entropy) - enthalpy - kineticEnergy
+            if abs(residual) < 1e-6 * kineticEnergy:
+                break
+            pressureNew = pressure - residual * (pressure - pressurePrev) / (residual - residualPrev)
+            pressurePrev, residualPrev, pressure = pressure, residual, pressureNew
+        return density, pressure, energy
 
     def computeInletQuantitiesStatic_p_T(self, pressure, temperature):
         density = self.computeDensity_p_T(pressure, temperature)
