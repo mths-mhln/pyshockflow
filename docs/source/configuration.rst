@@ -224,12 +224,12 @@ A nozzle with an inlet and an outlet, or an inlet and a transparent boundary, is
      - boundary conditions at the left and right end of the domain (:ref:`boundary-conditions`)
    * - ``INLET_CONDITIONS_TYPE``
      - CR, CP
-     - ``total``, ``static``
-     - total or static inlet conditions
+     - ``total``
+     - total inlet conditions; static inlet conditions are not supported
    * - ``INLET_CONDITIONS_VALUES``
      - CR, CP
      - two floats, comma separated
-     - total: :math:`p_0` [Pa] and :math:`T_0` [K] or :math:`y_V` [-]; static: :math:`p` [Pa] and :math:`T` [K] or :math:`y_V` [-]. A second value between 0 and 1 is read as a vapour quality, any other value as a temperature.
+     - :math:`p_0` [Pa], and :math:`T_0` [K] or the static vapour quality :math:`y_V` [-]. A second value between 0 and 1 is read as a vapour quality, any other value as a temperature.
    * - ``OUTLET_CONDITIONS_VALUES``
      - CR, CP
      - float [Pa]

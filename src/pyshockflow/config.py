@@ -637,11 +637,14 @@ class Config:
         return left, right
 
     def inletConditionsType(self) -> str:
-        value = self._get_str("BOUNDARY CONDITIONS", "INLET_CONDITIONS_TYPE", lower = True, inputOptions=["total", "static"])
-        if value not in ("total", "static"):
+        # Only total inlet conditions are supported. A nozzle is fed from a reservoir whose
+        # total state is known, whereas its static inlet state depends on the solution.
+        value = self._get_str("BOUNDARY CONDITIONS", "INLET_CONDITIONS_TYPE", lower = True)
+        if value != "total":
             raise ConfigError(
-                f"{self.config_file} [BOUNDARY CONDITIONS]: 'INLET_CONDITIONS_TYPE' "
-                f"must be 'total' or 'static', got '{value}'"
+                f"{self.config_file} [BOUNDARY CONDITIONS]: 'INLET_CONDITIONS_TYPE' must be "
+                f"'total', got '{value}'. Static inlet conditions are not supported: specify the "
+                f"total pressure together with the total temperature or the static vapour quality."
             )
         return value  # type: ignore[return-value]
 

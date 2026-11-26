@@ -802,8 +802,6 @@ class Driver:
                 - Pressure: np.1darray
                 - StaticInternalEnergy: np.1darray
             """
-            isTotalInlet = config.inletConditionsType() == "total"
-            isStaticInlet = config.inletConditionsType() == "static"
             inletIdx = None  # index (0 or -1) of whichever side is the inlet
 
             # Determine which type of total inlet variables were specified so that
@@ -817,34 +815,11 @@ class Driver:
                 btype = config.boundaryConditions()[0 if iHalo == 0 else 1]
 
                 if btype == "inlet":
-                    if isTotalInlet:
-                        # computeInletQuantities[x] (see fluid.py) needs a static pressure 
-                        # guess for computing the entropy; seed the neighbouring node with the
-                        # (total) inlet pressure as a starting value.
-                        fluidState["Pressure"][iInternal] = inletConditionsValues[0]
-
-                    if isStaticInlet:
-                        # computeInletQuantities[x] (see fluid.py) needs a velocity guess 
-                        # to extrapolate from the internal domain. 
-                        # Static inlet conditions: velocity initialized linearly from 10 to 200 m/s.
-                        massFlowDirection = _inferInitialMassFlowDirection(config)
-                        if massFlowDirection == 1:
-                            fluidState["Velocity"] = np.interp(
-                                meshData["xMeshNodes"],
-                                [meshData["xMeshNodes"][0], meshData["xMeshNodes"][-1]],
-                                [10, 200],
-                            )
-                        elif massFlowDirection == -1:
-                            fluidState["Velocity"] = np.interp(
-                                meshData["xMeshNodes"],
-                                [meshData["xMeshNodes"][0], meshData["xMeshNodes"][-1]],
-                                [-200, -10],
-                            )
-                    
+                    # The velocity field is still zero, so the inlet halo node receives
+                    # the total state: its static pressure equals the total pressure.
                     fluidState = _applyInletBC(
-                        config, iHalo, iInternal, fluidModel, fluidState,
-                        isTotalInlet, inletConditionsVars,
-                        inletConditionsValues,
+                        iHalo, iInternal, fluidModel, fluidState,
+                        inletConditionsVars, inletConditionsValues,
                     )
                     inletIdx = iHalo
 
@@ -946,54 +921,50 @@ class Driver:
             )
 
             # Initialize velocity.
-            if isStaticInlet:
-                pass # velocity already initialized, was necessary for
-                     # boundary condition specification, necessary for linear init.
-            elif isTotalInlet:
-                # Total inlet conditions: u_i = sqrt(2*(e_t - e_s)), where e_s is
-                # evaluated from the local pressure and the inlet entropy.
-                if inletConditionsVars == "ptTt":
-                    totalTemperature = inletConditionsValues[1]
-                    if config.fluidModelType() == "real":
-                        totalEnthalpy = fluidModel.computeEnthalpy_p_T(
-                            fluidState["Pressure"][inletIdx], totalTemperature
-                        )
-                    else:
-                        totalEnthalpy = fluidModel.computeEnthalpy_T(totalTemperature)
-                elif inletConditionsVars == "ptQ":
-                    if config.fluidModelType() == "real":
-                        totalPressure, staticQuality = inletConditionsValues[:2]
-                        staticEntropy = fluidModel.computeEntropy_p_Q(fluidState["Pressure"][inletIdx], staticQuality)
-                        totalEnthalpy = fluidModel.computeEnthalpy_p_s(totalPressure, staticEntropy)
-                    else:
-                        raise NotImplementedError(
-                            "Total inlet conditions specified via (pt, Qt) are not supported "
-                            "for ideal fluid models."
-                        )
-
-                # compute the total enthalpy variation along the device        
-                totalEnthalpyField = np.full_like(fluidState["Pressure"], totalEnthalpy)
-
-                # compute the static enthalpy variation along the device
+            # Total inlet conditions: u_i = sqrt(2*(e_t - e_s)), where e_s is
+            # evaluated from the local pressure and the inlet entropy.
+            if inletConditionsVars == "ptTt":
+                totalTemperature = inletConditionsValues[1]
                 if config.fluidModelType() == "real":
-                    # assuming isentropic expansion; requires extrapolation of inlet entropy
-                    # in case of real gas model which has been computed before
-                    staticEnthalpyField = fluidModel.computeEnthalpy_p_s(
-                        fluidState["Pressure"], staticEntropyField
+                    totalEnthalpy = fluidModel.computeEnthalpy_p_T(
+                        fluidState["Pressure"][inletIdx], totalTemperature
                     )
-                    # one could also use the method below. The isentropic assumption
-                    # was made when the static density was computed thorughout the flow 
-                    # domain. However, the code can be left as-is :)
-                if config.fluidModelType() == "ideal":
-                    # under ideal gas assumptions the enthlapy is computed from the 
-                    # temperature only: 
-                    staticEnthalpyField = fluidState["staticInternalEnergy"] + \
-                        fluidState["Pressure"] / fluidState["Density"]
+                else:
+                    totalEnthalpy = fluidModel.computeEnthalpy_T(totalTemperature)
+            elif inletConditionsVars == "ptQ":
+                if config.fluidModelType() == "real":
+                    totalPressure, staticQuality = inletConditionsValues[:2]
+                    staticEntropy = fluidModel.computeEntropy_p_Q(fluidState["Pressure"][inletIdx], staticQuality)
+                    totalEnthalpy = fluidModel.computeEnthalpy_p_s(totalPressure, staticEntropy)
+                else:
+                    raise NotImplementedError(
+                        "Total inlet conditions specified via (pt, Qt) are not supported "
+                        "for ideal fluid models."
+                    )
 
-                massFlowDirection = _inferInitialMassFlowDirection(config)
-                fluidState["Velocity"] = massFlowDirection * np.sqrt(
-                    2 * (totalEnthalpyField - staticEnthalpyField)
+            # compute the total enthalpy variation along the device
+            totalEnthalpyField = np.full_like(fluidState["Pressure"], totalEnthalpy)
+
+            # compute the static enthalpy variation along the device
+            if config.fluidModelType() == "real":
+                # assuming isentropic expansion; requires extrapolation of inlet entropy
+                # in case of real gas model which has been computed before
+                staticEnthalpyField = fluidModel.computeEnthalpy_p_s(
+                    fluidState["Pressure"], staticEntropyField
                 )
+                # one could also use the method below. The isentropic assumption
+                # was made when the static density was computed thorughout the flow
+                # domain. However, the code can be left as-is :)
+            if config.fluidModelType() == "ideal":
+                # under ideal gas assumptions the enthlapy is computed from the
+                # temperature only:
+                staticEnthalpyField = fluidState["staticInternalEnergy"] + \
+                    fluidState["Pressure"] / fluidState["Density"]
+
+            massFlowDirection = _inferInitialMassFlowDirection(config)
+            fluidState["Velocity"] = massFlowDirection * np.sqrt(
+                2 * (totalEnthalpyField - staticEnthalpyField)
+            )
             return fluidState
 
         # ------------------------------------------------------------------
@@ -1099,7 +1070,7 @@ class Driver:
         - reflective   : mirror the neighbouring interior node, negating velocity.
         - transparent  : copy the neighbouring interior node unchanged (zero-gradient).
         - periodic     : copy from the opposite end of the physical domain.
-        - inlet        : compute from total or static inlet conditions.
+        - inlet        : compute from total inlet conditions.
         - outlet       : impose a fixed back-pressure; fall back to transparent if supersonic.
 
         Arguments
@@ -1131,12 +1102,10 @@ class Driver:
         elif bcLeft == "periodic":
             fluidState = _applyPeriodicBC("left", fluidState)
         elif bcLeft == "inlet":
-            isTotalInlet = config.inletConditionsType() == "total"
             inletConditionsValues = config.inletConditionsValues()
             inletConditionsVars = _inferInletConditionVars(config, inletConditionsValues)
             fluidState = _applyInletBC(
-                config, 0, 1, fluidModel, fluidState,
-                isTotalInlet, inletConditionsVars, inletConditionsValues,
+                0, 1, fluidModel, fluidState, inletConditionsVars, inletConditionsValues,
             )
         elif bcLeft == "outlet":
             fluidState = _applyOutletBC("left", 0, 1, config, fluidModel, fluidState)
@@ -1149,12 +1118,10 @@ class Driver:
         elif bcRight == "periodic":
             fluidState = _applyPeriodicBC("right", fluidState)
         elif bcRight == "inlet":
-            isTotalInlet = config.inletConditionsType() == "total"
             inletConditionsValues = config.inletConditionsValues()
             inletConditionsVars = _inferInletConditionVars(config, inletConditionsValues)
             fluidState = _applyInletBC(
-                config, -1, -2, fluidModel, fluidState,
-                isTotalInlet, inletConditionsVars, inletConditionsValues,
+                -1, -2, fluidModel, fluidState, inletConditionsVars, inletConditionsValues,
             )
         elif bcRight == "outlet":
             fluidState = _applyOutletBC("right", -1, -2, config, fluidModel, fluidState)
@@ -1869,18 +1836,14 @@ def _applyPeriodicBC(location, fluidState):
     return fluidState
 
 
-def _applyInletBC(config, iHalo, iInternal, fluidModel, fluidState,
-                  isTotalInlet, inletConditionsVars, inletConditionsValues):
+def _applyInletBC(iHalo, iInternal, fluidModel, fluidState,
+                  inletConditionsVars, inletConditionsValues):
     """
-    Set fluidState in halo node to yield an inlet boundary condition.
+    Set fluidState in halo node to yield a total-condition inlet boundary condition.
 
-    For total inlet conditions, the static pressure is extracted from the
-    adjacent interior node and used together with the specified total conditions
-    to recover density, velocity and internal energy via the fluid model.
-
-    For static inlet conditions, density and energy are recovered directly from
-    the specified static pressure and enthalpy; the velocity is taken from the
-    adjacent interior node.
+    The velocity is taken from the adjacent interior node; together with the specified
+    total conditions, it determines the static state in the halo node. Static inlet
+    conditions are not supported (see Config.inletConditionsType).
 
     Reference: "Formulation and Implementation of Inflow/Outflow Boundary
     Conditions to Simulate Propulsive Effects" / "Inflow/Outflow Boundary
@@ -1895,10 +1858,9 @@ def _applyInletBC(config, iHalo, iInternal, fluidModel, fluidState,
     fluidModel : FluidIdeal or FluidReal
     fluidState : dict
         Current fluid state arrays (modified in-place and returned).
-    isTotalInlet : bool
-        True if total inlet conditions are specified.
-    inletConditionsVars : str or None
-        'ptTt' or 'pQ' (only meaningful when isTotalInlet is True).
+    inletConditionsVars : str
+        'ptTt' (total pressure and total temperature) or 'ptQ' (total pressure
+        and static vapour quality).
     inletConditionsValues : sequence
         The inlet condition values read from config.
 
@@ -1906,45 +1868,25 @@ def _applyInletBC(config, iHalo, iInternal, fluidModel, fluidState,
     -------
     fluidState : dict
     """
-    if isTotalInlet:
-        # The only information borrowed from the interior domain is the local
-        # fluid velocity, which is used as the starting point for the iterative
-        # inversion inside the fluid model.
-        velocity = fluidState["Velocity"][iInternal]
-        totalPressure = inletConditionsValues[0]
+    # The only information borrowed from the interior domain is the local velocity.
+    velocity = fluidState["Velocity"][iInternal]
+    totalPressure = inletConditionsValues[0]
 
-        if inletConditionsVars == "ptTt":
-            totalTemperature  = inletConditionsValues[1]
-            density, pressure, energy = fluidModel.computeInletQuantitiesTotal_pt_Tt_velocity(
-                velocity, totalPressure, totalTemperature
-            )
-        elif inletConditionsVars == "ptQ":
-            staticQuality = inletConditionsValues[1]
-            density, pressure, energy = fluidModel.computeInletQuantitiesTotal_pt_Q(
-                velocity, totalPressure, staticQuality
-            )
-        else:
-            raise ValueError(
-                f"Unknown inlet condition variable set '{inletConditionsVars}'. "
-                "Must be 'ptTt' or 'ptQ'."
-            )
-
-    else: # static inlet
-        # The only information borrowed from the interior domain is the local velocity. 
-        velocity  = fluidState["Velocity"][iInternal]
-
-        # same two options as the total conditions:
-        if inletConditionsVars == "pT":
-            pressure, totalTemperature = inletConditionsValues
-            density, energy = fluidModel.computeInletQuantitiesStatic_p_T(pressure, totalTemperature)
-        elif inletConditionsVars == "pQ":
-            pressure, staticQuality = inletConditionsValues
-            density, energy = fluidModel.computeInletQuantitiesStatic_p_Q(pressure, staticQuality)
-        else:
-            raise ValueError(
-                f"Unknown inlet condition variable set '{inletConditionsVars}'. "
-                "Must be 'ptTt' or 'pQ'."
-            )
+    if inletConditionsVars == "ptTt":
+        totalTemperature = inletConditionsValues[1]
+        density, pressure, energy = fluidModel.computeInletQuantitiesTotal_pt_Tt_velocity(
+            velocity, totalPressure, totalTemperature
+        )
+    elif inletConditionsVars == "ptQ":
+        staticQuality = inletConditionsValues[1]
+        density, pressure, energy = fluidModel.computeInletQuantitiesTotal_pt_Q(
+            velocity, totalPressure, staticQuality
+        )
+    else:
+        raise ValueError(
+            f"Unknown inlet condition variable set '{inletConditionsVars}'. "
+            "Must be 'ptTt' or 'ptQ'."
+        )
 
     fluidState["Density"][iHalo]  = density
     fluidState["Velocity"][iHalo] = velocity
@@ -1974,19 +1916,13 @@ def _inferInletConditionVars(config, inletConditionsValues):
     Returns
     -------
     inletConditionsVars : str
-        'ptTt' or 'pQ' for total inlet conditions, 'pT' or 'pQ' for static inlet conditions.
+        'ptQ' if the second value is a vapour quality, 'ptTt' if it is a total temperature.
     """
-    if config.inletConditionsType() == "total":
-        if 0.0 <= inletConditionsValues[1] <= 1.0:
-            inletConditionsVars = "ptQ"
-        else:
-            inletConditionsVars = "ptTt"
-    if config.inletConditionsType() == "static":
-        if 0.0 <= inletConditionsValues[1] <= 1.0:
-            inletConditionsVars = "pQ"
-        else:
-            inletConditionsVars = "pT"
-    return inletConditionsVars
+    # Only total inlet conditions are supported; this call raises an error otherwise.
+    config.inletConditionsType()
+    if 0.0 <= inletConditionsValues[1] <= 1.0:
+        return "ptQ"
+    return "ptTt"
 
 
 

@@ -87,7 +87,7 @@ The Roe-Arabi scheme was used for the two-phase cases of the thesis, since the d
 Initialization
 --------------
 
-A nozzle with an inlet and an outlet, or an inlet and a transparent boundary, is initialized after Cioffi et al. [Cioffi2025]_: the static pressure varies linearly between the inlet and the outlet, and every node receives the state on the inlet isentrope at its pressure. For a transparent outlet, one fifth of the inlet pressure is used as outlet pressure. If the inlet isentrope gives no valid state at that pressure, the tool finds the lowest valid outlet pressure by bisection and reports this with a warning. For a static inlet, the velocity is initialized linearly between 10 and 200 m/s. For other boundary conditions, or when ``ENFORCE_UNIFORM_NOZZLE_INIT_BOOL`` is ``True``, the domain is initialized with a uniform state. A shock tube is initialized with a left and a right state, separated by the interface given in the geometry file.
+A nozzle with an inlet and an outlet, or an inlet and a transparent boundary, is initialized after Cioffi et al. [Cioffi2025]_: the static pressure varies linearly between the inlet and the outlet, and every node receives the state on the inlet isentrope at its pressure. For a transparent outlet, one fifth of the inlet pressure is used as outlet pressure. If the inlet isentrope gives no valid state at that pressure, the tool finds the lowest valid outlet pressure by bisection and reports this with a warning. For other boundary conditions, or when ``ENFORCE_UNIFORM_NOZZLE_INIT_BOOL`` is ``True``, the domain is initialized with a uniform state. A shock tube is initialized with a left and a right state, separated by the interface given in the geometry file.
 
 .. _boundary-conditions:
 
@@ -107,10 +107,7 @@ The boundary conditions are imposed in the halo nodes, following [Toro2009]_. Th
      - total enthalpy and entropy
      - velocity
    * - inlet, total :math:`(p_0, y_V)`
-     - total pressure and quality
-     - static pressure
-   * - inlet, static :math:`(p, T)` or :math:`(p, y_V)`
-     - thermodynamic state
+     - total pressure and static quality
      - velocity
    * - outlet, subsonic
      - back pressure
