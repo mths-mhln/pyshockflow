@@ -27,6 +27,83 @@ from thermoplot.thermoplot import thermoplot_cached
 from thermoplot.config import Config as ConfigThermoplot
 from pyshockflow.driver import Driver
 from pyshockflow.config import Config as ConfigPyshockflow
+from cycler import cycler
+from matplotlib.lines import Line2D
+from matplotlib.transforms import IdentityTransform
+
+
+# ================================
+#  Figure style
+# ================================
+# Colours of the thesis figures: tudelft-blue (\definecolor{tudelft-blue}{HTML}{00adef})
+# and tnavy (tudelft-blue!60!black). Simulations cycle through LINE_COLORS, reference
+# data is always drawn in black.
+TUDELFT_BLUE = "#00ADEF"
+TNAVY = "#00688F"
+LINE_COLORS = (TNAVY, TUDELFT_BLUE, "#E03C31", "#EC6842", "#6F1D77", "#009B77")
+
+# Matplotlib settings for all post-processing figures. The serif fonts match the
+# Century Schoolbook text of the thesis (TeX Gyre Schola is a free clone of it).
+# Font sizes are true to size for a figure of 6.2 inch wide, the text width of the thesis.
+PLOT_STYLE = {
+    "font.family": "serif",
+    "font.serif": ["TeX Gyre Schola", "Century Schoolbook", "C059", "DejaVu Serif"],
+    "mathtext.fontset": "custom",
+    "mathtext.rm": "serif",
+    "mathtext.it": "serif:italic",
+    "mathtext.bf": "serif:bold",
+    "mathtext.cal": "serif:italic",
+    "font.size": 10,
+    "axes.labelsize": 10,
+    "xtick.labelsize": 9,
+    "ytick.labelsize": 9,
+    "legend.fontsize": 9,
+    "axes.linewidth": 0.6,
+    "axes.prop_cycle": cycler(color=LINE_COLORS),
+    "lines.linewidth": 1.4,
+    "lines.markersize": 4,
+    "xtick.direction": "in",
+    "ytick.direction": "in",
+    "xtick.top": True,
+    "ytick.right": True,
+    "xtick.minor.visible": True,
+    "ytick.minor.visible": True,
+    "xtick.major.size": 4,
+    "ytick.major.size": 4,
+    "xtick.minor.size": 2,
+    "ytick.minor.size": 2,
+    "xtick.major.width": 0.6,
+    "ytick.major.width": 0.6,
+    "xtick.minor.width": 0.5,
+    "ytick.minor.width": 0.5,
+    "legend.frameon": True,
+    "legend.fancybox": False,
+    "legend.edgecolor": "black",
+    "legend.framealpha": 1.0,
+    "patch.linewidth": 0.6,
+    "figure.constrained_layout.use": True,
+    "savefig.dpi": 300,
+    "savefig.bbox": "tight",
+    "savefig.pad_inches": 0.02,
+    "pdf.fonttype": 42,
+}
+
+
+def use_plot_style(fontSize: float = 10) -> None:
+    """Apply PLOT_STYLE to matplotlib. The plotting functions of this module call it
+    themselves; call it at the top of a script to give your own figures the same look.
+
+    fontSize sets the text and axis labels (in pt); tick labels and the legend are
+    drawn at 0.9 times that size, the same ratio as the default 10/9 pt."""
+    plt.rcParams.update(PLOT_STYLE)
+    plt.rcParams.update({
+        "font.size": fontSize,
+        "axes.labelsize": fontSize,
+        "xtick.labelsize": 0.9 * fontSize,
+        "ytick.labelsize": 0.9 * fontSize,
+        "legend.fontsize": 0.9 * fontSize,
+        "legend.title_fontsize": 0.9 * fontSize,
+    })
 
 
 # ================================
@@ -348,20 +425,24 @@ def _load_v_and_v_data(spec: Optional[VandVSpec], var_name: str):
     return _process_v_and_v_data(paths), labels
 
 
-#: Axis-label formatting for each supported fluid state variable.
+#: Axis label of each supported fluid state variable, and the factor that converts
+#: the stored SI value to the plotted unit.
 _AXIS_LABELS = {
-    "Density": r"$\rho$ [kg/m³]",
-    "Pressure": r"$p$ [Pa]",
-    "Velocity": r"$u$ [m/s]",
-    "internalEnergy": r"$e$ [J]",
-    "Mach": r"$M$",
-    "Entropy": r"$s$ [J/kg/K]",
-    "Temperature": r"$T$ [K]",
+    "Density": (r"Density $\rho$ (kg/m$^3$)", 1.0),
+    "Pressure": (r"Static pressure $p$ (bar)", 1e-5),
+    "Velocity": (r"Velocity $u$ (m/s)", 1.0),
+    "internalEnergy": (r"Internal energy $e$ (kJ/kg)", 1e-3),
+    "Mach": (r"Mach number $M$ (-)", 1.0),
+    "Entropy": (r"Entropy $s$ (kJ/(kg$\,$K))", 1e-3),
+    "Temperature": (r"Temperature $T$ (K)", 1.0),
 }
 
 #: Fluid state variables that can be read straight off the stored fluid
 #: state, vs. ones that require deriving via the fluid model.
 _DIRECT_FLUID_STATE_VARS = {"Density", "Pressure", "Velocity", "internalEnergy"}
+
+#: Variable names that are stored under a different key in the fluid state.
+_STORED_KEYS = {"internalEnergy": "staticInternalEnergy"}
 
 
 def _compute_fluid_state_var_profile(
@@ -376,7 +457,7 @@ def _compute_fluid_state_var_profile(
     node_slice = slice(None) if showGhostNodes else slice(1, -1)
 
     if fluidStateVarName in _DIRECT_FLUID_STATE_VARS:
-        return fluidState[fluidStateVarName][node_slice]
+        return fluidState[_STORED_KEYS.get(fluidStateVarName, fluidStateVarName)][node_slice]
 
     # Derived quantities require instantiating the driver/fluid model used
     # for that simulation.
@@ -400,6 +481,85 @@ def _compute_fluid_state_var_profile(
     )
 
 
+class _LegendHeaderRule(Line2D):
+    """Horizontal rule that separates the title of a legend from its entries. Its
+    position is computed when the figure is drawn, so that it follows the legend."""
+
+    def __init__(self, legend):
+        frame = legend.get_frame()
+        super().__init__(
+            [], [], color=frame.get_edgecolor(), linewidth=frame.get_linewidth(),
+            transform=IdentityTransform(), zorder=10,
+        )
+        self.set_clip_on(False)
+        self.set_in_layout(False)
+        self._legend = legend
+
+    def draw(self, renderer):
+        frameBox = self._legend.get_frame().get_window_extent(renderer)
+        titleBox = self._legend.get_title().get_window_extent(renderer)
+        # Halfway the gap between the title and the first entry.
+        gap = self._legend.labelspacing * self._legend._fontsize * renderer.points_to_pixels(1.0)
+        y = titleBox.y0 - 0.5 * gap
+        self.set_data([frameBox.x0, frameBox.x1], [y, y])
+        super().draw(renderer)
+
+
+def _sorted_v_and_v_record(record: dict) -> tuple[np.ndarray, np.ndarray]:
+    """Return the (x, value) arrays of a V&V record, sorted along x, so that
+    digitized data can be drawn as a line."""
+    x = np.asarray(record["deviceX"], dtype=float)
+    values = np.asarray(record[list(record.keys())[1]], dtype=float)
+    order = np.argsort(x, kind="stable")
+    return x[order], values[order]
+
+
+def _case_path(resultsFolder: str, resultsAtIterIdx: dict) -> Path:
+    """Relative path that identifies the case a result belongs to, taken from the
+    config file it was run with: "inputs/config_files/lettieri/L1_friction.ini"
+    gives "lettieri/L1_friction". Results whose config does not record its file
+    path fall back to the results folder relative to "Results"."""
+    configFile = getattr(resultsAtIterIdx["config"], "config_file", None)
+    if configFile:
+        parts = Path(configFile).with_suffix("").parts
+        if "config_files" in parts:
+            lastIndex = len(parts) - 1 - parts[::-1].index("config_files")
+            if lastIndex < len(parts) - 1:
+                return Path(*parts[lastIndex + 1:])
+        return Path(parts[-1])
+
+    parts = Path(resultsFolder.split("::entry-", 1)[0]).parts
+    if "Results" in parts and parts[-1] != "Results":
+        return Path(*parts[parts.index("Results") + 1:])
+    return Path(parts[-1])
+
+
+def _figure_output_path(
+    figuresFolder: Path, selectedItems: list, fluidStateVarName: str
+) -> Path:
+    """Output path (without extension) of a profile figure. A figure of a single case
+    goes to <figuresFolder>/<case path>/, e.g. Figures/lettieri/L1_friction/. A figure
+    that compares several cases goes to a "compare__<case>__<case>" folder inside the
+    deepest folder the cases share, e.g. Figures/lettieri/compare__L1_friction__L5_friction/.
+    The file name holds the variable and the plotted iteration(s), e.g. Pressure__iter_0_2500."""
+    casePaths = list(dict.fromkeys(
+        _case_path(resultsFolder, resultsAtIterIdx) for resultsFolder, resultsAtIterIdx in selectedItems
+    ))
+    if len(casePaths) == 1:
+        outputFolder = figuresFolder / casePaths[0]
+    else:
+        commonParts = []
+        for partsAtLevel in zip(*(casePath.parent.parts for casePath in casePaths)):
+            if len(set(partsAtLevel)) > 1:
+                break
+            commonParts.append(partsAtLevel[0])
+        comparisonName = "compare__" + "__".join(casePath.name for casePath in casePaths)
+        outputFolder = figuresFolder.joinpath(*commonParts, comparisonName)
+
+    iterIdxs = list(dict.fromkeys(int(resultsAtIterIdx["iterIdx"]) for _, resultsAtIterIdx in selectedItems))
+    fileName = f"{fluidStateVarName}__iter_{'_'.join(str(i) for i in iterIdxs)}"
+    return outputFolder / fileName
+
 
 # -----------------------------
 #  Main logic
@@ -416,53 +576,99 @@ def generate_fluid_state_var_profile_figs(
     showGhostNodes: bool = False,
     separatePlots: bool = False,
     saveFigures: bool = True,
+    figuresFolder: str | Path = "Figures",
+    figureFormats: tuple[str, ...] = ("pdf",),
+    simulationColors: Optional[list[str]] = None,
+    simulationLineStyles: Optional[list[str]] = None,
+    showIterationInLegend: bool = False,
+    legendTitle: Optional[str] = None,
+    legendLocation: str = "best",
+    transparentLegend: bool | float = False,
+    xUnit: str = "auto",
+    figureSize: tuple[float, float] = (6.2, 3.1),
+    fontSize: float = 10,
 ) -> list[plt.Figure]:
     """Plot spatial profiles of one or more fluid state variables across one
     or more simulation results, optionally overlaid with verification and/or
     validation data.
 
     For each variable in `fluidStateVarNames`, a single figure is produced
-    containing one line per entry in `simulationResultsHistories` (all such
-    simulations must share the same nozzle geometry, since they are plotted
-    on the same axes for comparison). Verification data is drawn as black
-    'x' markers, validation data as black 'o' markers.
+    containing one line per results folder (all such simulations must share
+    the same nozzle geometry, since they are plotted on the same axes for
+    comparison). Verification data is drawn as black dashed lines,
+    validation data as black markers. Calling this function applies
+    PLOT_STYLE to matplotlib (see use_plot_style()).
 
     Parameters
     ----------
     resultsFolders:
-        List of paths to simulation results folders. 
+        List of paths to simulation results folders.
     fluidStateVarNames:
         Fluid state variables to plot. One figure is generated per entry.
         Supported values: "Density", "Pressure", "Velocity",
         "internalEnergy", "Mach", "Entropy", "Temperature".
     iterationIndexes:
-        Iteration index to plot for each entry in `simulationResultsHistories`
-        (same order/length as `simulationResultsHistories`).
+        Iteration index to plot for each results folder (same order/length
+        as `resultsFolders`). -1 selects the last stored iteration.
     simulationLegendLabels:
-        Legend label for each entry in `simulationResultsHistories` (same
-        order/length). Defaults to the dict keys of
-        `simulationResultsHistories` if not given.
+        Legend label for each results folder (same order/length). Defaults
+        to the folder paths if not given.
     verificationData, validationData:
         Optional `VandVSpec` instances describing reference data to overlay,
         keyed by the fluid state variable name they apply to. A variable
         in `fluidStateVarNames` with no matching entry in the spec is simply
-        plotted without an overlay.
+        plotted without an overlay. Data files are in SI units.
     showNozzleGeometry:
-        If True, overlays a schematic of the nozzle geometry (scaled to the
-        variable's y-range) on each figure.
+        If True, draws the nozzle contour as a shaded silhouette at the bottom
+        of the figure, with its own axis on the right.
     showMeshNodes:
-        If True, marks the x-location of each mesh node with a marker at
-        y = 0. Independent of `showNozzleGeometry`.
+        If True, marks each mesh node with a dot on the nozzle contour, or just
+        above the x-axis when the contour is not shown.
     showGhostNodes:
-        If True, ghost nodes are included in the profiles (and in the
-        nozzle geometry / mesh node markers).
+        If True, ghost nodes are included in the profiles and mesh node markers.
     separatePlots:
         If True, each simulation is plotted on its own figure instead of
         all sharing one set of axes.
     saveFigures:
-        If True, saves each figure to a PDF file in the corresponding results
-        folder. The filename is the fluid state variable name with a `.pdf`
-        extension.
+        If True, saves each figure under `figuresFolder`, in a folder named after
+        the config file of the plotted results (relative to "config_files"):
+            Figures/lettieri/L1_friction/Pressure__iter_0_2500.pdf
+        A figure comparing several cases is saved in the deepest folder they share:
+            Figures/lettieri/compare__L1_friction__L5_friction/Pressure__iter_2500.pdf
+        The file name holds the variable and the plotted iteration index(es).
+    figuresFolder:
+        Root folder of the saved figures, relative to the working directory
+        (like "Results").
+    figureFormats:
+        File formats to save each figure in, e.g. ("pdf", "png").
+    simulationColors, simulationLineStyles:
+        Optional colour and line style of each simulation (same order/length
+        as `resultsFolders`), e.g. ["0.5", TNAVY] and ["--", "-"] to show an
+        initial field next to the converged solution. Defaults to LINE_COLORS
+        and solid lines.
+    showIterationInLegend:
+        If True, the iteration index is appended to each simulation label.
+    legendTitle:
+        Optional header of the legend box, drawn in bold, e.g. "Case L1".
+    legendLocation:
+        Matplotlib location string of the legend.
+    transparentLegend:
+        If True, the legend box gets a see-through background, so that curves
+        behind it stay visible; its border stays black. Pass a number between
+        0 and 1 instead to set the opacity of the background yourself
+        (True equals 0, i.e. fully transparent).
+    xUnit:
+        Unit of the axial position: "m", "mm", or "auto" (mm for devices
+        shorter than 1 m).
+    figureSize:
+        Figure size in inches. The default width equals the thesis text width,
+        so that the fonts appear at their true size.
+    fontSize:
+        Size in pt of the axis labels; tick labels and the legend are drawn at
+        0.9 times this size. The size is true in the document only when the figure
+        is included at its own width: a figure scaled to half the text width shows
+        its text at half size, so either set figureSize to the width it is shown
+        at, e.g. (3.05, 2.4) for side-by-side subfigures, or raise fontSize.
 
     Returns
     -------
@@ -490,13 +696,17 @@ def generate_fluid_state_var_profile_figs(
     elif len(simulationLegendLabels) > len(simulationResultsHistories):
         raise ValueError("Too many simulationLegendLabels specified for the number of result folders. These must match one-to-one in order.")
 
+    for name, values in (("simulationColors", simulationColors), ("simulationLineStyles", simulationLineStyles)):
+        if values is not None and len(values) != len(simulationResultsHistories):
+            raise ValueError(f"{name} must contain one entry for each results folder.")
+
     unsupported = set(fluidStateVarNames) - set(_AXIS_LABELS)
     if unsupported:
         raise ValueError(
             f"Unsupported fluidStateVarNames: {sorted(unsupported)}. "
             f"Supported variables are: {sorted(_AXIS_LABELS)}."
         )
-    
+
     simulationResultsAtIterIdxs = extract_results_at_iteration_indexes(
         simulationResultsHistories, iterationIndexes
     )
@@ -516,10 +726,20 @@ def generate_fluid_state_var_profile_figs(
             "geometries. Call it separately per geometry instead."
         )
 
-    fluidStateVarProfileFigs = []
-    temp = []
+    # Unit of the axial position (and of the nozzle contour).
+    if xUnit == "auto":
+        deviceLength = next(iter(simulationResultsAtIterIdxs.values()))["deviceGeometryData"]["deviceLength"]
+        xUnit = "mm" if deviceLength < 1.0 else "m"
+    if xUnit not in ("m", "mm"):
+        raise ValueError(f"xUnit must be 'm', 'mm' or 'auto', got '{xUnit}'.")
+    xScale = 1e3 if xUnit == "mm" else 1.0
 
+    node_slice = slice(None) if showGhostNodes else slice(1, -1)
+    fluidStateVarProfileFigs = []
+
+    use_plot_style(fontSize)
     for fluidStateVarName in fluidStateVarNames:
+        axisLabel, valueScale = _AXIS_LABELS[fluidStateVarName]
         simulation_items = list(simulationResultsAtIterIdxs.items())
         plot_items = (
             [simulation_items]
@@ -528,8 +748,7 @@ def generate_fluid_state_var_profile_figs(
         )
 
         for plot_index, selected_items in enumerate(plot_items):
-            fig, ax = plt.subplots(figsize=(12, 6))
-            max_y = []
+            fig, ax = plt.subplots(figsize=figureSize)
 
             verificationRecords, verificationLabels = _load_v_and_v_data(
                 verificationData, fluidStateVarName
@@ -560,103 +779,126 @@ def generate_fluid_state_var_profile_figs(
                 else [simulationLegendLabels[plot_index]]
             )
 
-            for simLabel, (resultsFolder, resultsAtIterIdx) in zip(
-                plot_labels, selected_items
+            # Simulation results.
+            for item_index, (simLabel, (resultsFolder, resultsAtIterIdx)) in enumerate(
+                zip(plot_labels, selected_items)
             ):
+                simIndex = plot_index if separatePlots else item_index
                 profile = _compute_fluid_state_var_profile(
                     fluidStateVarName, resultsAtIterIdx, showGhostNodes=showGhostNodes
                 )
-                
-                if fluidStateVarName == "Density" or fluidStateVarName == "Velocity":
-                    temp.append(profile)
-                
-                max_y.append(np.abs(profile).max())
+                label = simLabel
+                if showIterationInLegend:
+                    label = f"{simLabel} (iteration {resultsAtIterIdx['iterIdx']})"
 
-                step = resultsAtIterIdx["iterIdx"]
                 ax.plot(
-                    resultsAtIterIdx["meshData"]["xMeshNodes"]
-                    if showGhostNodes
-                    else resultsAtIterIdx["meshData"]["xMeshNodes"][1:-1],
-                    profile,
-                    label=f"{simLabel}: iteration={step}",
+                    resultsAtIterIdx["meshData"]["xMeshNodes"][node_slice] * xScale,
+                    profile * valueScale,
+                    color=simulationColors[simIndex] if simulationColors else LINE_COLORS[simIndex % len(LINE_COLORS)],
+                    linestyle=simulationLineStyles[simIndex] if simulationLineStyles else "-",
+                    label=label,
+                    zorder=3,
                 )
 
                 last_resultsFolder = resultsFolder
                 last_resultsAtIterIdx = resultsAtIterIdx
 
-            ax.set_ylabel(_AXIS_LABELS[fluidStateVarName])
-            ax.set_xlabel(r"$x$ [m]")
+            # Reference data: verification as black dashed lines, validation as black markers.
+            verification_items = list(zip(verificationRecords, verificationLabels))
+            validation_items = list(zip(validationRecords, validationLabels))
+            if separatePlots:
+                verification_items = verification_items[plot_index:plot_index + 1]
+                validation_items = validation_items[plot_index:plot_index + 1]
 
-            node_slice = slice(None) if showGhostNodes else slice(1, -1)
+            for i, (record, label) in enumerate(verification_items):
+                xRef, valueRef = _sorted_v_and_v_record(record)
+                ax.plot(
+                    xRef * xScale, valueRef * valueScale,
+                    color="black", linewidth=1.1, linestyle=("--", "-.", ":")[i % 3],
+                    label=label, zorder=4,
+                )
+            for i, (record, label) in enumerate(validation_items):
+                xRef, valueRef = _sorted_v_and_v_record(record)
+                ax.plot(
+                    xRef * xScale, valueRef * valueScale,
+                    color="black", linestyle="none", marker=("s", "o", "^", "D")[i % 4],
+                    markersize=4, label=label, zorder=5,
+                )
 
+            ax.set_xlabel(rf"Axial position $x$ ({xUnit})")
+            ax.set_ylabel(axisLabel)
+            legendAxes = [ax]
+            meshData = last_resultsAtIterIdx["meshData"]
+            meshX = meshData["xMeshNodes"][node_slice] * xScale
+
+            # Nozzle contour as a shaded silhouette in the lower part of the figure,
+            # on its own axis to the right.
             if showNozzleGeometry:
-                max_y_val = max(max_y)
-                deviceArea = last_resultsAtIterIdx["meshData"]["deviceAreaAtMeshNodes"][node_slice]
+                geometry = last_resultsAtIterIdx["deviceGeometryData"]
+                contourX = np.asarray(geometry["deviceX"]) * xScale
+                contourY = np.asarray(geometry["deviceY"]) * xScale
+                axGeometry = ax.twinx()
+                axGeometry.fill_between(contourX, 0, contourY, color=TUDELFT_BLUE, alpha=0.15, linewidth=0)
+                axGeometry.plot(contourX, contourY, color=TUDELFT_BLUE, linewidth=0.8)
+                axGeometry.set_ylim(0, contourY.max() / 0.35)
+                topology = last_resultsAtIterIdx["config"].deviceTopology()
+                contourName = r"Half-height $y$" if topology == "planar" else r"Radius $r$"
+                axGeometry.set_ylabel(f"{contourName} ({xUnit})")
+                # Draw the profiles on top of the silhouette, and keep the right ticks
+                # for the contour axis only.
+                ax.tick_params(which="both", right=False)
+                ax.set_zorder(axGeometry.get_zorder() + 1)
+                ax.patch.set_visible(False)
+
+                # Mesh nodes as dots on the contour.
+                if showMeshNodes:
+                    axGeometry.plot(
+                        meshX, meshData["yMeshNodes"][node_slice] * xScale,
+                        linestyle="none", marker="o", markersize=2, markeredgewidth=0,
+                        color=TNAVY, label="Mesh nodes",
+                    )
+                    legendAxes.append(axGeometry)
+
+            elif showMeshNodes:
+                # Without the contour, the mesh nodes are drawn as dots just above the x-axis.
                 ax.plot(
-                    last_resultsAtIterIdx["meshData"]["xMeshNodes"][node_slice],
-                    deviceArea * max_y_val * 1.2 * 0.3 / deviceArea.max(),
-                    label="Nozzle Geometry",
-                    color="gray",
-                    alpha=0.5,
-                    zorder=-1,
+                    meshX, np.full_like(meshX, 0.03), transform=ax.get_xaxis_transform(),
+                    linestyle="none", marker="o", markersize=2, markeredgewidth=0,
+                    color=TNAVY, label="Mesh nodes", zorder=2,
                 )
 
-            if showMeshNodes:
-                mesh_x = last_resultsAtIterIdx["meshData"]["xMeshNodes"][node_slice]
-                ax.plot(
-                    mesh_x,
-                    np.zeros_like(mesh_x),
-                    linestyle="none",
-                    marker="o",
-                    markersize=2,
-                    color="gray",
-                    label="Mesh Nodes",
-                    clip_on=False,  # keep markers visible if y = 0 is on the axis edge
-                    zorder=-1,
-                )
-
-            verification_items = (
-                zip(verificationRecords, verificationLabels)
-                if not separatePlots
-                else zip(
-                    verificationRecords[plot_index:plot_index + 1],
-                    verificationLabels[plot_index:plot_index + 1],
-                )
+            handles, labels = [], []
+            for legendAx in legendAxes:
+                axHandles, axLabels = legendAx.get_legend_handles_labels()
+                handles += axHandles
+                labels += axLabels
+            legend = ax.legend(
+                handles, labels, loc=legendLocation, title=legendTitle,
+                title_fontproperties={"weight": "bold"}, alignment="left",
             )
-            for record, label in verification_items:
-                ax.scatter(
-                    record["deviceX"],
-                    record[list(record.keys())[1]],
-                    label=label,
-                    marker="x",
-                    color="black",
-                )
-            validation_items = (
-                zip(validationRecords, validationLabels)
-                if not separatePlots
-                else zip(
-                    validationRecords[plot_index:plot_index + 1],
-                    validationLabels[plot_index:plot_index + 1],
-                )
-            )
-            for record, label in validation_items:
-                ax.scatter(
-                    record["deviceX"],
-                    record[list(record.keys())[1]],
-                    label=label,
-                    marker="o",
-                    color="black",
-                )
+            if transparentLegend is not False:
+                # Make only the background see-through: the alpha of the whole frame
+                # would fade its border as well.
+                backgroundAlpha = 0.0 if transparentLegend is True else float(transparentLegend)
+                frame = legend.get_frame()
+                frame.set_alpha(None)
+                frame.set_facecolor((1.0, 1.0, 1.0, backgroundAlpha))
+            if legendTitle:
+                # Added to the figure rather than the axes, so that the automatic legend
+                # placement does not try to avoid it.
+                fig.add_artist(_LegendHeaderRule(legend))
 
-            fig.legend(loc="lower center", bbox_to_anchor=(0.5, 0.1), ncol=3, fontsize=12)
-            fig.subplots_adjust(bottom=0.25)
+            # Let the axis span exactly the computational domain.
+            domainX = last_resultsAtIterIdx["meshData"]["xMeshNodes"][node_slice] * xScale
+            ax.set_xlim(domainX.min(), domainX.max())
+
             if saveFigures:
-                output_folder = Path(selected_items[0][0])
-                output_folder.mkdir(parents=True, exist_ok=True)
-                fig.savefig(
-                    output_folder / f"{fluidStateVarName}.pdf",
-                    bbox_inches="tight",
-                )
+                outputPath = _figure_output_path(Path(figuresFolder), selected_items, fluidStateVarName)
+                outputPath.parent.mkdir(parents=True, exist_ok=True)
+                for figureFormat in figureFormats:
+                    savePath = outputPath.with_name(f"{outputPath.name}.{figureFormat.lstrip('.')}")
+                    fig.savefig(savePath)
+                    print(f"Saved figure: {savePath}")
 
             # Window positioning only works on some backends (e.g. TkAgg).
             try:
@@ -669,9 +911,6 @@ def generate_fluid_state_var_profile_figs(
             fluidStateVarProfileFigs.append(fig)
 
     return fluidStateVarProfileFigs
-
-
-
 
 
 

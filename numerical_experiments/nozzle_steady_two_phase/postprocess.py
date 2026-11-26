@@ -222,6 +222,35 @@ fluidStateVarProfileFigs = generate_fluid_state_var_profile_figs(
 )
 plt.show()
 
+
+import matplotlib.pyplot as plt
+from pyshockflow.post_processing import VandVSpec, generate_fluid_state_var_profile_figs, TNAVY
+
+folder = "Results/lettieri/output_L1_friction"
+
+generate_fluid_state_var_profile_figs(
+    resultsFolders=[folder, folder],          # same run twice: initial field and converged solution
+    fluidStateVarNames=["Pressure", "Mach"],  # one figure per variable
+    iterationIndexes=[0, -1],                 # -1 = last stored iteration
+    simulationLegendLabels=["PyShockFlow, initial field", "PyShockFlow, converged"],
+    simulationColors=["0.55", TNAVY],         # any matplotlib colour; "0.55" is grey
+    simulationLineStyles=["--", "-"],
+    # verificationData=VandVSpec(
+    #     paths={"Pressure": "verification_data/lettieri/L1_friction__pressure.csv"},
+    #     legend_labels={"Pressure": "Cioffi et al. (1D HEM)"},
+    # ),
+    # validationData=VandVSpec(
+    #     paths={"Pressure": "validation_data/lettieri/L1_friction__pressure.csv"},
+    #     legend_labels={"Pressure": "Lettieri et al. (experiment)"},
+    # ),
+    showNozzleGeometry=True,   # blue nozzle shape with its own axis on the right
+    showMeshNodes=True,        # dots on the nozzle contour
+    legendTitle="Case L1 (friction)",     # bold legend header with a line under it
+    fontSize=14,
+    transparentLegend=0.6
+)
+plt.show()
+
 # pressureAnimation = generate_fluid_state_var_profile_animation_plotly(
 #     results_folder="Results/lettieri/output_L5_friction_debug_3",
 #     fluid_state_var_name="Pressure",
