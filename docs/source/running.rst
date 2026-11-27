@@ -50,7 +50,15 @@ The console first summarizes the fluid, the boundary conditions and the numerica
 
 where the residuals are the base-10 logarithm of the norm of the residual of the mass, momentum and energy equation, divided by the number of nodes. Note that these residuals are not the quantity on which the convergence check acts. The refinement steps of the automated mesh refinement and the warnings are printed as well.
 
-The results are written to ``Results/<RESULTS_SUBDIRECTORY_NAME>``. During the run, the state in all nodes is saved every ``WRITE_INTERVAL`` iterations to a file ``step_XXXXXX.pik``, with ``XXXXXX`` the iteration number. At the end of the run, these files are assembled into a single file ``Results.pik``, which contains the configuration, the mesh and the history of all saved steps, and the individual step files are removed. If the results folder already exists and ``OVERWRITE_RESULTS`` is ``False``, a counter is added to the folder name, e.g. ``output_L1_smooth_1``.
+The results are written to ``Results/<RESULTS_SUBDIRECTORY_NAME>``. During the run, the state in all nodes is saved every ``WRITE_INTERVAL`` iterations to a file ``step_XXXXXX.pik``, with ``XXXXXX`` the iteration number. At the end of the run, these files are assembled into a single file ``Results.pik``, which contains the configuration, the mesh and the history of all saved steps, and the individual step files are removed. If the results folder already exists and ``OVERWRITE_RESULTS`` is ``False``, a counter is added to the folder name, e.g. ``output_L1_smooth_1``. Both files are pickled Python dictionaries, of which :numref:`fig-output-files` shows the contents.
+
+.. _fig-output-files:
+
+.. figure:: _static/figures/output_files.png
+   :width: 100%
+   :alt: Contents of the step and results files
+
+   Contents of the step and results files. Indented keys belong to the nested dictionary above them.
 
 Restarting a simulation
 -----------------------

@@ -381,13 +381,11 @@ From the geometry, the tool computes the area, its derivative and the wetted per
 
 .. _fig-geometry-mesh:
 
-.. figure:: _static/figures/placeholder_geometry_mesh.png
-   :width: 90%
+.. figure:: _static/figures/geometry_mesh.png
+   :width: 100%
    :alt: Geometry and mesh of the Lettieri nozzle
 
-   Nozzle contour, area distribution and mesh of the nozzle of Lettieri et al., with a refinement zone and the halo nodes.
-
-.. this figure is a placeholder: replace placeholder_geometry_mesh.png by the output of expansion_device_geometry_plot
+   Nozzle contour and mesh of the nozzle of Lettieri et al., with a refinement zone around the throat and the halo nodes, plotted with ``expansion_device_geometry_plot``.
 
 Example
 -------

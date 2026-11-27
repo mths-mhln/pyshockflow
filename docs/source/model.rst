@@ -82,7 +82,7 @@ Numerical fluxes
      - averaged pressure derivatives that satisfy the Roe property, after Vinokur and Montagné [Vinokur1990]_
      - ideal gas and real fluid, including the HEM
 
-The Roe-Arabi scheme was used for the two-phase cases of the thesis, since the derivatives of the equilibrium equation of state are discontinuous at the saturation line. The Roe-type schemes optionally apply the entropy fix of Harten and Hyman, which prevents non-physical expansion shocks at a sonic throat. Second-order accuracy in space is obtained with MUSCL reconstruction of the primitive variables, which is not yet robust for all two-phase cases.
+The Roe-Arabi scheme was used for the two-phase cases of the thesis, since the derivatives of the equilibrium equation of state are discontinuous at the saturation line. The Roe-type schemes optionally apply the entropy fix of Harten and Hyman [Harten1983]_, which prevents non-physical expansion shocks at a sonic throat. Second-order accuracy in space is obtained with MUSCL reconstruction of the primitive variables, which is not yet robust for all two-phase cases.
 
 Initialization
 --------------
@@ -127,10 +127,12 @@ The boundary conditions are imposed in the halo nodes, following [Toro2009]_. Th
 
 An outlet switches automatically to a transparent boundary once the Mach number of the adjacent interior node exceeds one. Since the HEM speed of sound is that of the solved system, this switch is consistent with the model in the two-phase region.
 
+Static inlet conditions are not supported. The static inlet state depends on the mass flow, and thus on the solution itself, and a fixed static pressure reflects the acoustic waves that reach the inlet during the transient, which can slow down the convergence.
+
 Wall friction
 -------------
 
-The wall shear stress follows from the Darcy friction factor :math:`f`, evaluated with the correlation of Haaland,
+The wall shear stress follows from the Darcy friction factor :math:`f`, evaluated with the correlation of Haaland [Haaland1983]_,
 
 .. math::
 
@@ -138,7 +140,7 @@ The wall shear stress follows from the Darcy friction factor :math:`f`, evaluate
    \frac{1}{\sqrt{f}} = -1.81\,\log_{10}\left[\frac{6.9}{\mathrm{Re}} + \left(\frac{\varepsilon/D}{3.7}\right)^{1.11}\right], \qquad
    \mathrm{Re} = \frac{\rho |u| D}{\mu},
 
-with :math:`D = 2y` and :math:`\varepsilon` the wall roughness. In the two-phase region, :math:`\mu` is the Beattie-Whalley viscosity, so that the friction relies on a single-phase correlation with a mixture viscosity.
+with :math:`D = 2y` and :math:`\varepsilon` the wall roughness. In the two-phase region, :math:`\mu` is the Beattie-Whalley viscosity [Beattie1982]_, so that the friction relies on a single-phase correlation with a mixture viscosity. Both were derived for flows in channels of constant cross-section, and have not been validated for short, strongly accelerating two-phase nozzle flows. Wall friction is optional, so that the frictionless solution, against which other authors report their results, remains available.
 
 Convergence and mesh refinement
 -------------------------------
@@ -151,15 +153,17 @@ A nozzle simulation counts an iteration as converged if
 
 and stops once this holds for :math:`N_p` consecutive iterations (``CONVERGENCE_TOLERANCE`` and ``CONVERGENCE_PATIENCE``). The maximum norm does not let a large local change be averaged out over the domain, and the patience prevents a stop during a momentary stagnation of the transient.
 
-With the automated mesh refinement, the number of nodes is doubled after every converged solution, the converged density, velocity and pressure are interpolated onto the new mesh, and the time marching restarts. Since the first converged solution has no coarser counterpart, the mesh is refined at least once. The refinement ends when the solutions on two successive meshes differ by less than ``RELATIVE_AMR_TOLERANCE``. Despite its name, the option refines the entire mesh rather than local regions.
+Converging a fine mesh from the initial field can take long, and most of this time is spent on the transient, which need not be resolved on the final mesh. With the automated mesh refinement, the simulation therefore starts on a coarse mesh, and the number of nodes is doubled after every converged solution, the converged density, velocity and pressure are interpolated onto the new mesh, and the time marching restarts. Since the first converged solution has no coarser counterpart, the mesh is refined at least once. The refinement ends when the solutions on two successive meshes differ by less than ``RELATIVE_AMR_TOLERANCE``, so that the comparison of successive meshes doubles as a mesh convergence study. For the cases of Berana et al., this reduced the run time from up to 20 hours to 1.5 hours. Despite its name, the option refines the entire mesh rather than local regions.
 
 Limitations
 -----------
 
 - Equilibrium only: metastable liquid, delayed flashing and finite-rate phase change are not resolved, so the critical mass flux of short nozzles with subcooled or low-quality inlets is under-predicted.
 - Quasi-1D: boundary layers, oblique shocks and lateral phase separation are absent. Planar nozzles are treated with unit depth, which underestimates the friction on the side walls of narrow test sections.
-- The discontinuous HEM speed of sound can destabilize the Roe-type schemes at low vapour fractions.
-- The explicit scheme is limited by the CFL condition, and the iterative :math:`(\rho, e)` flash dominates the run time of a two-phase simulation.
+- Closures: the walls are adiabatic, and the two-phase friction relies on a single-phase correlation with a mixture viscosity.
+- Outlet: once the exit is supersonic, the outlet becomes transparent. A back pressure high enough to drive a shock into the nozzle is therefore ignored if the exit becomes supersonic during the transient, so that the converged solution can depend on the initialization.
+- The discontinuous HEM speed of sound can destabilize the Roe-type schemes at low vapour fractions, and MUSCL reconstruction is not yet robust for all two-phase cases.
+- The explicit scheme is limited by the CFL condition, and the iterative :math:`(\rho, e)` flash dominates the run time of a two-phase simulation. Case L1 of Lettieri et al. runs in about 3 minutes, the cases of Berana et al. in 1.5 hours with the automated mesh refinement.
 
 References
 ----------
@@ -169,5 +173,8 @@ References
 .. [Arabi2017] S. Arabi, J.-Y. Trépanier and R. Camarero, "A simple extension of Roe's scheme for real gases", *Journal of Computational Physics* 329, 16-28, 2017.
 .. [Vinokur1990] M. Vinokur and J.-L. Montagné, "Generalized flux-vector splitting and Roe average for an equilibrium real gas", *Journal of Computational Physics* 89(2), 276-300, 1990.
 
-.. [Cioffi2025] A. Cioffi, A. Bergamin, R. Agromayor and F. Haglind, "A hyperbolic one-dimensional model for two-phase flows in converging-diverging nozzles", *Journal of Turbomachinery* 148(3), 031017, 2026.
+.. [Cioffi2025] A. Cioffi, A. Bergamin, R. Agromayor and F. Haglind, "A hyperbolic one-dimensional model for two-phase flows in converging-diverging nozzles", *Journal of Turbomachinery* 148(3), 031017, 2025.
+.. [Harten1983] A. Harten and J. M. Hyman, "Self-adjusting grid methods for one-dimensional hyperbolic conservation laws", *Journal of Computational Physics* 50(2), 235-269, 1983.
+.. [Haaland1983] S. E. Haaland, "Simple and explicit formulas for the friction factor in turbulent pipe flow", *Journal of Fluids Engineering* 105(1), 89-90, 1983.
+.. [Beattie1982] D. R. H. Beattie and P. B. Whalley, "A simple two-phase frictional pressure drop calculation method", *International Journal of Multiphase Flow* 8(1), 83-87, 1982.
 .. [Toro2009] E. F. Toro, *Riemann Solvers and Numerical Methods for Fluid Dynamics*, 3rd ed., Springer, 2009.

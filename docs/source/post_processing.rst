@@ -6,7 +6,7 @@ Running the solver and post-processing its results are separated. The results fi
 Results file
 ------------
 
-``Results.pik`` is a pickled dictionary with the keys ``config``, ``deviceGeometryData``, ``meshData``, ``iterIdxHistory``, ``timeHistory`` and ``fluidStateHistory``. The latter maps every fluid state variable, such as ``Density``, ``Velocity``, ``Pressure`` and ``staticInternalEnergy``, to an array with one row per mesh node and one column per saved step. The data can therefore also be read directly:
+``Results.pik`` is a pickled dictionary with the keys ``config``, ``deviceGeometryData``, ``meshData``, ``iterIdxHistory``, ``timeHistory`` and ``fluidStateHistory`` (:numref:`fig-output-files`). The latter maps every fluid state variable, such as ``Density``, ``Velocity``, ``Pressure`` and ``staticInternalEnergy``, to an array with one row per mesh node and one column per saved step. The data can therefore also be read directly:
 
 .. code-block:: python
 
@@ -32,20 +32,22 @@ All functions take a list of results folders, so that several simulations can be
    * - Function
      - Output
    * - ``expansion_device_geometry_plot``
-     - nozzle contour, area distribution and mesh, optionally with the halo nodes; from a configuration file, before the simulation, or from a results folder
+     - nozzle contour and mesh nodes, optionally with the halo nodes; from a configuration file, before the simulation, or from a results folder
    * - ``generate_fluid_state_var_profile_figs``
-     - profiles of ``Density``, ``Pressure``, ``Velocity``, ``internalEnergy``, ``Mach``, ``Entropy`` or ``Temperature`` at selected iterations, optionally with reference data and the nozzle contour
+     - profiles of ``Density``, ``Pressure``, ``Velocity``, ``internalEnergy``, ``Mach``, ``Entropy`` or ``Temperature`` at selected iterations, optionally with reference data, the nozzle contour and the mesh nodes
    * - ``compute_v_and_v_metrics``
-     - maximum absolute and relative errors with respect to the reference data, printed as a table and returned as a dictionary
+     - absolute and relative errors at the points of the reference data, returned as a dictionary; their maxima are printed as a table
    * - ``generate_expansion_thermoplot``
      - expansion paths in a T-s diagram, drawn with Thermoplot
    * - ``render_profile_video``
      - video of the evolution of a profile during the time marching, optionally with the unconverged nodes highlighted
 
+By default, ``generate_fluid_state_var_profile_figs`` saves every figure as a PDF file in ``Figures/``, in a folder named after the configuration file of the case, e.g. ``Figures/lettieri/L1_friction/Pressure__iter_2500.pdf``; a figure that compares several cases goes to a ``compare__`` folder. The default figure width equals the text width of the thesis, so that the fonts appear at their true size when a figure is included at its own width; ``figureSize`` and ``fontSize`` adapt this. ``use_plot_style`` gives other figures the same style.
+
 Reference data
 --------------
 
-Verification and validation data are passed as ``VandVSpec`` objects. A ``VandVSpec`` maps the name of a fluid state variable to one or more CSV files, each with the header ``deviceX,<variable>``, and optionally to legend labels. In the figures, verification data are drawn as crosses and validation data as circles. The file with the verification data of case L1, for example, starts as follows:
+Verification and validation data are passed as ``VandVSpec`` objects. A ``VandVSpec`` maps the name of a fluid state variable to one or more CSV files, each with the header ``deviceX,<variable>``, and optionally to legend labels. In the figures, verification data are drawn as dashed lines and validation data as markers. The file with the verification data of case L1, for example, starts as follows:
 
 .. code-block:: text
 
@@ -54,7 +56,7 @@ Verification and validation data are passed as ``VandVSpec`` objects. A ``VandVS
    0.001583403,5824421.96
    ...
 
-The example below plots the pressure and Mach number of case L1 against the results of Cioffi et al., computes the errors, and draws the expansion path:
+The example below plots the pressure and Mach number of case L1 with wall friction against the results of Cioffi et al. and the measurements of Lettieri et al., computes the errors, and draws the expansion path:
 
 .. code-block:: python
 
@@ -67,54 +69,55 @@ The example below plots the pressure and Mach number of case L1 against the resu
    )
 
    verificationData = VandVSpec(
-       paths={"Pressure": "verification_data/lettieri/L1_smooth__pressure.csv"},
+       paths={"Pressure": "verification_data/lettieri/L1_friction__pressure.csv"},
        legend_labels={"Pressure": "Cioffi et al."},
+   )
+   validationData = VandVSpec(
+       paths={"Pressure": "validation_data/lettieri/L1_friction__pressure.csv"},
+       legend_labels={"Pressure": "Lettieri et al."},
    )
 
    generate_fluid_state_var_profile_figs(
-       resultsFolders=["Results/lettieri/output_L1_smooth"],
+       resultsFolders=["Results/lettieri/output_L1_friction"],
        fluidStateVarNames=["Pressure", "Mach"],
        iterationIndexes=[-1],
-       simulationLegendLabels=["L1 smooth"],
+       simulationLegendLabels=["L1 friction"],
        verificationData=verificationData,
+       validationData=validationData,
        showNozzleGeometry=True,
    )
 
    compute_v_and_v_metrics(
-       resultsFolders=["Results/lettieri/output_L1_smooth"],
+       resultsFolders=["Results/lettieri/output_L1_friction"],
        fluidStateVarNames=["Pressure"],
        verificationData=verificationData,
    )
 
    generate_expansion_thermoplot(
-       resultsFolders=["Results/lettieri/output_L1_smooth"],
+       resultsFolders=["Results/lettieri/output_L1_friction"],
        iterationIndexes=[-1],
-       simulationLegendLabels=["L1 smooth"],
+       simulationLegendLabels=["L1 friction"],
        thermoplotConfigFilePath="inputs/thermoplot/CO2.ini",
    )
    plt.show()
 
 .. _fig-profiles:
 
-.. figure:: _static/figures/placeholder_profiles.png
+.. figure:: _static/figures/profiles.png
    :width: 90%
-   :alt: Pressure and Mach number profiles with verification data
+   :alt: Pressure profile with verification and validation data
 
-   Pressure and Mach number profiles of case L1 of Lettieri et al., with the verification data of Cioffi et al. and the nozzle contour.
-
-.. this figure is a placeholder: replace placeholder_profiles.png by the output of generate_fluid_state_var_profile_figs
+   Pressure profile of case L1 of Lettieri et al., as plotted by the example above, with the results of Cioffi et al. (verification), the measurements of Lettieri et al. (validation) and the nozzle contour.
 
 The background of the T-s diagram, i.e. the fluid, the region of interest and the isolines, is set in a Thermoplot configuration file, of which examples are found in ``numerical_experiments/nozzle_steady_two_phase/inputs/thermoplot/``.
 
 .. _fig-expansion-path:
 
-.. figure:: _static/figures/placeholder_expansion_path.png
+.. figure:: _static/figures/expansion_path.png
    :width: 70%
    :alt: Expansion path in the T-s diagram
 
-   Expansion path of a two-phase CO2 nozzle flow in the T-s diagram.
-
-.. this figure is a placeholder: replace placeholder_expansion_path.png by the output of generate_expansion_thermoplot
+   Expansion path of case L1 of Lettieri et al. in the T-s diagram, as plotted by the example above.
 
 Videos
 ------

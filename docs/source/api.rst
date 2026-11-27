@@ -27,3 +27,5 @@ Post-processing
 .. autofunction:: pyshockflow.post_processing.generate_expansion_thermoplot
 
 .. autofunction:: pyshockflow.post_processing.render_profile_video
+
+.. autofunction:: pyshockflow.post_processing.use_plot_style

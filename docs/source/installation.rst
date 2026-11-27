@@ -6,7 +6,7 @@ Requirements
 
 - Python 3.12 or newer.
 - The packages listed in ``pyproject.toml``, among which CoolProp 6.8.0, NumPy, SciPy, Matplotlib and Pandas. The exact versions are recorded in ``uv.lock``. NumPy is pinned to 2.2.1, since the post-processing still relies on ``numpy.compat``.
-- NIST REFPROP, for real-fluid and two-phase simulations. REFPROP is licensed software and must be installed separately, in a location where CoolProp can find it. On Windows, the default installation folder is found automatically; otherwise the path is set with ``CoolProp.CoolProp.set_config_string(CoolProp.CoolProp.ALTERNATIVE_REFPROP_PATH, path)``. Ideal-gas simulations, and real-fluid simulations with the HEOS backend of CoolProp, do not need REFPROP.
+- NIST REFPROP, for real-fluid and two-phase simulations. REFPROP is licensed software and must be installed separately, in a location where CoolProp can find it. On Windows, the default installation folder is found automatically; otherwise the path is set with ``CoolProp.CoolProp.set_config_string(CoolProp.CoolProp.ALTERNATIVE_REFPROP_PATH, path)``. Ideal-gas simulations, and real-fluid simulations with the HEOS backend of CoolProp, do not need REFPROP, but the T-s diagrams of the post-processing do.
 - Optionally FFmpeg, either as a system installation or through the ``imageio-ffmpeg`` package. Videos are written as MP4 files if FFmpeg is available, and as GIF files otherwise.
 
 Installing the tool

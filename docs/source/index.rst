@@ -36,7 +36,7 @@ The table below summarizes what can be selected in the configuration file.
    * - Thermodynamic region
      - liquid, vapour, supercritical and two-phase (HEM) states
    * - Inlet
-     - total :math:`(p_0, T_0)` or :math:`(p_0, y_V)`, or static :math:`(p, T)` or :math:`(p, y_V)`
+     - total :math:`(p_0, T_0)` or :math:`(p_0, y_V)`
    * - Outlet
      - back pressure, with an automatic switch to a transparent boundary once the outflow is supersonic
    * - Other boundaries
