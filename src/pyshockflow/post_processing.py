@@ -632,9 +632,13 @@ def generate_fluid_state_var_profile_figs(
     saveFigures:
         If True, saves each figure under `figuresFolder`, in a folder named after
         the config file of the plotted results (relative to "config_files")::
+
             Figures/lettieri/L1_friction/Pressure__iter_0_2500.pdf
+
         A figure comparing several cases is saved in the deepest folder they share::
+
             Figures/lettieri/compare__L1_friction__L5_friction/Pressure__iter_2500.pdf
+
         The file name holds the variable and the plotted iteration index(es).
     figuresFolder:
         Root folder of the saved figures, relative to the working directory
@@ -1438,6 +1442,4 @@ def construct_ideal_expansion_path(pickleFilePath: type[WindowsPath]) -> np.ndar
         raise ValueError("construct_ideal_expansion_path is only applicable for" \
         " ideal gas models. The fluid model type is: %s" %(config.fluidModelType()))
     return np.column_stack((xMeshNodes, theoreticalMach))
-
-
 
