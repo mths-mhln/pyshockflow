@@ -629,7 +629,7 @@ def generate_fluid_state_var_profile_figs(
     separatePlots:
         If True, each simulation is plotted on its own figure instead of
         all sharing one set of axes.
-        saveFigures:
+    saveFigures:
         If True, saves each figure under `figuresFolder`, in a folder named after
         the config file of the plotted results (relative to "config_files")::
             Figures/lettieri/L1_friction/Pressure__iter_0_2500.pdf
